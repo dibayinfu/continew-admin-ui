@@ -30,14 +30,20 @@
           <template #icon><icon-plus /></template>
           <template #default>新增</template>
         </a-button>
-        <a-tooltip content="展开/折叠">
-          <a-button @click="onExpanded">
-            <template #icon>
-              <icon-list v-if="!isExpanded" />
-              <icon-mind-mapping v-else />
-            </template>
-          </a-button>
-        </a-tooltip>
+        <a-button v-permission="['system:menu:clearCache']" type="outline" status="warning" @click="onClearCache">
+          <template #icon><icon-delete /></template>
+          <template #default>清除缓存</template>
+        </a-button>
+        <a-button @click="onExpanded">
+          <template #icon>
+            <icon-list v-if="isExpanded" />
+            <icon-mind-mapping v-else />
+          </template>
+          <template #default>
+            <span v-if="!isExpanded">展开</span>
+            <span v-else>折叠</span>
+          </template>
+        </a-button>
       </template>
       <template #title="{ record }">
         <GiSvgIcon :name="record.icon" :size="15" />
@@ -84,8 +90,9 @@
 </template>
 
 <script setup lang="ts">
+import { Message, Modal } from '@arco-design/web-vue'
 import MenuAddModal from './MenuAddModal.vue'
-import { type MenuQuery, type MenuResp, deleteMenu, listMenu } from '@/apis/system/menu'
+import { type MenuQuery, type MenuResp, clearMenuCache, deleteMenu, listMenu } from '@/apis/system/menu'
 import type { TableInstanceColumns } from '@/components/GiTable/type'
 import type GiTable from '@/components/GiTable/index.vue'
 import { useTable } from '@/hooks'
@@ -168,6 +175,20 @@ const onDelete = (record: MenuResp) => {
   return handleDelete(() => deleteMenu(record.id), {
     content: `是否确定菜单「${record.title}」？`,
     showModal: true,
+  })
+}
+
+// 清除缓存
+const onClearCache = () => {
+  Modal.warning({
+    title: '提示',
+    content: `是否确定清除全部菜单缓存？`,
+    hideCancel: false,
+    maskClosable: false,
+    onOk: async () => {
+      await clearMenuCache()
+      Message.success('清除成功')
+    },
   })
 }
 

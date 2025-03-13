@@ -23,14 +23,16 @@
         <a-radio :value="true">节点关联</a-radio>
         <a-radio :value="false">节点独立</a-radio>
       </a-radio-group>
-      <a-tooltip :content="isExpanded ? '折叠' : '展开'">
-        <a-button @click="onExpanded">
-          <template #icon>
-            <icon-mind-mapping v-if="!isExpanded" />
-            <icon-list v-else />
-          </template>
-        </a-button>
-      </a-tooltip>
+      <a-button @click="onExpanded">
+        <template #icon>
+          <icon-list v-if="isExpanded" />
+          <icon-mind-mapping v-else />
+        </template>
+        <template #default>
+          <span v-if="!isExpanded">展开</span>
+          <span v-else>折叠</span>
+        </template>
+      </a-button>
     </template>
     <template #expand-icon="{ expanded }">
       <IconDown v-if="expanded" />

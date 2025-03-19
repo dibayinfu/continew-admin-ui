@@ -2,7 +2,6 @@
   <div class="gi_table_page">
     <GiTable
       v-model:selectedKeys="selectedKeys"
-      title=""
       row-key="tableName"
       :data="dataList"
       :columns="columns"

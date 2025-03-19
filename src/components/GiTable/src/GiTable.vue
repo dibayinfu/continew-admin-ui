@@ -110,6 +110,7 @@ defineOptions({ name: 'GiTable' })
 const props = withDefaults(defineProps<Props>(), {
   title: '',
   disabledColumnKeys: () => [],
+  disabledTools: () => [],
   data: () => [],
 })
 
@@ -155,9 +156,13 @@ interface Props extends TableProps {
 }
 
 const slots = useSlots()
+const attrs = useAttrs()
 
 /** 表格属性计算 */
-const tableProps = computed(() => omit(props, ['title', 'disabledColumnKeys']))
+const tableProps = computed(() => ({
+  ...omit(props, ['title', 'disabledColumnKeys', 'disabledTools']),
+  ...attrs,
+}))
 
 /** 组件状态 */
 const tableRef = useTemplateRef('tableRef')
@@ -197,7 +202,7 @@ const showFullscreenBtn = computed(() => !props.disabledTools?.includes('fullscr
 /** 列设置相关逻辑 */
 const showSettingColumnBtn = computed(() => {
   const columns = props.columns as TableColumnData[] | undefined
-  return Boolean(columns?.length)
+  return !props.disabledTools?.includes('setting') && Boolean(columns?.length)
 })
 
 /** 列设置项类型 */

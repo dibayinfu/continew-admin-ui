@@ -1,7 +1,6 @@
 <template>
   <div class="gi_table_page">
     <GiTable
-      title=""
       row-key="id"
       :data="dataList"
       :columns="columns"

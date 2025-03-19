@@ -2,7 +2,6 @@
   <div class="gi_table_page">
     <GiTable
       ref="tableRef"
-      title=""
       row-key="id"
       :data="dataList"
       :columns="columns"

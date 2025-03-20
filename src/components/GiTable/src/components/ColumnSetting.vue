@@ -47,7 +47,7 @@
               {{ item.title }}
             </a-checkbox>
             <div class="gi-table__draggable-item-fixed">
-              <span
+              <icon-pushpin
                 class="gi-table__fixed-icon"
                 :class="[
                   {
@@ -56,10 +56,8 @@
                   },
                 ]"
                 @click="handleFixedColumn(item, 'left')"
-              >
-                <icon-left />
-              </span>
-              <span
+              />
+              <icon-pushpin
                 class="gi-table__fixed-icon"
                 :class="[
                   {
@@ -67,10 +65,9 @@
                     'gi-table__fixed-icon--disabled': !item.show,
                   },
                 ]"
+                :rotate="270"
                 @click="handleFixedColumn(item, 'right')"
-              >
-                <icon-right />
-              </span>
+              />
             </div>
           </div>
         </VueDraggable>
@@ -514,23 +511,18 @@ defineExpose({
       margin-left: auto;
       display: flex;
       align-items: center;
-      gap: 8px;
     }
   }
 
   &__fixed-icon {
-    display: inline-flex;
-    align-items: center;
-    padding: 2px 6px;
-    border-radius: 2px;
     cursor: pointer;
+    font-size: 16px;
+    color: var(--color-text-3);
     transition: all 0.2s ease;
-    font-size: 12px;
-    border: 1px solid var(--color-border-2);
+    padding: 4px;
+    border-radius: 2px;
 
     &--active {
-      border-color: rgb(var(--primary-6));
-      background-color: rgb(var(--primary-1));
       color: rgb(var(--primary-6));
     }
 
@@ -540,8 +532,8 @@ defineExpose({
     }
 
     &:hover:not(&--disabled) {
-      border-color: rgb(var(--primary-6));
       color: rgb(var(--primary-6));
+      background-color: var(--color-fill-2);
     }
   }
 }

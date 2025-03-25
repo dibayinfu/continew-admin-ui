@@ -114,7 +114,7 @@ const onDelete = () => {
   if (!selectedKeys.value.length) {
     return Message.warning('请选择数据')
   }
-  return handleDelete(() => deleteMessage(selectedKeys.value), { showModal: false })
+  return handleDelete(() => deleteMessage(selectedKeys.value), { showModal: false, multiple: true })
 }
 
 // 标记为已读

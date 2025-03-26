@@ -20,7 +20,7 @@
             <GiForm v-model="queryForm" search :columns="queryFormColumns" size="medium" @search="search" @reset="reset"></GiForm>
           </template>
           <template #toolbar-left>
-            <a-button v-permission="['system:user:add']" type="primary" @click="onAdd">
+            <a-button v-permission="['system:user:create']" type="primary" @click="onAdd">
               <template #icon><icon-plus /></template>
               <template #default>新增</template>
             </a-button>
@@ -53,7 +53,7 @@
           </template>
           <template #action="{ record }">
             <a-space>
-              <a-link v-permission="['system:user:detail']" title="详情" @click="onDetail(record)">详情</a-link>
+              <a-link v-permission="['system:user:get']" title="详情" @click="onDetail(record)">详情</a-link>
               <a-link v-permission="['system:user:update']" title="修改" @click="onUpdate(record)">修改</a-link>
               <a-link
                 v-permission="['system:user:delete']"
@@ -188,7 +188,7 @@ const columns: TableInstance['columns'] = [
     align: 'center',
     fixed: !isMobile() ? 'right' : undefined,
     show: has.hasPermOr([
-      'system:user:detail',
+      'system:user:get',
       'system:user:update',
       'system:user:delete',
       'system:user:resetPwd',

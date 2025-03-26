@@ -30,7 +30,7 @@
         <template #default>导出</template>
       </a-button>
     </template>
-    <template v-if="has.hasPermOr(['monitor:log:detail'])" #createTime="{ record }">
+    <template v-if="has.hasPermOr(['monitor:log:get'])" #createTime="{ record }">
       <a-link @click="onDetail(record)">{{ record.createTime }}</a-link>
     </template>
     <template #status="{ record }">

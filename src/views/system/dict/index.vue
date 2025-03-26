@@ -26,7 +26,7 @@
                 </a-button>
               </template>
               <template #toolbar-right>
-                <a-button v-permission="['system:dict:item:add']" type="primary" @click="onAdd">
+                <a-button v-permission="['system:dict:item:create']" type="primary" @click="onAdd">
                   <template #icon><icon-plus /></template>
                   <template #default>新增</template>
                 </a-button>

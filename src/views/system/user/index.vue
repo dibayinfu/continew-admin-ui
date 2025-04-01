@@ -112,34 +112,28 @@ const [queryForm, resetForm] = useResetReactive({
 const queryFormColumns: ColumnItem[] = reactive([
   {
     type: 'input',
+    label: '用户名',
     field: 'description',
     span: { xs: 24, sm: 8, xxl: 8 },
-    formItemProps: {
-      hideLabel: true,
-    },
     props: {
-      placeholder: '搜索用户名/昵称/描述',
+      placeholder: '用户名/昵称/描述',
     },
   },
   {
     type: 'select',
+    label: '状态',
     field: 'status',
     span: { xs: 24, sm: 6, xxl: 8 },
-    formItemProps: {
-      hideLabel: true,
-    },
     props: {
       options: DisEnableStatusList,
-      placeholder: '请选择状态',
+      placeholder: '全部状态',
     },
   },
   {
     type: 'range-picker',
+    label: '创建时间',
     field: 'createTime',
     span: { xs: 24, sm: 10, xxl: 8 },
-    formItemProps: {
-      hideLabel: true,
-    },
   },
 ])
 

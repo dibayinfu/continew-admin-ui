@@ -1,22 +1,31 @@
 <template>
   <div class="gi_table_page">
-    <a-tabs v-model:active-key="activeKey" type="card-gutter" size="large" @change="change">
+    <a-tabs v-model:active-key="activeKey" size="large" position="left" @change="change">
       <a-tab-pane key="site">
         <template #title><icon-apps /> 网站配置</template>
+        <keep-alive>
+          <component :is="PanMap[activeKey]" />
+        </keep-alive>
       </a-tab-pane>
       <a-tab-pane key="security">
         <template #title><icon-safe /> 安全配置</template>
+        <keep-alive>
+          <component :is="PanMap[activeKey]" />
+        </keep-alive>
       </a-tab-pane>
       <a-tab-pane key="mail">
         <template #title><icon-email /> 邮件配置</template>
+        <keep-alive>
+          <component :is="PanMap[activeKey]" />
+        </keep-alive>
       </a-tab-pane>
       <a-tab-pane key="login">
         <template #title><icon-lock /> 登录配置</template>
+        <keep-alive>
+          <component :is="PanMap[activeKey]" />
+        </keep-alive>
       </a-tab-pane>
     </a-tabs>
-    <keep-alive>
-      <component :is="PanMap[activeKey]" />
-    </keep-alive>
   </div>
 </template>
 

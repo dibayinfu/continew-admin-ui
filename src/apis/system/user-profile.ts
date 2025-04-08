@@ -5,7 +5,7 @@ const BASE_URL = '/user/profile'
 
 /** @desc 上传头像 */
 export function uploadAvatar(data: FormData) {
-  return http.post(`${BASE_URL}/avatar`, data)
+  return http.patch(`${BASE_URL}/avatar`, data)
 }
 
 /** @desc 修改用户基本信息 */

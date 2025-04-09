@@ -1,6 +1,6 @@
 <template>
   <a-row align="stretch" :gutter="rowGutter" class="gi-page-layout" :class="getClass">
-    <a-col v-if="slots.left" v-show="!isCollapsed" v-bind="props.leftColProps" :sm="8" :md="7" :lg="6" :xl="5" :xxl="4">
+    <a-col v-if="slots.left" v-show="!isCollapsed" v-bind="props.leftColProps" :sm="10" :md="7" :lg="6" :xl="5" :xxl="4">
       <div class="gi-page-layout__left" :style="props.leftStyle">
         <slot name="left"></slot>
       </div>
@@ -13,7 +13,7 @@
     </div>
 
     <a-col :sm="16" :md="17" :lg="18" :xl="19" :xxl="20" flex="1" v-bind="props.rightColProps">
-      <div v-if="slots.header" class="gi-page-layout__header" :style="props.headerStyle">
+      <div v-if="slots.header" class="gi-page-layout__header" :style="{ ...props.headerStyle, display: !isDesktop && !isCollapsed ? 'none' : 'flex' }">
         <slot name="header"></slot>
       </div>
 

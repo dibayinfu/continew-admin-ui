@@ -82,7 +82,7 @@ const {
   handleDelete,
 } = useTable((page) => listMessage({ ...queryForm, ...page }), { immediate: true })
 
-const columns: TableInstance['collumns'] = [
+const columns: TableInstance['columns'] = [
   {
     title: '序号',
     width: 66,

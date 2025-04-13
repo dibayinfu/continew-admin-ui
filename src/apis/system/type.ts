@@ -268,10 +268,8 @@ export interface StorageQuery {
 export interface ClientResp {
   id: string
   clientId: string
-  clientKey: string
-  clientSecret: string
-  authType: string
   clientType: string
+  authType: string
   activeTimeout: string
   timeout: string
   status: string
@@ -285,10 +283,8 @@ export interface ClientResp {
 export interface ClientDetailResp {
   id: string
   clientId: string
-  clientKey: string
-  clientSecret: string
-  authType: string
   clientType: string
+  authType: string
   activeTimeout: string
   timeout: string
   status: string
@@ -300,10 +296,8 @@ export interface ClientDetailResp {
   updateUserString: string
 }
 export interface ClientQuery {
-  clientKey: string
-  clientSecret: string
-  authType: string[]
   clientType: string
+  authType: string[]
   status: string
   sort: Array<string>
 }

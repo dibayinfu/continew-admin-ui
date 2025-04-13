@@ -1,5 +1,5 @@
 <template>
-  <GiPageLayout>
+  <GiPageLayout :margin="false" :body-style="{ padding: 0 }">
     <GiTable
       row-key="id"
       :data="dataList"
@@ -13,7 +13,6 @@
     >
       <template #toolbar-left>
         <a-input-search v-model="queryForm.clientKey" placeholder="搜索终端Key" allow-clear @search="search" />
-        <a-input-search v-model="queryForm.clientSecret" placeholder="搜索终端秘钥" allow-clear @search="search" />
         <a-select
           v-model="queryForm.clientType"
           :options="client_type"

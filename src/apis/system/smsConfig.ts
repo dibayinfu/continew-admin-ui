@@ -27,5 +27,5 @@ export function updateSmsConfig(data: any, id: string) {
 
 /** @desc 删除短信配置 */
 export function deleteSmsConfig(id: string) {
-  return http.del(`${BASE_URL}/${id}`)
+  return http.del(`${BASE_URL}`, { ids: [id] })
 }

@@ -16,8 +16,8 @@ export function updateFile(data: any, id: string) {
 }
 
 /** @desc 删除文件 */
-export function deleteFile(ids: string | Array<string>) {
-  return http.del(`${BASE_URL}/${ids}`)
+export function deleteFile(id: string) {
+  return http.del(`${BASE_URL}`, { ids: [id] })
 }
 
 /** @desc 查询文件资源统计统计 */

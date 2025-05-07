@@ -379,6 +379,7 @@ export interface SmsConfigResp {
   maximum: string
   supplierConfig: string
   status: number
+  isDefault: boolean
   createUser: string
   createTime: string
   updateUser: string

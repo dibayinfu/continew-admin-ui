@@ -104,7 +104,7 @@ import {
 import FileGrid from './FileGrid.vue'
 import useFileManage from './useFileManage'
 import { useTable } from '@/hooks'
-import { type FileItem, type FileQuery, checkFile, createDir, deleteFile, listFile, uploadFile } from '@/apis'
+import { type FileItem, type FileQuery, createDir, deleteFile, listFile, uploadFile } from '@/apis'
 import { DirTypes, ImageTypes, OfficeTypes } from '@/constant/file'
 import 'viewerjs/dist/viewer.css'
 import { downloadByUrl } from '@/utils/downloadFile'
@@ -230,7 +230,7 @@ const handleRightMenuClick = async (mode: string, fileInfo: FileItem) => {
       hideCancel: false,
       okButtonProps: { status: 'danger' },
       onOk: async () => {
-        await deleteFile(fileInfo.id)
+        await deleteFile([fileInfo.id])
         Message.success('删除成功')
         search()
         mittBus.emit('file-total-refresh')
@@ -261,6 +261,7 @@ const handleMulDelete = () => {
       Message.success('删除成功')
       search()
       mittBus.emit('file-total-refresh')
+      isBatchMode.value = false
     },
   })
 }
@@ -311,7 +312,7 @@ const handleCancel = () => {
 
 // 新建文件夹弹窗窗口确认事件
 const handleCreateDir = async () => {
-  const res = await createDir(queryForm.absPath ?? '/', newDirName.value)
+  await createDir(queryForm.absPath ?? '/', newDirName.value)
   newDirName.value = undefined
   createDirModalVisible.value = false
   search()

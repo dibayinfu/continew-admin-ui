@@ -32,7 +32,7 @@
                   {{ record.originalName }}
                 </a-typography-paragraph>
               </section>
-              <template #content>
+              <template v-if="has.hasPermOr(['system:file:update', 'system:file:get', 'system:file:download', 'system:file:delete'])" #content>
                 <FileRightMenu :data="record" @click="handleRightMenuClick($event, record)"></FileRightMenu>
               </template>
             </a-trigger>
@@ -51,12 +51,13 @@
         </a-table-column>
         <a-table-column title="存储名称" data-index="storageName" :width="200" />
         <a-table-column title="修改时间" data-index="updateTime" :width="200" />
-        <a-table-column title="操作" :width="120" align="center">
+        <a-table-column v-if="has.hasPermOr(['system:file:update', 'system:file:get', 'system:file:download', 'system:file:delete'])" title="操作" :width="120" align="center">
           <template #cell="{ record }">
             <a-popover trigger="click" position="bottom" :content-style="{ 'padding': 0, 'margin-top': 0 }">
               <a-button type="text" @click.stop><icon-more :size="16" /></a-button>
               <template #content>
                 <FileRightMenu
+                  :data="record"
                   :file-info="record"
                   :shadow="false"
                   @click="handleRightMenuClick($event, record)"
@@ -75,6 +76,7 @@ import { Message, type TableInstance, type TableRowSelection } from '@arco-desig
 import FileRightMenu from './FileRightMenu.vue'
 import { type FileItem, calcDirSize } from '@/apis/system'
 import { formatFileSize } from '@/utils'
+import has from '@/utils/has'
 
 const props = withDefaults(defineProps<Props>(), {
   data: () => [], // 文件数据

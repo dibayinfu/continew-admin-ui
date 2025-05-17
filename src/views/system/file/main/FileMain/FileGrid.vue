@@ -31,7 +31,7 @@
             </section>
           </div>
         </a-grid-item>
-        <template #content>
+        <template v-if="has.hasPermOr(['system:file:update', 'system:file:get', 'system:file:download', 'system:file:delete'])" #content>
           <FileRightMenu :data="item" @click="handleRightMenuClick($event, item)"></FileRightMenu>
         </template>
       </a-trigger>
@@ -42,6 +42,7 @@
 <script setup lang="ts">
 import FileRightMenu from './FileRightMenu.vue'
 import type { FileItem } from '@/apis/system'
+import has from '@/utils/has'
 
 const props = withDefaults(defineProps<Props>(), {
   data: () => [], // 文件数据

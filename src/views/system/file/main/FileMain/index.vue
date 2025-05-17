@@ -12,18 +12,16 @@
     <a-row justify="space-between" class="file-main__search">
       <!-- 左侧区域 -->
       <a-space wrap>
-        <a-dropdown v-permission="['system:file:upload']">
-          <a-upload :show-file-list="false" :custom-request="handleUpload">
-            <template #upload-button>
-              <a-button type="primary" shape="round">
-                <template #icon>
-                  <icon-upload />
-                </template>
-                <template #default>上传</template>
-              </a-button>
-            </template>
-          </a-upload>
-        </a-dropdown>
+        <a-upload v-permission="['system:file:upload']" :show-file-list="false" :custom-request="handleUpload">
+          <template #upload-button>
+            <a-button type="primary" shape="round">
+              <template #icon>
+                <icon-upload />
+              </template>
+              <template #default>上传</template>
+            </a-button>
+          </template>
+        </a-upload>
 
         <a-input-group>
           <a-input v-model="queryForm.originalName" :placeholder="queryForm.type && queryForm.type !== '0' ? '请输入名称' : '在当前目录下搜索名称'" allow-clear style="width: 200px" />

@@ -3,7 +3,7 @@
     <a-list :loading="loading">
       <template #header>通知</template>
       <a-list-item v-for="item in messageList" :key="item.id">
-        <div class="content-wrapper" @click="open">
+        <div class="content-wrapper" @click="open(item.path)">
           <div class="content">{{ item.title }}</div>
           <div class="date">{{ item.createTime }}</div>
         </div>
@@ -48,7 +48,11 @@ const getMessageData = async () => {
 }
 
 // 打开消息中心
-const open = () => {
+const open = (path?: string) => {
+  if (path) {
+    router.push(path)
+    return
+  }
   router.push({ path: '/user/message', query: { tab: 'msg' } })
 }
 

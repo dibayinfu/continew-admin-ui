@@ -63,8 +63,8 @@ export const systemRoutes: RouteRecordRaw[] = [
       {
         path: '/user/notice',
         name: 'UserNotice',
-        component: () => import('@/views/user/message/components/detail/index.vue'),
-        meta: { title: '公告详情' },
+        component: () => import('@/views/user/message/components/view/index.vue'),
+        meta: { title: '查看公告' },
       },
     ],
   },

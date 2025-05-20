@@ -7,31 +7,30 @@
       </a-affix>
     </div>
     <div class="detail_content">
-      <h1 class="title">{{ form?.title }}</h1>
+      <h1 class="title">{{ dataDetail?.title }}</h1>
       <div class="info">
         <a-space>
           <span>
             <icon-user class="icon" />
             <span class="label">发布人：</span>
-            <span>{{ form?.createUserString }}</span>
+            <span>{{ dataDetail?.createUserString }}</span>
           </span>
           <a-divider direction="vertical" />
           <span>
             <icon-history class="icon" />
             <span class="label">发布时间：</span>
-            <span>{{ form?.effectiveTime ? form?.effectiveTime : form?.createTime
-            }}</span>
+            <span>{{ dataDetail?.publishTime }}</span>
           </span>
-          <a-divider v-if="form?.updateTime" direction="vertical" />
-          <span v-if="form?.updateTime">
+          <a-divider v-if="dataDetail?.updateTime" direction="vertical" />
+          <span v-if="dataDetail?.updateTime">
             <icon-schedule class="icon" />
             <span>更新时间：</span>
-            <span>{{ form?.updateTime }}</span>
+            <span>{{ dataDetail?.updateTime }}</span>
           </span>
         </a-space>
       </div>
       <div style="flex: 1;">
-        <AiEditor v-model="form.content" />
+        <AiEditor v-model="content" />
       </div>
     </div>
   </div>
@@ -39,9 +38,8 @@
 
 <script setup lang="ts">
 import AiEditor from './components/index.vue'
-import { getNotice } from '@/apis/system/notice'
+import { type NoticeResp, getNotice } from '@/apis/system/notice'
 import { useTabsStore } from '@/stores'
-import { useResetReactive } from '@/hooks'
 
 const route = useRoute()
 const router = useRouter()
@@ -49,13 +47,8 @@ const tabsStore = useTabsStore()
 
 const { id } = route.query
 const containerRef = ref<HTMLElement | null>()
-const [form, resetForm] = useResetReactive({
-  title: '',
-  createUserString: '',
-  effectiveTime: '',
-  createTime: '',
-  content: '',
-})
+const dataDetail = ref<NoticeResp>()
+const content = computed(() => dataDetail.value?.content)
 
 // 回退
 const onBack = () => {
@@ -65,9 +58,8 @@ const onBack = () => {
 
 // 打开
 const onOpen = async (id: string) => {
-  resetForm()
   const { data } = await getNotice(id)
-  Object.assign(form, data)
+  dataDetail.value = data
 }
 
 onMounted(() => {

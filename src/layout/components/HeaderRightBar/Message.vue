@@ -9,7 +9,7 @@
         </div>
       </a-list-item>
       <template #footer>
-        <a class="more-btn" @click="open">查看更多
+        <a class="more-btn" @click="open()">查看更多
           <icon-right />
         </a>
         <a class="read-all-btn" @click="readAll">全部已读</a>

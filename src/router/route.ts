@@ -78,7 +78,7 @@ export const systemRoutes: RouteRecordRaw[] = [
       {
         path: '/about/document/api',
         component: () => import('@/views/about/document/api/index.vue'),
-        meta: { title: '接口文档', icon: 'continew', hidden: false, keepAlive: true },
+        meta: { title: '接口文档', icon: 'swagger', hidden: false, keepAlive: true },
       },
       {
         path: 'https://continew.top',

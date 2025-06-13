@@ -113,7 +113,6 @@ const resetCaptcha = () => {
 }
 
 // 获取验证码
-
 const getCaptcha = async (captchaReq: BehaviorCaptchaReq) => {
   try {
     captchaLoading.value = true

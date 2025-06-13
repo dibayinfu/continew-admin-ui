@@ -96,6 +96,8 @@ const onCaptcha = async () => {
   if (captchaLoading.value) return
   const isInvalid = await formRef.value?.validateField('email')
   if (isInvalid) return
+  // 重置行为参数
+  VerifyRef.value.instance.refresh()
   VerifyRef.value.show()
 }
 

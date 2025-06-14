@@ -1,7 +1,7 @@
 # ContiNew Admin UI
 
 <a href="https://github.com/continew-org/continew-admin-ui" title="Release" target="_blank">
-<img src="https://img.shields.io/badge/RELEASE-v3.7.0-%23ff3f59.svg" alt="Release" />
+<img src="https://img.shields.io/badge/SNAPSHOT-v4.0.0-%23ff3f59.svg" alt="Release" />
 </a>
 <a href="https://vuejs.org/" title="Vue" target="_blank">
 <img src="https://img.shields.io/badge/Vue-3.5.4-%236CB52D.svg?logo=Vue.js" alt="Vue" />

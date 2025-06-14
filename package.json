@@ -1,7 +1,7 @@
 {
   "name": "continew-admin-ui",
   "type": "module",
-  "version": "3.7.0",
+  "version": "4.0.0-SNAPSHOT",
   "private": "true",
   "scripts": {
     "bootstrap": "pnpm install --registry=https://registry.npmmirror.com",

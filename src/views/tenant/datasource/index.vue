@@ -19,27 +19,37 @@
         </a-button>
       </template>
       <template #toolbar-right>
-        <a-button v-permission="['tenant:package:create']" type="primary" @click="onAdd">
+        <a-button v-permission="['tenant:datasource:create']" type="primary" @click="onAdd">
           <template #icon><icon-plus /></template>
           <template #default>新增</template>
         </a-button>
       </template>
-      <template #status="{ record }">
-        <GiCellStatus :status="record.status" />
+
+      <template #databaseType="{ record }">
+        <GiCellTag :value="record.databaseType" :dict="datasource_database_type_enum" />
       </template>
       <template #action="{ record }">
         <a-space>
-          <a-link v-permission="['tenant:package:get']" title="详情" @click="onDetail(record)">详情</a-link>
-          <a-link v-permission="['tenant:package:update']" title="修改" @click="onUpdate(record)">修改</a-link>
-          <a-link
-            v-permission="['tenant:package:delete']"
-            status="danger"
-            :disabled="record.disabled"
-            :title="record.disabled ? '不可删除' : '删除'"
-            @click="onDelete(record)"
-          >
-            删除
-          </a-link>
+          <a-link v-permission="['tenant:datasource:get']" title="详情" @click="onDetail(record)">详情</a-link>
+          <a-link v-permission="['tenant:datasource:update']" title="修改" @click="onUpdate(record)">修改</a-link>
+          <a-dropdown>
+            <a-button v-if="has.hasPermOr(['tenant:datasource:testConnection', 'tenant:datasource:delete'])" type="text" size="mini" title="更多">
+              <template #icon>
+                <icon-more :size="16" />
+              </template>
+            </a-button>
+            <template #content>
+              <a-doption v-permission="['tenant:datasource:testConnection']" title="测试连接" @click="onTestConnection(record)">测试连接</a-doption>
+              <a-doption
+                v-permission="['tenant:datasource:delete']"
+                :disabled="record.disabled"
+                :title="record.disabled ? '禁止删除' : '删除'"
+                @click="onDelete(record)"
+              >
+                删除
+              </a-doption>
+            </template>
+          </a-dropdown>
         </a-space>
       </template>
     </GiTable>
@@ -50,24 +60,27 @@
 </template>
 
 <script setup lang="ts">
-import type { TableInstance } from '@arco-design/web-vue'
+import { Message, type TableInstance } from '@arco-design/web-vue'
 import AddModal from './AddModal.vue'
 import DetailDrawer from './DetailDrawer.vue'
 import {
-  type TenantPackageQuery,
-  type TenantPackageResp,
-  deleteTenantPackage,
-  listTenantPackage,
-} from '@/apis/tenant/package'
+  type TenantDatasourceQuery,
+  type TenantDatasourceResp,
+  deleteTenantDatasource,
+  listTenantDatasource,
+  testTenantDatasourceConnection,
+} from '@/apis/tenant/datasource'
 import { useTable } from '@/hooks'
 import { isMobile } from '@/utils'
 import has from '@/utils/has'
+import { useDict } from '@/hooks/app'
 
-defineOptions({ name: 'TenantPackage' })
+defineOptions({ name: 'TenantDatasource' })
 
-const queryForm = reactive<TenantPackageQuery>({
+const { datasource_database_type_enum } = useDict('datasource_database_type_enum')
+
+const queryForm = reactive<TenantDatasourceQuery>({
   description: undefined,
-  status: undefined,
   sort: ['createTime,desc'],
 })
 
@@ -77,7 +90,7 @@ const {
   pagination,
   search,
   handleDelete,
-} = useTable((page) => listTenantPackage({ ...queryForm, ...page }), { immediate: true })
+} = useTable((page) => listTenantDatasource({ ...queryForm, ...page }), { immediate: true })
 const columns: TableInstance['columns'] = [
   {
     title: '序号',
@@ -87,8 +100,10 @@ const columns: TableInstance['columns'] = [
     fixed: !isMobile() ? 'left' : undefined,
   },
   { title: '名称', dataIndex: 'name', slotName: 'name', ellipsis: true, tooltip: true, fixed: !isMobile() ? 'left' : undefined },
-  { title: '状态', dataIndex: 'status', slotName: 'status' },
-  { title: '排序', dataIndex: 'sort', align: 'center' },
+  { title: '数据库类型', dataIndex: 'databaseType', slotName: 'databaseType', align: 'center' },
+  { title: '主机', dataIndex: 'host', slotName: 'host', align: 'center' },
+  { title: '端口', dataIndex: 'port', slotName: 'port', align: 'center' },
+  { title: '用户名', dataIndex: 'username', slotName: 'username', align: 'center' },
   { title: '描述', dataIndex: 'description', ellipsis: true, tooltip: true },
   { title: '创建人', dataIndex: 'createUserString', ellipsis: true, tooltip: true, show: false },
   { title: '创建时间', dataIndex: 'createTime', width: 180 },
@@ -101,23 +116,28 @@ const columns: TableInstance['columns'] = [
     width: 160,
     align: 'center',
     fixed: !isMobile() ? 'right' : undefined,
-    show: has.hasPermOr(['tenant:package:get', 'tenant:package:update', 'tenant:package:delete']),
+    show: has.hasPermOr(['tenant:datasource:get', 'tenant:datasource:update', 'tenant:datasource:delete']),
   },
 ]
 
 // 重置
 const reset = () => {
   queryForm.description = undefined
-  queryForm.status = undefined
   search()
 }
 
 // 删除
-const onDelete = (record: TenantPackageResp) => {
-  return handleDelete(() => deleteTenantPackage(record.id), {
-    content: `是否确定删除套餐「${record.name}」？`,
+const onDelete = (record: TenantDatasourceResp) => {
+  return handleDelete(() => deleteTenantDatasource(record.id), {
+    content: `是否确定删除数据源「${record.name}」？`,
     showModal: true,
   })
+}
+
+// 测试连接
+const onTestConnection = async (record: TenantDatasourceResp) => {
+  await testTenantDatasourceConnection(record.id)
+  Message.success('测试连接成功')
 }
 
 const AddModalRef = ref<InstanceType<typeof AddModal>>()
@@ -127,13 +147,13 @@ const onAdd = () => {
 }
 
 // 修改
-const onUpdate = (record: TenantPackageResp) => {
+const onUpdate = (record: TenantDatasourceResp) => {
   AddModalRef.value?.onUpdate(record.id)
 }
 
 const DetailDrawerRef = ref<InstanceType<typeof DetailDrawer>>()
 // 详情
-const onDetail = (record: TenantPackageResp) => {
+const onDetail = (record: TenantDatasourceResp) => {
   DetailDrawerRef.value?.onOpen(record.id)
 }
 </script>

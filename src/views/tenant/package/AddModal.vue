@@ -1,20 +1,31 @@
 <template>
   <a-modal
     v-model:visible="visible"
-    :esc-to-close="false"
-    :mask-closable="false"
     :title="title"
+    :mask-closable="false"
+    :esc-to-close="false"
     :width="width >= 500 ? 500 : '100%'"
-    :hi
     draggable
-    @close="reset"
     @before-ok="save"
+    @close="reset"
   >
     <a-form ref="formRef" :model="form" :rules="rules" auto-label-width size="large">
-      <a-form-item field="name" label="套餐名称">
-        <a-input v-model.trim="form.name" placeholder="请输入套餐名称" />
+      <a-form-item field="name" label="名称">
+        <a-input v-model.trim="form.name" placeholder="请输入名称" />
       </a-form-item>
-      <a-form-item field="status" label="套餐状态">
+      <a-form-item label="排序" field="sort">
+        <a-input-number v-model="form.sort" placeholder="请输入排序" :min="1" mode="button" />
+      </a-form-item>
+      <a-form-item label="描述" field="description">
+        <a-textarea
+          v-model.trim="form.description"
+          placeholder="请输入描述"
+          show-word-limit
+          :max-length="200"
+          :auto-size="{ minRows: 3, maxRows: 5 }"
+        />
+      </a-form-item>
+      <a-form-item field="status" label="状态">
         <a-switch
           v-model="form.status" type="round" :checked-value="1" :unchecked-value="2" checked-text="启用"
           unchecked-text="禁用"
@@ -42,29 +53,33 @@
 </template>
 
 <script lang="ts" setup>
-import { type FormInstance, Message } from '@arco-design/web-vue'
+import type { FormInstance, TreeNodeData } from '@arco-design/web-vue'
+import { Message } from '@arco-design/web-vue'
 import { useWindowSize } from '@vueuse/core'
-import { addTenantPackage, getTenantPackage, updateTenantPackage } from '@/apis/tenant/tenantPackage'
+import { addTenantPackage, getTenantPackage, updateTenantPackage } from '@/apis/tenant/package'
 import { useResetReactive } from '@/hooks'
 import { useMenu } from '@/hooks/app'
 
-const emit = defineEmits<{ (e: 'save-success'): void }>()
+const emit = defineEmits<{
+  (e: 'save-success'): void
+}>()
 const { width } = useWindowSize()
 
 const dataId = ref('')
 const visible = ref(false)
 const isUpdate = computed(() => !!dataId.value)
-const title = computed(() => (isUpdate.value ? '修改租户套餐' : '新增租户套餐'))
+const title = computed(() => (isUpdate.value ? '修改套餐' : '新增套餐'))
 const formRef = ref<FormInstance>()
 const { menuList, getTenantPackageMenuList } = useMenu()
 const rules: FormInstance['rules'] = {
-  name: [{ required: true, message: '请输入套餐名称' }],
-  status: [{ required: true, message: '请选择套餐状态' }],
+  name: [{ required: true, message: '请输入名称' }],
+  status: [{ required: true, message: '请选择状态' }],
 }
 
 const [form, resetForm] = useResetReactive({
+  sort: 999,
   menuCheckStrictly: true,
-  status: 2,
+  status: 1,
 })
 
 const menuTreeRef = ref()

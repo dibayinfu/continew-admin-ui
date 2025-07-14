@@ -24,6 +24,16 @@ export function listRoleDict(query?: { name: string, status: number }) {
   return http.get<LabelValueState[]>(`${BASE_URL}/dict/role`, query)
 }
 
+/** @desc 查询租户套餐列表 */
+export function listTenantPackageDict(query?: { description: string, status: number }) {
+  return http.get<LabelValueState[]>(`${BASE_URL}/dict/package`, query)
+}
+
+/** @desc 查询租户数据源列表 */
+export function listTenantDatasourceDict(query?: { description: string }) {
+  return http.get<LabelValueState[]>(`${BASE_URL}/dict/datasource`, query)
+}
+
 /** @desc 查询字典列表 */
 export function listCommonDict(code: string) {
   return http.get<LabelValueState[]>(`${BASE_URL}/dict/${code}`)
@@ -35,6 +45,6 @@ export function listSiteOptionDict() {
 }
 
 /** @desc 上传文件 */
-export function uploadFile(data: FormData) {
+export function upload(data: FormData) {
   return http.post(`${BASE_URL}/file`, data)
 }

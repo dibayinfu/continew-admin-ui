@@ -1,23 +1,23 @@
 <template>
   <a-modal
     v-model:visible="visible"
-    title="修改租户登录信息"
+    title="修改租户管理员密码"
     :mask-closable="false"
     :esc-to-close="false"
-    draggable
     :width="width >= 500 ? 500 : '100%'"
+    draggable
     @before-ok="save"
     @close="reset"
   >
-    <GiForm ref="formRef" v-model="form" :options="options" :columns="columns" />
+    <GiForm ref="formRef" v-model="form" :columns="columns" />
   </a-modal>
 </template>
 
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
 import { useWindowSize } from '@vueuse/core'
-import { getTenantLoginUser, updateTenantLoginUser } from '@/apis/tenant/tenant'
-import { type Columns, GiForm, type Options } from '@/components/GiForm'
+import { updateTenantAdminUserPwd } from '@/apis/tenant/management'
+import { type ColumnItem, GiForm } from '@/components/GiForm'
 import { useResetReactive } from '@/hooks'
 import { encryptByRsa } from '@/utils/encrypt'
 
@@ -31,37 +31,19 @@ const dataId = ref('')
 const visible = ref(false)
 const formRef = ref<InstanceType<typeof GiForm>>()
 
-const options: Options = {
-  form: { size: 'large' },
-  btns: { hide: true },
-}
-
 const [form, resetForm] = useResetReactive({
-  plaintextPwd: undefined,
+  password: undefined,
 })
 
-const columns: Columns = reactive([
+const columns: ColumnItem[] = reactive([
   {
-    label: '登陆用户',
-    field: 'username',
-    type: 'input',
-    span: 24,
-    props: {
-      placeholder: '请输入用户名',
-      maxLength: 64,
-      showWordLimit: true,
-    },
-    rules: [{ required: true, message: '请输入登陆用户名' }],
-  },
-  {
-    label: '登陆密码',
-    field: 'plaintextPwd',
+    label: '新密码',
+    field: 'password',
     type: 'input-password',
     span: 24,
+    required: true,
     props: {
-      placeholder: '请输入密码',
       maxLength: 32,
-      showWordLimit: true,
     },
   },
 ])
@@ -77,11 +59,9 @@ const save = async () => {
   try {
     const isInvalid = await formRef.value?.formRef?.validate()
     if (isInvalid) return false
-    await updateTenantLoginUser({
-      tenantId: dataId.value,
-      username: form.username,
-      password: encryptByRsa(form.plaintextPwd) || '',
-    })
+    await updateTenantAdminUserPwd({
+      password: encryptByRsa(form.password) || '',
+    }, dataId.value)
     Message.success('修改成功')
     emit('save-success')
     return true
@@ -93,8 +73,6 @@ const save = async () => {
 const open = async (id: string) => {
   reset()
   dataId.value = id
-  const { data } = await getTenantLoginUser(id)
-  Object.assign(form, { username: data })
   visible.value = true
 }
 

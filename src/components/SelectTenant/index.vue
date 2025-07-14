@@ -51,7 +51,7 @@
 import { useWindowSize } from '@vueuse/core'
 import { Message } from '@arco-design/web-vue'
 import { getTenantId, setTenantId } from '@/utils/tenant'
-import { getTenantCommon } from '@/apis/tenant/tenant'
+import { getTenantCommon } from '@/apis/tenant/management'
 
 const { width } = useWindowSize()
 const visible = ref(false)

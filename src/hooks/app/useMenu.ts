@@ -1,7 +1,7 @@
 import { ref } from 'vue'
 import type { TreeNodeData } from '@arco-design/web-vue'
 import { listMenuTree } from '@/apis'
-import { listTenantPackageMenu } from '@/apis/tenant/tenantPackage'
+import { listTenantPackageMenu } from '@/apis/tenant/package'
 
 /** 菜单模块 */
 export function useMenu(options?: { onSuccess?: () => void }) {

@@ -15,7 +15,6 @@
       </a-descriptions-item>
       <a-descriptions-item label="过期时间">
         <span v-if="!dataDetail?.expireTime">
-          <icon-check-circle-fill class="success" />
           <span>永不过期</span>
         </span>
         <span v-else>{{ dataDetail?.expireTime }}</span>
@@ -24,8 +23,6 @@
         <a v-if="dataDetail?.domain" style="color: rgb(var(--arcoblue-7))">{{ dataDetail?.domain }}</a>
         <span v-else style="color: red" class="text-red-4">未设置</span>
       </a-descriptions-item>
-      <a-descriptions-item label="隔离级别"><GiCellTag :value="dataDetail?.isolationLevel" :dict="tenant_isolation_level_enum" /></a-descriptions-item>
-      <a-descriptions-item label="数据源">{{ dataDetail?.datasourceName }}</a-descriptions-item>
       <a-descriptions-item label="创建人">{{ dataDetail?.createUserString }}</a-descriptions-item>
       <a-descriptions-item label="创建时间">{{ dataDetail?.createTime }}</a-descriptions-item>
       <a-descriptions-item label="修改人">{{ dataDetail?.updateUserString }}</a-descriptions-item>
@@ -38,7 +35,7 @@
 <script setup lang="ts">
 import { useWindowSize } from '@vueuse/core'
 import { type TenantResp, getTenant as getDetail } from '@/apis/tenant/management'
-import { useDict, useMenu } from '@/hooks/app'
+import { useMenu } from '@/hooks/app'
 
 const { menuList, getTenantPackageMenuList } = useMenu()
 const { width } = useWindowSize()
@@ -46,7 +43,6 @@ const { width } = useWindowSize()
 const dataId = ref('')
 const dataDetail = ref<TenantResp>()
 const visible = ref(false)
-const { tenant_isolation_level_enum } = useDict('tenant_isolation_level_enum')
 
 // 查询详情
 const getDataDetail = async () => {

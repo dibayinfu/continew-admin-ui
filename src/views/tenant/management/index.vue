@@ -41,7 +41,6 @@
       </template>
       <template #expireTime="{ record }">
         <span v-if="!record.expireTime">
-          <icon-check-circle-fill class="success" />
           <span>永不过期</span>
         </span>
         <span v-else>{{ record.expireTime }}</span>
@@ -49,9 +48,6 @@
       <template #domain="{ record }">
         <a v-if="record.domain" style="color: rgb(var(--arcoblue-7))" :href="record.domain">{{ record.domain }}</a>
         <span v-else style="color: red" class="text-red-4">未设置</span>
-      </template>
-      <template #isolationLevel="{ record }">
-        <GiCellTag :value="record.isolationLevel" :dict="tenant_isolation_level_enum" />
       </template>
       <template #action="{ record }">
         <a-space>
@@ -94,13 +90,10 @@ import { type TenantQuery, type TenantResp, deleteTenant, listTenant } from '@/a
 import { useTable } from '@/hooks'
 import { isMobile } from '@/utils'
 import has from '@/utils/has'
-import { useDict } from '@/hooks/app'
-import { listTenantPackageDict } from '@/apis'
+import { listTenantPackageDict } from '@/apis/tenant'
 import type { LabelValueState } from '@/types/global'
 
 defineOptions({ name: 'TenantManagement' })
-
-const { tenant_isolation_level_enum } = useDict('tenant_isolation_level_enum')
 
 const queryForm = reactive<TenantQuery>({
   description: undefined,
@@ -130,8 +123,6 @@ const columns: TableInstance['columns'] = [
   { title: '状态', dataIndex: 'status', slotName: 'status' },
   { title: '过期时间', dataIndex: 'expireTime', slotName: 'expireTime', width: 180 },
   { title: '域名', dataIndex: 'domain', slotName: 'domain', ellipsis: true, tooltip: true },
-  { title: '隔离级别', dataIndex: 'isolationLevel', slotName: 'isolationLevel', align: 'center' },
-  { title: '数据源', dataIndex: 'datasourceName', slotName: 'datasourceName', align: 'center' },
   { title: '描述', dataIndex: 'description', ellipsis: true, tooltip: true },
   { title: '创建人', dataIndex: 'createUserString', ellipsis: true, tooltip: true, show: false },
   { title: '创建时间', dataIndex: 'createTime', width: 180 },

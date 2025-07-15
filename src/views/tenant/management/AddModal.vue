@@ -20,8 +20,7 @@ import { addTenant, getTenant, updateTenant } from '@/apis/tenant/management'
 import { type ColumnItem, GiForm } from '@/components/GiForm'
 import { useResetReactive } from '@/hooks'
 import { encryptByRsa } from '@/utils/encrypt'
-import { listTenantDatasourceDict, listTenantPackageDict } from '@/apis'
-import { useDict } from '@/hooks/app'
+import { listTenantPackageDict } from '@/apis/tenant'
 import type { LabelValueState } from '@/types/global'
 
 const emit = defineEmits<{
@@ -35,19 +34,12 @@ const visible = ref(false)
 const isUpdate = computed(() => !!dataId.value)
 const title = computed(() => (isUpdate.value ? '修改租户' : '新增租户'))
 const formRef = ref<InstanceType<typeof GiForm>>()
-const { tenant_isolation_level_enum } = useDict('tenant_isolation_level_enum')
 
 const packageList = ref<LabelValueState[]>([])
-const datasourceList = ref<LabelValueState[]>([])
 // 查询租户套餐
 const getPackageList = async () => {
   const { data } = await listTenantPackageDict()
   packageList.value = data
-}
-// 查询租户数据源
-const getDatasourceList = async () => {
-  const { data } = await listTenantDatasourceDict()
-  datasourceList.value = data
 }
 
 const [form, resetForm] = useResetReactive({
@@ -121,33 +113,6 @@ const columns: ColumnItem[] = reactive([
     },
   },
   {
-    label: '隔离级别',
-    field: 'isolationLevel',
-    type: 'radio-group',
-    span: 24,
-    required: true,
-    props: {
-      type: 'button',
-      options: tenant_isolation_level_enum,
-    },
-    hide: () => {
-      return isUpdate.value
-    },
-  },
-  {
-    label: '数据源',
-    field: 'dbConnectId',
-    type: 'select',
-    span: 24,
-    required: true,
-    hide: () => {
-      return isUpdate.value || form.isolationLevel !== 2
-    },
-    props: {
-      options: datasourceList,
-    },
-  },
-  {
     label: '描述',
     field: 'description',
     type: 'textarea',
@@ -173,7 +138,6 @@ const reset = () => {
   formRef.value?.formRef?.resetFields()
   resetForm()
   getPackageList()
-  getDatasourceList()
 }
 
 // 保存

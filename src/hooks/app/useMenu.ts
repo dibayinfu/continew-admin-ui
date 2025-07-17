@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import type { TreeNodeData } from '@arco-design/web-vue'
-import { listMenuTree } from '@/apis'
+import { listMenuTree } from '@/apis/system'
 import { listTenantPackageMenu } from '@/apis/tenant/package'
 
 /** 菜单模块 */

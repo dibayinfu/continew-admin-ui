@@ -68,7 +68,6 @@ const storeSetup = () => {
       siteConfig.SITE_TITLE = resMap.get('SITE_TITLE')
       siteConfig.SITE_COPYRIGHT = resMap.get('SITE_COPYRIGHT')
       siteConfig.SITE_BEIAN = resMap.get('SITE_BEIAN')
-      siteConfig.TENANT_ENABLED = resMap.get('TENANT_ENABLED') === 'true'
       document.title = resMap.get('SITE_TITLE')
       document
         .querySelector('link[rel="shortcut icon"]')
@@ -123,10 +122,6 @@ const storeSetup = () => {
   const getForRecord = () => {
     return siteConfig.SITE_BEIAN
   }
-
-  const getTenantEnabled = () => {
-    return siteConfig.TENANT_ENABLED
-  }
   return {
     ...toRefs(settingConfig),
     ...toRefs(siteConfig),
@@ -143,7 +138,6 @@ const storeSetup = () => {
     getTitle,
     getCopyright,
     getForRecord,
-    getTenantEnabled,
   }
 }
 

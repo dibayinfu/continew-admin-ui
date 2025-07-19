@@ -7,3 +7,8 @@ const BASE_URL = '/tenant/common'
 export function listTenantPackageDict(query?: { description: string, status: number }) {
   return http.get<LabelValueState[]>(`${BASE_URL}/dict/package`, query)
 }
+
+/** @desc 根据域名查询租户编码 */
+export function getTenantCodeByDomain(domain: string) {
+  return http.get<string>(`${BASE_URL}/code/domain`, { domain })
+}

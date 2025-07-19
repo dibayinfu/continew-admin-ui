@@ -335,7 +335,6 @@ export interface BasicConfig {
   SITE_TITLE: string
   SITE_COPYRIGHT: string
   SITE_BEIAN: string
-  TENANT_ENABLED: boolean
 }
 
 /** 基础配置类型 */

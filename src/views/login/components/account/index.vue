@@ -8,8 +8,8 @@
     size="large"
     @submit="handleLogin"
   >
-    <a-form-item v-if="tenantEnabled" field="tenantCode" hide-label>
-      <a-input v-model="tenantCode" placeholder="请输入租户编码" allow-clear />
+    <a-form-item v-if="tenantStore.tenantEnabled && !tenantStore.tenantCode" field="tenantCode" hide-label>
+      <a-input v-model="tenantCodeInput" placeholder="请输入租户编码" allow-clear />
     </a-form-item>
     <a-form-item field="username" hide-label>
       <a-input v-model="form.username" placeholder="请输入用户名" allow-clear />
@@ -43,17 +43,15 @@
 <script setup lang="ts">
 import { type FormInstance, Message } from '@arco-design/web-vue'
 import { useStorage } from '@vueuse/core'
-import { computed } from 'vue'
 import { getImageCaptcha } from '@/apis/common'
-import { useAppStore, useTabsStore, useUserStore } from '@/stores'
+import { useTabsStore, useTenantStore, useUserStore } from '@/stores'
 import { encryptByRsa } from '@/utils/encrypt'
 
-const appStore = useAppStore()
-const tenantEnabled = computed(() => appStore.getTenantEnabled())
+const tenantStore = useTenantStore()
 
 const loginConfig = useStorage('login-config', {
   rememberMe: true,
-  tenantCode: '',
+  tenantCode: tenantStore.tenantCode,
   username: 'admin', // 演示默认值
   password: 'admin123', // 演示默认值
   // username: debug ? 'admin' : '', // 演示默认值
@@ -65,6 +63,7 @@ const isCaptchaEnabled = ref(true)
 const captchaImgBase64 = ref()
 
 const formRef = ref<FormInstance>()
+const tenantCodeInput = ref('') // 用户手动输入的租户编码
 const form = reactive({
   username: loginConfig.value.username,
   password: loginConfig.value.password,
@@ -72,11 +71,16 @@ const form = reactive({
   uuid: '',
   expired: false,
 })
-const tenantCode = ref()
 const rules: FormInstance['rules'] = {
   username: [{ required: true, message: '请输入用户名' }],
   password: [{ required: true, message: '请输入密码' }],
   captcha: [{ required: isCaptchaEnabled.value, message: '请输入验证码' }],
+  tenantCode: [
+    {
+      required: tenantStore.tenantEnabled && !tenantStore.tenantCode,
+      message: '请输入租户编码',
+    },
+  ],
 }
 
 // 验证码过期定时器
@@ -123,16 +127,23 @@ const handleLogin = async () => {
     const isInvalid = await formRef.value?.validate()
     if (isInvalid) return
     loading.value = true
+
+    // 计算最终要传递的租户编码
+    let finalTenantCode = ''
+    if (tenantStore.tenantEnabled) {
+      finalTenantCode = tenantStore.tenantCode || tenantCodeInput.value
+    }
+
     await userStore.accountLogin({
       username: form.username,
       password: encryptByRsa(form.password) || '',
       captcha: form.captcha,
       uuid: form.uuid,
-    }, tenantCode.value)
+    }, finalTenantCode)
     tabsStore.reset()
     const { redirect, ...othersQuery } = router.currentRoute.value.query
     const { rememberMe } = loginConfig.value
-    loginConfig.value.tenantCode = rememberMe ? tenantCode.value : ''
+    loginConfig.value.tenantCode = rememberMe ? finalTenantCode : ''
     loginConfig.value.username = rememberMe ? form.username : ''
 
     // 如果有重定向参数，解码并直接跳转到完整路径

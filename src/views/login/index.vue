@@ -87,7 +87,6 @@
       </div>
     </div>
   </div>
-  <SelectTenant />
 </template>
 
 <script setup lang="ts">
@@ -97,11 +96,12 @@ import AccountLogin from './components/account/index.vue'
 import PhoneLogin from './components/phone/index.vue'
 import EmailLogin from './components/email/index.vue'
 import { socialAuth } from '@/apis/auth'
-import { useAppStore } from '@/stores'
+import { useAppStore, useTenantStore } from '@/stores'
 import { useDevice } from '@/hooks'
+import { getTenantCodeByDomain, getTenantStatus } from '@/apis'
 
 defineOptions({ name: 'Login' })
-
+const tenantStore = useTenantStore()
 const { isDesktop } = useDevice()
 const appStore = useAppStore()
 const title = computed(() => appStore.getTitle())
@@ -120,6 +120,21 @@ const onOauth = async (source: string) => {
   const { data } = await socialAuth(source)
   window.location.href = data.authorizeUrl
 }
+
+// 查询租户状态和租户编码
+const onGetTenant = async () => {
+  const { data } = await getTenantStatus()
+  tenantStore.setTenantEnable(data)
+  // 开启租户 根据地址(域名)查询租户code
+  if (data) {
+    const domain = window.location.hostname
+    const { data } = await getTenantCodeByDomain(domain)
+    tenantStore.setTenantCode(data)
+  }
+}
+onMounted(() => {
+  onGetTenant()
+})
 </script>
 
 <style scoped lang="scss">

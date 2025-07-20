@@ -8,7 +8,7 @@ export function listTenantPackageDict(query?: { description: string, status: num
   return http.get<LabelValueState[]>(`${BASE_URL}/dict/package`, query)
 }
 
-/** @desc 根据域名查询租户ID */
+/** @desc 根据域名查询租户 ID */
 export function getTenantIdByDomain(domain: string) {
-  return http.get<string>(`${BASE_URL}/id/domain`, { domain })
+  return http.get<string>(`${BASE_URL}/id`, { domain })
 }

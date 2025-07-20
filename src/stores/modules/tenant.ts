@@ -17,11 +17,15 @@ export const useTenantStore = defineStore('tenant', () => {
     return tenantEnabled.value && !tenantId.value
   })
 
-  // 新增：判断租户是否已正确配置
+  // 判断租户是否已正确配置
   const isTenantConfigured = computed(() => {
     return tenantEnabled.value && !!tenantId.value
   })
 
+  // 清空租户ID
+  const resetTenantId = () => {
+    tenantId.value = undefined
+  }
   return {
     tenantEnabled,
     tenantId,
@@ -29,6 +33,7 @@ export const useTenantStore = defineStore('tenant', () => {
     setTenantId,
     needInputTenantCode,
     isTenantConfigured,
+    resetTenantId,
   }
 }, {
   persist: { paths: ['tenantEnabled', 'tenantId'], storage: localStorage },

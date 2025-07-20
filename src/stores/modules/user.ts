@@ -89,6 +89,7 @@ const storeSetup = () => {
     pwdExpiredShow.value = true
     resetToken()
     resetRouter()
+    tenantStore.resetTenantId()
   }
 
   // 退出登录

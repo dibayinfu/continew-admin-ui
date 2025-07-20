@@ -8,8 +8,8 @@
     size="large"
     @submit="handleLogin"
   >
-    <a-form-item v-if="tenantEnabled" field="tenantCode" hide-label>
-      <a-input v-model="tenantCode" placeholder="请输入租户编码" allow-clear />
+    <a-form-item v-if="tenantStore.needInputTenantCode" field="tenantCode" hide-label>
+      <a-input v-model="tenantCode" placeholder="请输入租户编码（不输入时为默认租户）" allow-clear />
     </a-form-item>
     <a-form-item field="email" hide-label>
       <a-input v-model="form.email" placeholder="请输入邮箱" allow-clear />
@@ -43,14 +43,13 @@
 
 <script setup lang="ts">
 import { type FormInstance, Message } from '@arco-design/web-vue'
-import { computed } from 'vue'
 import type { BehaviorCaptchaReq } from '@/apis'
 // import { type BehaviorCaptchaReq, getEmailCaptcha } from '@/apis'
-import { useAppStore, useTabsStore, useUserStore } from '@/stores'
+import { useTabsStore, useUserStore } from '@/stores'
 import * as Regexp from '@/utils/regexp'
+import { useTenantStore } from '@/stores/modules/tenant'
 
-const appStore = useAppStore()
-const tenantEnabled = computed(() => appStore.getTenantEnabled())
+const tenantStore = useTenantStore()
 
 const formRef = ref<FormInstance>()
 const form = reactive({

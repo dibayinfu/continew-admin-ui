@@ -78,10 +78,10 @@
       <div class="list">
         <div v-if="isEmailLogin" class="mode item" @click="toggleLoginMode"><icon-user /> 账号/手机号登录</div>
         <div v-else class="mode item" @click="toggleLoginMode"><icon-email /> 邮箱登录</div>
-        <a class="item" title="使用 Gitee 账号登录" @click="onOauth('gitee')">
+        <a v-if="!tenantStore.isTenantConfigured" class="item" title="使用 Gitee 账号登录" @click="onOauth('gitee')">
           <GiSvgIcon name="gitee" :size="24" />
         </a>
-        <a class="item" title="使用 GitHub 账号登录" @click="onOauth('github')">
+        <a v-if="tenantStore.isTenantConfigured" class="item" title="使用 GitHub 账号登录" @click="onOauth('github')">
           <GiSvgIcon name="github" :size="24" />
         </a>
       </div>
@@ -102,8 +102,10 @@ import { useDevice } from '@/hooks'
 import { getTenantIdByDomain, getTenantStatus } from '@/apis'
 
 defineOptions({ name: 'Login' })
+
 const appStore = useAppStore()
 const tenantStore = useTenantStore()
+
 const { isDesktop } = useDevice()
 const title = computed(() => appStore.getTitle())
 const logo = computed(() => appStore.getLogo())

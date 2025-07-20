@@ -8,8 +8,8 @@
     size="large"
     @submit="handleLogin"
   >
-    <a-form-item v-if="tenantStore.needInputTenantId" field="tenantCode" hide-label>
-      <a-input v-model="form.tenantCode" placeholder="请输入租户编码" allow-clear />
+    <a-form-item v-if="tenantStore.needInputTenantCode" field="tenantCode" hide-label>
+      <a-input v-model="tenantCode" placeholder="请输入租户编码（不输入时为默认租户）" allow-clear />
     </a-form-item>
     <a-form-item field="username" hide-label>
       <a-input v-model="form.username" placeholder="请输入用户名" allow-clear />
@@ -61,7 +61,8 @@ const loginConfig = useStorage('login-config', {
 const isCaptchaEnabled = ref(true)
 // 验证码图片
 const captchaImgBase64 = ref()
-
+// 租户编号
+const tenantCode = ref()
 const formRef = ref<FormInstance>()
 const form = reactive({
   username: loginConfig.value.username,
@@ -69,19 +70,12 @@ const form = reactive({
   captcha: '',
   uuid: '',
   expired: false,
-  tenantCode: '', // 新增
 })
 // 校验规则部分
 const rules: FormInstance['rules'] = {
   username: [{ required: true, message: '请输入用户名' }],
   password: [{ required: true, message: '请输入密码' }],
   captcha: [{ required: isCaptchaEnabled.value, message: '请输入验证码' }],
-  tenantCode: [
-    {
-      required: tenantStore.needInputTenantId,
-      message: '请输入租户编码',
-    },
-  ],
 }
 
 // 验证码过期定时器
@@ -129,17 +123,12 @@ const handleLogin = async () => {
     if (isInvalid) return
     loading.value = true
 
-    let tenantCode
-    if (tenantStore.needInputTenantId) {
-      tenantCode = form.tenantCode
-    }
-
     await userStore.accountLogin({
       username: form.username,
       password: encryptByRsa(form.password) || '',
       captcha: form.captcha,
       uuid: form.uuid,
-    }, tenantCode)
+    }, tenantCode.value)
     tabsStore.reset()
     const { redirect, ...othersQuery } = router.currentRoute.value.query
     const { rememberMe } = loginConfig.value

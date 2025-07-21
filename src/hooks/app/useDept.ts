@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import type { TreeNodeData } from '@arco-design/web-vue'
-import { listDeptTree } from '@/apis'
+import { listDeptTree } from '@/apis/system'
 
 /** 部门模块 */
 export function useDept(options?: { onSuccess?: () => void }) {

@@ -80,6 +80,7 @@ export interface EmailLoginReq extends AuthReq {
 /** 登录响应类型 */
 export interface LoginResp {
   token: string
+  tenantId: string
 }
 
 /** 第三方登录授权类型 */

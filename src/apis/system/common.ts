@@ -2,7 +2,7 @@ import type { TreeNodeData } from '@arco-design/web-vue'
 import http from '@/utils/http'
 import type { LabelValueState } from '@/types/global'
 
-const BASE_URL = '/common'
+const BASE_URL = '/system/common'
 
 /** @desc 查询部门树 */
 export function listDeptTree(query: { description: string | unknown }) {
@@ -35,6 +35,11 @@ export function listSiteOptionDict() {
 }
 
 /** @desc 上传文件 */
-export function uploadFile(data: FormData) {
+export function upload(data: FormData) {
   return http.post(`${BASE_URL}/file`, data)
+}
+
+/** @desc 查询租户开启状态 */
+export function getTenantStatus() {
+  return http.get<boolean>(`${BASE_URL}/dict/option/tenant`)
 }

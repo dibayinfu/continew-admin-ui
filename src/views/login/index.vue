@@ -78,10 +78,10 @@
       <div class="list">
         <div v-if="isEmailLogin" class="mode item" @click="toggleLoginMode"><icon-user /> 账号/手机号登录</div>
         <div v-else class="mode item" @click="toggleLoginMode"><icon-email /> 邮箱登录</div>
-        <a class="item" title="使用 Gitee 账号登录" @click="onOauth('gitee')">
+        <a v-if="!tenantStore.isTenantConfigured" class="item" title="使用 Gitee 账号登录" @click="onOauth('gitee')">
           <GiSvgIcon name="gitee" :size="24" />
         </a>
-        <a class="item" title="使用 GitHub 账号登录" @click="onOauth('github')">
+        <a v-if="tenantStore.isTenantConfigured" class="item" title="使用 GitHub 账号登录" @click="onOauth('github')">
           <GiSvgIcon name="github" :size="24" />
         </a>
       </div>
@@ -97,12 +97,16 @@ import PhoneLogin from './components/phone/index.vue'
 import EmailLogin from './components/email/index.vue'
 import { socialAuth } from '@/apis/auth'
 import { useAppStore } from '@/stores'
+import { useTenantStore } from '@/stores/modules/tenant'
 import { useDevice } from '@/hooks'
+import { getTenantIdByDomain, getTenantStatus } from '@/apis'
 
 defineOptions({ name: 'Login' })
 
-const { isDesktop } = useDevice()
 const appStore = useAppStore()
+const tenantStore = useTenantStore()
+
+const { isDesktop } = useDevice()
 const title = computed(() => appStore.getTitle())
 const logo = computed(() => appStore.getLogo())
 
@@ -119,6 +123,21 @@ const onOauth = async (source: string) => {
   const { data } = await socialAuth(source)
   window.location.href = data.authorizeUrl
 }
+
+// 查询租户状态和租户编码
+const onGetTenant = async () => {
+  const { data } = await getTenantStatus()
+  tenantStore.setTenantEnable(data)
+  // 开启租户 根据地址(域名)查询租户code
+  if (data) {
+    const domain = window.location.hostname
+    const { data: tenantId } = await getTenantIdByDomain(domain)
+    tenantStore.setTenantId(tenantId)
+  }
+}
+onMounted(() => {
+  onGetTenant()
+})
 </script>
 
 <style scoped lang="scss">

@@ -19,6 +19,10 @@
         <a-input v-model="title" placeholder="搜索菜单标题" allow-clear>
           <template #prefix><icon-search /></template>
         </a-input>
+        <a-input v-model="path" placeholder="搜索路由地址" allow-clear>
+        </a-input>
+        <a-input v-model="permission" placeholder="搜索权限标识" allow-clear>
+        </a-input>
         <a-button @click="reset">
           <template #icon><icon-refresh /></template>
           <template #default>重置</template>
@@ -110,11 +114,15 @@ const {
 } = useTable(() => listMenu(queryForm), { immediate: true })
 
 // 过滤树
-const searchData = (title: string) => {
+const searchData = (title: string, path: string, permission: string) => {
   const loop = (data: MenuResp[]) => {
     const result = [] as MenuResp[]
     data.forEach((item: MenuResp) => {
-      if (item.title?.toLowerCase().includes(title.toLowerCase())) {
+      if (
+        (!title || item.title?.toLowerCase().includes(title.toLowerCase()))
+        && (!path || item.path?.toLowerCase().includes(path.toLowerCase()))
+        && (!permission || item.permission?.toLowerCase().includes(permission.toLowerCase()))
+      ) {
         result.push({ ...item })
       } else if (item.children) {
         const filterData = loop(item.children)
@@ -132,9 +140,11 @@ const searchData = (title: string) => {
 }
 
 const title = ref('')
+const path = ref('')
+const permission = ref('')
 const dataList = computed(() => {
-  if (!title.value) return tableData.value
-  return searchData(title.value)
+  if (!title.value && !path.value && !permission.value) return tableData.value
+  return searchData(title.value, path.value, permission.value)
 })
 
 const columns: TableInstance['columns'] = [

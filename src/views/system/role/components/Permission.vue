@@ -378,7 +378,7 @@ const fetchRole = async (id: string) => {
     // 查询角色详情
     const { data } = await getRole(id)
     if (!disabled.value) {
-      disabled.value = data.isSystem && data.code === 'admin'
+      disabled.value = data.isSystem
     }
     isCascade.value = data.menuCheckStrictly
     // 更新选中键集合

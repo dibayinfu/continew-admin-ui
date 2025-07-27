@@ -20,8 +20,10 @@
           <template #prefix><icon-search /></template>
         </a-input>
         <a-input v-model="path" placeholder="搜索路由地址" allow-clear>
+          <template #prefix><icon-search /></template>
         </a-input>
         <a-input v-model="permission" placeholder="搜索权限标识" allow-clear>
+          <template #prefix><icon-search /></template>
         </a-input>
         <a-button @click="reset">
           <template #icon><icon-refresh /></template>
@@ -96,7 +98,7 @@
 import type { TableInstance } from '@arco-design/web-vue'
 import { Message, Modal } from '@arco-design/web-vue'
 import MenuAddModal from './MenuAddModal.vue'
-import { type MenuQuery, type MenuResp, clearMenuCache, deleteMenu, listMenuDictTree } from '@/apis/system/menu'
+import { type MenuResp, clearMenuCache, deleteMenu, listMenu } from '@/apis/system/menu'
 import type GiTable from '@/components/GiTable/index.vue'
 import { useTable } from '@/hooks'
 import { isMobile } from '@/utils'
@@ -104,14 +106,12 @@ import has from '@/utils/has'
 
 defineOptions({ name: 'SystemMenu' })
 
-const queryForm = reactive<MenuQuery>({})
-
 const {
   tableData,
   loading,
   search,
   handleDelete,
-} = useTable(() => listMenuDictTree({ description: queryForm.description || '' }), { immediate: true })
+} = useTable(() => listMenu(), { immediate: true })
 
 // 过滤树
 const searchData = (title: string, path: string, permission: string) => {

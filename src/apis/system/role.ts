@@ -1,5 +1,6 @@
 import type * as T from './type'
 import http from '@/utils/http'
+import type { LabelValueState } from '@/types/global'
 
 export type * from './type'
 
@@ -53,4 +54,9 @@ export function unassignFromUsers(userRoleIds: Array<string | number>) {
 /** @desc 查询角色关联用户 ID */
 export function listRoleUserId(id: string) {
   return http.get(`${BASE_URL}/${id}/user/id`)
+}
+
+/** @desc 查询角色字典 */
+export function listRoleDict(query?: { name: string, status: number }) {
+  return http.get<LabelValueState[]>(`${BASE_URL}/dict`, query)
 }

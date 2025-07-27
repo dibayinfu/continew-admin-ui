@@ -1,6 +1,6 @@
 import { ref } from 'vue'
 import type { TreeNodeData } from '@arco-design/web-vue'
-import { listMenuTree } from '@/apis/system'
+import { listMenuDictTree } from '@/apis/system'
 import { listTenantPackageMenu } from '@/apis/tenant/package'
 
 /** 菜单模块 */
@@ -11,7 +11,7 @@ export function useMenu(options?: { onSuccess?: () => void }) {
   const getMenuList = async (name?: string) => {
     try {
       loading.value = true
-      const res = await listMenuTree({ description: name })
+      const res = await listMenuDictTree({ description: name })
       menuList.value = res.data
       options?.onSuccess && options.onSuccess()
     } finally {

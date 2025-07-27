@@ -1,5 +1,6 @@
 import type * as T from './type'
 import http from '@/utils/http'
+import type { LabelValueState } from '@/types/global'
 
 export type * from './type'
 
@@ -30,9 +31,9 @@ export function deleteTenantPackage(id: string) {
   return http.del(`${BASE_URL}/${id}`)
 }
 
-/** @desc 查询所有套餐 */
-export function listAllTenantPackage() {
-  return http.get<T.TenantPackageResp[]>(`${BASE_URL}/list`)
+/** @desc 查询租户套餐字典 */
+export function listTenantPackageDict(query?: { description: string, status: number }) {
+  return http.get<LabelValueState[]>(`${BASE_URL}/dict`, query)
 }
 
 /** @desc 查询套餐菜单 */

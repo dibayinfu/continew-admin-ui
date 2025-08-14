@@ -12,6 +12,7 @@ export interface UserInfo {
   registrationDate: string
   deptName: string
   roles: string[]
+  roleNames: string[]
   permissions: string[]
 }
 

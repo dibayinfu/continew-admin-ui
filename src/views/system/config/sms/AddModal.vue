@@ -37,6 +37,15 @@ const [form, resetForm] = useResetReactive({
   status: 1,
 })
 
+// 监听供应商变化，当选择腾讯云时自动填充厂商配置
+watch(() => form.supplier, async (newValue) => {
+  if (newValue === 'tencent') {
+    form.supplierConfig = '{"sdkAppId":""}'
+  } else {
+    form.supplierConfig = ''
+  }
+})
+
 const columns: ColumnItem[] = reactive([
   {
     label: '名称',
@@ -161,6 +170,8 @@ const columns: ColumnItem[] = reactive([
 const reset = () => {
   formRef.value?.formRef?.resetFields()
   resetForm()
+  // 重置时清空供应商配置
+  form.supplierConfig = ''
 }
 
 // 保存

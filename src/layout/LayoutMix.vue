@@ -98,8 +98,13 @@ const activeMenu = ref<string[]>([])
 // 左侧的菜单
 const leftMenus = ref<RouteRecordRaw[]>([])
 // 获取左侧菜单
-const getLeftMenus = (key: string) => {
-  const arr = searchTree(cloneMenuRoutes, (i) => i.path === key, { children: 'children' })
+const getLeftMenus = (currentRoute?: RouteRecordRaw, key?: string) => {
+  // 优先从路由的 meta.activeMenu 获取key，如果没有则使用path
+  const menuKey = currentRoute
+    ? (currentRoute.meta?.activeMenu as string) || currentRoute.path
+    : key || ''
+
+  const arr = searchTree(cloneMenuRoutes, (i) => i.path === menuKey, { children: 'children' })
   const rootPath = arr.length ? arr[0].path : ''
   const obj = cloneMenuRoutes.find((i) => i.path === rootPath)
   activeMenu.value = obj ? [obj.path] : ['']
@@ -111,7 +116,7 @@ const onMenuItemClick = (key: string) => {
     window.open(key)
     return
   }
-  setTimeout(() => getLeftMenus(key))
+  setTimeout(() => getLeftMenus(undefined, key))
   const obj = topMenus.value.find((i) => i.path === key)
   if (obj && obj.redirect === 'noRedirect') return
   router.push({ path: key })
@@ -119,9 +124,9 @@ const onMenuItemClick = (key: string) => {
 
 watch(
   () => route.path,
-  (newPath) => {
+  () => {
     nextTick(() => {
-      getLeftMenus(newPath)
+      getLeftMenus(route)
     })
   },
   { immediate: true },

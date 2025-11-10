@@ -8,7 +8,7 @@
             v-for="(item) in props.menus" :key="item.path" class="one-level-menu__item"
             :class="{ 'one-level-menu__item--active': calcIsActive(item) }" @click="emits('menu-click', item)"
           >
-            <GiSvgIcon :name="item?.meta?.icon || ''"></GiSvgIcon>
+            <MenuIcon :svg-icon="item?.meta?.icon || ''"></MenuIcon>
             <p class="one-level-menu__item__title gi_line_1" :title="item?.meta?.title">{{ item?.meta?.title }}</p>
           </li>
         </ul>
@@ -25,15 +25,18 @@ import MenuIcon from './MenuIcon.vue'
 interface Props {
   menus?: RouteRecordRaw[]
 }
+
 const props = withDefaults(defineProps<Props>(), {
   menus: () => [],
 })
+
 const emits = defineEmits<{
   (e: 'menu-click', item: RouteRecordRaw): void
 }>()
+
 const route = useRoute()
 const calcIsActive = (item: RouteRecordRaw) => {
-  return route.path.startsWith(item.path) && item.path !== '/'
+  return (route.path.startsWith(item.path) && item.path !== '/') || item.redirect === route.path
 }
 </script>
 
@@ -43,14 +46,14 @@ const calcIsActive = (item: RouteRecordRaw) => {
 }
 
 .one-level-menu {
-  width: 68px;
-  height: 100%;
-  background-color: var(--color-bg-1);
-  border-right: 1px solid var(--color-border-2);
   box-sizing: border-box;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
+  width: 68px;
+  height: 100%;
+  overflow: hidden;
+  background-color: var(--color-bg-1);
+  border-right: 1px solid var(--color-border-2);
 
   &__logo {
     justify-content: center;
@@ -63,14 +66,14 @@ const calcIsActive = (item: RouteRecordRaw) => {
   }
 
   &__wrap {
-    flex: 1;
     display: flex;
+    flex: 1;
     overflow: hidden;
   }
 
   &__list {
-    padding: 4px 4px 0;
     box-sizing: border-box;
+    padding: 4px 4px 0;
   }
 
   &__item {
@@ -80,12 +83,12 @@ const calcIsActive = (item: RouteRecordRaw) => {
     justify-content: center;
     padding: 8px 0;
     margin-bottom: 4px;
-    border-radius: 4px;
     cursor: pointer;
+    border-radius: 4px;
 
     &--active {
-      background-color: var(--color-primary-light-2);
-      color: rgb(var(--primary-6))
+      color: rgb(var(--primary-6));
+      background-color: var(--color-primary-light-2)
     }
 
     &:not(.one-level-menu__item--active):hover {
@@ -93,11 +96,11 @@ const calcIsActive = (item: RouteRecordRaw) => {
     }
 
     &__title {
-      font-size: 12px;
-      margin-top: 8px;
-      line-height: 1;
-      padding: 0 8px;
       box-sizing: border-box;
+      padding: 0 8px;
+      margin-top: 8px;
+      font-size: 12px;
+      line-height: 1;
     }
   }
 }

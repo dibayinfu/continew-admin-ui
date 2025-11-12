@@ -11,6 +11,7 @@
     >
       <Logo :collapsed="appStore.menuCollapse" />
       <Menu :menus="twoLevelMenus" :menu-style="{ width: '200px', flex: 1 }" />
+      <WwAds class="ads" />
     </section>
 
     <!-- 右侧内容区域 -->
@@ -32,7 +33,11 @@
       </header>
       <Tabs v-if="appStore.tab" />
       <Main />
+      <GiFooter v-if="appStore.copyrightDisplay" />
     </section>
+
+    <!-- 公告弹窗 -->
+    <NoticePopup ref="noticePopupRef" />
   </div>
 </template>
 
@@ -47,6 +52,10 @@ import Tabs from './components/Tabs/index.vue'
 import { useAppStore } from '@/stores'
 import { useLevelMenu } from '@/layout/hooks/useLevelMenu'
 import { useDevice } from '@/hooks'
+import { getToken } from '@/utils/auth'
+
+import WwAds from '@/layout/components/WwAds.vue'
+import NoticePopup from '@/views/user/message/components/NoticePopup.vue'
 
 /** 组件名称 */
 defineOptions({ name: 'LayoutMix' })
@@ -64,9 +73,27 @@ getOneLevelMenus()
 
 const activeMenu = computed(() => [oneLevelMenuActiveRoute.value?.path ?? ''])
 
+// 公告弹窗引用
+const noticePopupRef = ref<InstanceType<typeof NoticePopup>>()
+
+// 检查并显示未读公告
+const checkAndShowNotices = () => {
+  const token = getToken()
+
+  // 如果有token，检查未读公告
+  if (token) {
+    setTimeout(() => {
+      console.log(noticePopupRef.value)
+      noticePopupRef.value?.open()
+    }, 1000) // 延迟1秒显示，让页面先加载完成
+  }
+}
 const getMenuIcon = (item: RouteRecordRaw) => {
   return item.meta?.icon || item.children?.[0]?.meta?.icon
 }
+onMounted(() => {
+  checkAndShowNotices()
+})
 </script>
 
 <style lang="scss" scoped>

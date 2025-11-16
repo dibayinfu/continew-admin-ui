@@ -59,7 +59,7 @@ const onAdd = () => {
   }
 
   .content {
-    height: 48px;
+    height: 80px;
   }
 }
 
@@ -78,15 +78,15 @@ const onAdd = () => {
   }
 
   :deep(.arco-card-body) {
-    padding-top: 45px;
-    padding-bottom: 63px;
+    padding-top: 55px;
+    padding-bottom: 53px;
   }
 }
 
 .card-large {
   :deep(.arco-card-body) {
-    padding-top: 65px;
-    padding-bottom: 73px;
+    padding-top: 75px;
+    padding-bottom: 63px;
   }
 }
 </style>

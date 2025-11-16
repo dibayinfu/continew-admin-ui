@@ -31,6 +31,14 @@
             <a-button type="text" style="width: 100%; text-align: left;" @click="visible = true">
               分片上传
             </a-button>
+            <!-- 新建文件夹 -->
+            <a-divider style="margin: 0;"></a-divider>
+            <a-button v-permission="['system:file:createDir']" type="text" style="width: 100%; text-align: left;" :disabled="!queryForm.parentPath" @click="createDirModalVisible = !createDirModalVisible">
+              <template #icon>
+                <icon-folder />
+              </template>
+              新建文件夹
+            </a-button>
           </template>
         </a-dropdown>
         <a-modal v-model:visible="visible" title="分片上传" :width="width > 1350 ? 1350 : '100%'" :footer="false" @close="search">
@@ -63,17 +71,18 @@
             <icon-delete />
           </template>
         </a-button>
-        <a-button v-permission="['system:file:createDir']" type="primary" :disabled="!queryForm.parentPath" @click="createDirModalVisible = !createDirModalVisible">
-          <template #icon>
-            <icon-folder />
-          </template>
-          <template #default>新建文件夹</template>
-        </a-button>
+
         <a-button v-permission="['system:file:delete']" type="primary" @click="isBatchMode = !isBatchMode">
           <template #icon>
             <icon-select-all />
           </template>
           <template #default>{{ isBatchMode ? '取消批量' : '批量操作' }}</template>
+        </a-button>
+        <a-button v-permission="['system:fileRecycle:list']" type="primary" @click="onRecycleBin">
+          <template #icon>
+            <icon-delete />
+          </template>
+          <template #default>回收站</template>
         </a-button>
         <a-button-group>
           <a-tooltip content="视图">
@@ -114,6 +123,9 @@
     <a-modal v-model:visible="createDirModalVisible" title="新建文件夹" @ok="handleCreateDir" @cancel="handleCancel">
       <a-input v-model="newDirName" placeholder="请输入文件夹名称" size="large" allow-clear />
     </a-modal>
+
+    <!-- 回收站 -->
+    <RecycleBinModal ref="RecycleBinModalRef" @close="search" />
   </div>
 </template>
 
@@ -128,6 +140,7 @@ import {
   previewFileVideoModal,
 } from '../../components/index'
 import FileGrid from './FileGrid.vue'
+import RecycleBinModal from './RecycleBinModal.vue'
 import useFileManage from './useFileManage'
 import { useTable } from '@/hooks'
 import { type FileItem, type FileQuery, createDir, deleteFile, listFile, uploadFile } from '@/apis/system/file'
@@ -342,6 +355,12 @@ const breadcrumbList = computed(() => {
 const handleBreadcrumbClick = (item) => {
   queryForm.parentPath = item.path
   search()
+}
+
+// 回收站
+const RecycleBinModalRef = ref<InstanceType<typeof RecycleBinModal>>()
+const onRecycleBin = () => {
+  RecycleBinModalRef.value?.onOpen()
 }
 
 onMounted(() => {

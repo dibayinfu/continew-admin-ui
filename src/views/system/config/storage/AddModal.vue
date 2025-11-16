@@ -44,6 +44,8 @@ const { storage_type_enum } = useDict('storage_type_enum')
 
 const [form, resetForm] = useResetReactive({
   type: 2,
+  recycleBinEnabled: true,
+  recycleBinPath: '.RECYCLE.BIN/',
   isDefault: false,
   sort: 999,
   status: 2,
@@ -126,6 +128,29 @@ const columns: ColumnItem[] = reactive([
     span: 24,
     required: true,
     show: () => form.type === 1,
+  },
+  {
+    label: '启用回收站',
+    field: 'recycleBinEnabled',
+    type: 'switch',
+    span: 24,
+    props: {
+      type: 'round',
+      checkedValue: true,
+      uncheckedValue: false,
+      checkedText: '启用',
+      uncheckedText: '禁用',
+    },
+    disabled: () => isUpdate.value,
+  },
+  {
+    label: '回收站路径',
+    field: 'recycleBinPath',
+    type: 'input',
+    span: 24,
+    required: true,
+    show: () => form.recycleBinEnabled,
+    disabled: () => isUpdate.value,
   },
   {
     label: '排序',

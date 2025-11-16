@@ -269,6 +269,8 @@ export interface StorageResp {
   endpoint: string
   bucketName: string
   domain: string
+  recycleBinEnabled: boolean
+  recycleBinPath: string
   description: string
   isDefault: boolean
   sort: number

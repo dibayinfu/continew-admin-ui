@@ -41,6 +41,8 @@
               <a-descriptions-item label="Endpoint">{{ item.endpoint }}</a-descriptions-item>
               <a-descriptions-item label="Bucket">{{ item.bucketName }}</a-descriptions-item>
               <a-descriptions-item label="自定义域名">{{ item.domain }}</a-descriptions-item>
+              <a-descriptions-item label="启用回收站">{{ item.recycleBinEnabled ? '启用' : '禁用' }}</a-descriptions-item>
+              <a-descriptions-item label="回收站路径">{{ item.recycleBinPath }}</a-descriptions-item>
             </a-descriptions>
           </template>
         </CardBlock>

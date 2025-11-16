@@ -39,6 +39,8 @@
             <a-descriptions v-else :column="1">
               <a-descriptions-item label="存储路径">{{ item.bucketName }}</a-descriptions-item>
               <a-descriptions-item label="访问路径">{{ item.domain }}</a-descriptions-item>
+              <a-descriptions-item label="启用回收站">{{ item.recycleBinEnabled ? '启用' : '禁用' }}</a-descriptions-item>
+              <a-descriptions-item label="回收站路径">{{ item.recycleBinPath }}</a-descriptions-item>
             </a-descriptions>
           </template>
         </CardBlock>

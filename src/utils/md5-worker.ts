@@ -111,7 +111,7 @@ function calculateFileMd5Optimized(file: File, taskId: string, blockSize: number
             const finalSpark = new SparkMD5.ArrayBuffer()
             blockHashes.forEach((hash) => {
               const hashBuffer = new TextEncoder().encode(hash)
-              finalSpark.append(hashBuffer)
+              finalSpark.append(hashBuffer.buffer.slice(hashBuffer.byteOffset, hashBuffer.byteOffset + hashBuffer.byteLength))
             })
             const finalMd5 = finalSpark.end()
 

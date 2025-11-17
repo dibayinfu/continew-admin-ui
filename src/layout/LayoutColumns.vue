@@ -5,7 +5,7 @@
       <OneLevelMenu :menus="oneLevelMenus" @menu-click="handleMenuItemClickByItem"></OneLevelMenu>
 
       <!-- 左侧二级菜单区域 -->
-      <div class="layout-columns__right-menu" :class="{ collapse: appStore.menuCollapse }">
+      <div v-if="twoLevelMenus.length > 0" class="layout-columns__right-menu" :class="{ collapse: appStore.menuCollapse }">
         <!-- 系统标题 -->
         <div class="layout-columns__title">
           <span v-show="!appStore.menuCollapse" class="system-name gi_line_1">{{ appStore.getTitle() }}</span>

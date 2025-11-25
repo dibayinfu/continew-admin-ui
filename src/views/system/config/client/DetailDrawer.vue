@@ -17,17 +17,17 @@
         <a-tag v-if="dataDetail?.status === 1" color="green">启用</a-tag>
         <a-tag v-else color="red">禁用</a-tag>
       </a-descriptions-item>
-      <a-descriptions-item label="是否允许多地登录" :span="2">
+      <a-descriptions-item label="多地登录">
         <a-tag v-if="dataDetail?.isConcurrent" color="blue">允许</a-tag>
         <a-tag v-else color="orange">不允许</a-tag>
       </a-descriptions-item>
-      <a-descriptions-item label="最大登录数量">
-        {{ dataDetail?.maxLoginCount === -1 ? '不限' : dataDetail?.maxLoginCount }}
-      </a-descriptions-item>
-      <a-descriptions-item label="顶人下线范围">
+      <a-descriptions-item label="下线范围">
         <GiCellTag :value="dataDetail?.replacedRange" :dict="replaced_range_enum" />
       </a-descriptions-item>
-      <a-descriptions-item label="溢出注销方式" :span="2">
+      <a-descriptions-item label="登录数量">
+        {{ dataDetail?.maxLoginCount === -1 ? '不限制' : dataDetail?.maxLoginCount }}
+      </a-descriptions-item>
+      <a-descriptions-item label="溢出处理">
         <GiCellTag :value="dataDetail?.overflowLogoutMode" :dict="logout_mode_enum" />
       </a-descriptions-item>
       <a-descriptions-item label="创建人">{{ dataDetail?.createUserString }}</a-descriptions-item>

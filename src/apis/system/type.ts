@@ -296,8 +296,8 @@ export interface ClientResp {
   timeout: string
   status: string
   isConcurrent: boolean
-  maxLoginCount: number
   replacedRange: string
+  maxLoginCount: number
   overflowLogoutMode: string
   createUser: string
   createTime: string

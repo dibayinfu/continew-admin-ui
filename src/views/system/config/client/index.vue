@@ -5,7 +5,7 @@
       :data="dataList"
       :columns="columns"
       :loading="loading"
-      :scroll="{ x: '100%', y: '100%', minWidth: 1200 }"
+      :scroll="{ x: '100%', y: '100%', minWidth: 1400 }"
       :pagination="pagination"
       :disabled-tools="['size']"
       :disabled-column-keys="['clientKey']"
@@ -114,6 +114,7 @@ const columns: TableInstance['columns'] = [
     title: '客户端 ID',
     dataIndex: 'clientId',
     slotName: 'clientId',
+    width: 180,
     ellipsis: true,
     tooltip: true,
     render: ({ record }) => {
@@ -147,7 +148,7 @@ const columns: TableInstance['columns'] = [
     },
   },
   { title: 'Token 最低活跃频率', dataIndex: 'activeTimeout', slotName: 'activeTimeout', width: 180, align: 'center', render: ({ record }) => `${record.activeTimeout} 秒` },
-  { title: 'Token 有效期', dataIndex: 'timeout', slotName: 'timeout', align: 'center', render: ({ record }) => `${record.timeout} 秒` },
+  { title: 'Token 有效期', dataIndex: 'timeout', slotName: 'timeout', width: 180, align: 'center', render: ({ record }) => `${record.timeout} 秒` },
   {
     title: '状态',
     dataIndex: 'status',
@@ -158,7 +159,7 @@ const columns: TableInstance['columns'] = [
     },
   },
   {
-    title: '是否允许多地登录',
+    title: '多地登录',
     dataIndex: 'isConcurrent',
     align: 'center',
     render: ({ record }) => {
@@ -166,15 +167,7 @@ const columns: TableInstance['columns'] = [
     },
   },
   {
-    title: '最大登录数量',
-    dataIndex: 'maxLoginCount',
-    align: 'center',
-    render: ({ record }) => {
-      return record.maxLoginCount === -1 ? '不限' : record.maxLoginCount
-    },
-  },
-  {
-    title: '顶人下线范围',
+    title: '下线范围',
     dataIndex: 'replacedRange',
     align: 'center',
     render: ({ record }) => {
@@ -182,7 +175,15 @@ const columns: TableInstance['columns'] = [
     },
   },
   {
-    title: '溢出注销方式',
+    title: '登录数量',
+    dataIndex: 'maxLoginCount',
+    align: 'center',
+    render: ({ record }) => {
+      return record.maxLoginCount === -1 ? '不限制' : record.maxLoginCount
+    },
+  },
+  {
+    title: '溢出处理',
     dataIndex: 'overflowLogoutMode',
     align: 'center',
     render: ({ record }) => {
@@ -194,6 +195,7 @@ const columns: TableInstance['columns'] = [
     title: '操作',
     dataIndex: 'action',
     slotName: 'action',
+    width: 160,
     align: 'center',
     fixed: !isMobile() ? 'right' : undefined,
     show: has.hasPermOr(['system:client:get', 'system:client:update', 'system:client:delete']),

@@ -39,8 +39,6 @@ const [form, resetForm] = useResetReactive({
   timeout: 86400,
   isConcurrent: true,
   maxLoginCount: -1,
-  replacedRange: 'ALL_DEVICE_TYPE',
-  overflowLogoutMode: 'KICKOUT',
   status: 1,
 })
 
@@ -82,7 +80,7 @@ const columns: ColumnItem[] = reactive([
   },
   {
     label: () => (
-      <a-tooltip content="-1 代表不限制，永不冻结">
+      <a-tooltip content="-1：不限制，永不冻结">
         Token 最低活跃频率&nbsp;
         <icon-question-circle />
       </a-tooltip>
@@ -102,7 +100,7 @@ const columns: ColumnItem[] = reactive([
   },
   {
     label: () => (
-      <a-tooltip content="-1 代表永不过期">
+      <a-tooltip content="-1：永不过期">
         Token 有效期
         <icon-question-circle />
       </a-tooltip>
@@ -134,39 +132,6 @@ const columns: ColumnItem[] = reactive([
     },
   },
   {
-    label: () => (
-      <a-tooltip content="-1 代表不限">
-        最大登录数量
-        <icon-question-circle />
-      </a-tooltip>
-    ),
-    field: 'maxLoginCount',
-    type: 'input-number',
-    span: 12,
-    slots: {
-      append: () => (
-        <span style={{ width: '80px', textAlign: 'center' }}>个</span>
-      ),
-    },
-    props: {
-      placeholder: '请输入最大登录数量',
-      min: -1,
-    },
-    disabled: () => {
-      return !form.isConcurrent
-    },
-    rules: [
-      {
-        validator: (value: number, callback: (errorMessage?: string) => void) => {
-          if (value === 0) {
-            callback('最大登录数量不能为0，请输入-1或正整数')
-          }
-          callback()
-        },
-      },
-    ],
-  },
-  {
     label: '顶人下线的范围',
     field: 'replacedRange',
     type: 'select',
@@ -180,13 +145,49 @@ const columns: ColumnItem[] = reactive([
     },
   },
   {
-    label: '溢出人数的注销方式',
+    label: () => (
+      <a-tooltip content="-1：不限制">
+        同一账号最大登录数量
+        <icon-question-circle />
+      </a-tooltip>
+    ),
+    field: 'maxLoginCount',
+    type: 'input-number',
+    span: 12,
+    slots: {
+      append: () => (
+        <span style={{ width: '30px', textAlign: 'center' }}>个</span>
+      ),
+    },
+    props: {
+      placeholder: '请输入同一账号最大登录数量',
+      min: -1,
+    },
+    disabled: () => {
+      return !form.isConcurrent
+    },
+    rules: [
+      {
+        validator: (value: number, callback: (errorMessage?: string) => void) => {
+          if (value <= 0 && value !== -1) {
+            callback('最大登录数量只能为 -1 或正整数')
+          }
+          callback()
+        },
+      },
+    ],
+  },
+  {
+    label: '溢出人数的下线方式',
     field: 'overflowLogoutMode',
     type: 'select',
     span: 12,
     props: {
       options: logout_mode_enum,
-      placeholder: '请选择溢出人数的注销方式',
+      placeholder: '请选择溢出人数的下线方式',
+    },
+    disabled: () => {
+      return form.maxLoginCount === -1 || form.maxLoginCount === 0
     },
   },
   {

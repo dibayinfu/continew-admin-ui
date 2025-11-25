@@ -60,7 +60,7 @@
 
 <script setup lang="tsx">
 import type { LabelValue } from '@arco-design/web-vue/es/tree-select/interface'
-import type { TableInstance } from '@arco-design/web-vue'
+import { type TableInstance, Tag } from '@arco-design/web-vue'
 import AddModal from './AddModal.vue'
 import DetailDrawer from './DetailDrawer.vue'
 import { type ClientQuery, type ClientResp, deleteClient, listClient } from '@/apis/system/client'
@@ -79,7 +79,9 @@ defineOptions({ name: 'SystemClient' })
 const {
   client_type,
   auth_type_enum,
-} = useDict('client_type', 'auth_type_enum')
+  replaced_range_enum,
+  logout_mode_enum,
+} = useDict('client_type', 'auth_type_enum', 'replaced_range_enum', 'logout_mode_enum')
 
 const queryForm = reactive<ClientQuery>({
   clientType: '',
@@ -89,7 +91,7 @@ const queryForm = reactive<ClientQuery>({
 })
 const formatAuthType = (data: string[]) => {
   return data.map((item: string) => {
-    return auth_type_enum.value.find((d: LabelValue) => d.value === item).label
+    return auth_type_enum.value?.find((d: LabelValue) => d.value === item)?.label
   })
 }
 
@@ -155,15 +157,43 @@ const columns: TableInstance['columns'] = [
       return <GiCellStatus status={record.status} />
     },
   },
+  {
+    title: '是否允许多地登录',
+    dataIndex: 'isConcurrent',
+    align: 'center',
+    render: ({ record }) => {
+      return <Tag>{record.isConcurrent ? '允许' : '不允许'}</Tag>
+    },
+  },
+  {
+    title: '最大登录数量',
+    dataIndex: 'maxLoginCount',
+    align: 'center',
+    render: ({ record }) => {
+      return record.maxLoginCount === -1 ? '不限' : record.maxLoginCount
+    },
+  },
+  {
+    title: '顶人下线范围',
+    dataIndex: 'replacedRange',
+    align: 'center',
+    render: ({ record }) => {
+      return <GiCellTag value={record.replacedRange} dict={replaced_range_enum.value} />
+    },
+  },
+  {
+    title: '溢出注销方式',
+    dataIndex: 'overflowLogoutMode',
+    align: 'center',
+    render: ({ record }) => {
+      return <GiCellTag value={record.overflowLogoutMode} dict={logout_mode_enum.value} />
+    },
+  },
   { title: '创建人', dataIndex: 'createUserString', width: 140, ellipsis: true, tooltip: true, show: false },
-  { title: '创建时间', dataIndex: 'createTime', width: 180 },
-  { title: '修改人', dataIndex: 'updateUserString', width: 140, ellipsis: true, tooltip: true, show: false },
-  { title: '修改时间', dataIndex: 'updateTime', width: 180, show: false },
   {
     title: '操作',
     dataIndex: 'action',
     slotName: 'action',
-    width: 160,
     align: 'center',
     fixed: !isMobile() ? 'right' : undefined,
     show: has.hasPermOr(['system:client:get', 'system:client:update', 'system:client:delete']),

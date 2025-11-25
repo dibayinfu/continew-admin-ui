@@ -10,7 +10,7 @@
       :style="appStore.menuDark ? appStore.themeCSSVar : undefined"
     >
       <Logo :collapsed="appStore.menuCollapse" />
-      <Menu :menus="twoLevelMenus" :menu-style="{ width: '200px', flex: 1 }" />
+      <Menu :menus="twoLevelMenus" :menu-style="{ flex: 1 }" />
       <WwAds class="ads" />
     </section>
 
@@ -83,7 +83,6 @@ const checkAndShowNotices = () => {
   // 如果有token，检查未读公告
   if (token) {
     setTimeout(() => {
-      console.log(noticePopupRef.value)
       noticePopupRef.value?.open()
     }, 1000) // 延迟1秒显示，让页面先加载完成
   }

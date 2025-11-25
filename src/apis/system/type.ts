@@ -295,12 +295,17 @@ export interface ClientResp {
   activeTimeout: string
   timeout: string
   status: string
+  isConcurrent: boolean
+  maxLoginCount: number
+  replacedRange: string
+  overflowLogoutMode: string
   createUser: string
   createTime: string
   updateUser: string
   updateTime: string
   createUserString: string
   updateUserString: string
+  disabled: boolean
 }
 export interface ClientDetailResp {
   id: string
@@ -309,7 +314,11 @@ export interface ClientDetailResp {
   authType: string
   activeTimeout: string
   timeout: string
-  status: string
+  status: number
+  isConcurrent: boolean
+  maxLoginCount: number
+  replacedRange: string
+  overflowLogoutMode: string
   createUser: string
   createTime: string
   updateUser: string

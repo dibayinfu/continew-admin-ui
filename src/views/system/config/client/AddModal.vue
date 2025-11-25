@@ -32,15 +32,31 @@ const visible = ref(false)
 const isUpdate = computed(() => !!dataId.value)
 const title = computed(() => (isUpdate.value ? '修改客户端' : '新增客户端'))
 const formRef = ref<InstanceType<typeof GiForm>>()
-const { client_type, auth_type_enum } = useDict('auth_type_enum', 'client_type')
+const { client_type, auth_type_enum, replaced_range_enum, logout_mode_enum } = useDict('auth_type_enum', 'client_type', 'replaced_range_enum', 'logout_mode_enum')
 
 const [form, resetForm] = useResetReactive({
   activeTimeout: 1800,
   timeout: 86400,
-  isConcurrent: 1,
-  isShare: 1,
+  isConcurrent: true,
+  maxLoginCount: -1,
+  replacedRange: 'ALL_DEVICE_TYPE',
+  overflowLogoutMode: 'KICKOUT',
   status: 1,
 })
+
+// 监听 isConcurrent 的变化，处理字段互斥逻辑
+watch(
+  () => form.isConcurrent,
+  (newVal) => {
+    if (!newVal) {
+      form.maxLoginCount = -1
+      // replacedRange 只有在 isConcurrent=false 时才有意义
+    } else if (newVal) {
+      // 当 isConcurrent=true 时，清空 maxLoginCount
+      form.maxLoginCount = -1
+    }
+  },
+)
 
 const columns: ColumnItem[] = reactive([
   {
@@ -87,7 +103,7 @@ const columns: ColumnItem[] = reactive([
   {
     label: () => (
       <a-tooltip content="-1 代表永不过期">
-        Token 有效期&nbsp;
+        Token 有效期
         <icon-question-circle />
       </a-tooltip>
     ),
@@ -103,6 +119,75 @@ const columns: ColumnItem[] = reactive([
       placeholder: '请输入 Token 有效期',
     },
     rules: [{ required: true, message: '请输入 Token 有效期' }],
+  },
+  {
+    label: '是否允许同一账号多地同时登录',
+    field: 'isConcurrent',
+    type: 'switch',
+    span: 12,
+    props: {
+      type: 'round',
+      checkedValue: true,
+      uncheckedValue: false,
+      checkedText: '允许',
+      uncheckedText: '不允许',
+    },
+  },
+  {
+    label: () => (
+      <a-tooltip content="-1 代表不限">
+        最大登录数量
+        <icon-question-circle />
+      </a-tooltip>
+    ),
+    field: 'maxLoginCount',
+    type: 'input-number',
+    span: 12,
+    slots: {
+      append: () => (
+        <span style={{ width: '80px', textAlign: 'center' }}>个</span>
+      ),
+    },
+    props: {
+      placeholder: '请输入最大登录数量',
+      min: -1,
+    },
+    disabled: () => {
+      return !form.isConcurrent
+    },
+    rules: [
+      {
+        validator: (value: number, callback: (errorMessage?: string) => void) => {
+          if (value === 0) {
+            callback('最大登录数量不能为0，请输入-1或正整数')
+          }
+          callback()
+        },
+      },
+    ],
+  },
+  {
+    label: '顶人下线的范围',
+    field: 'replacedRange',
+    type: 'select',
+    span: 12,
+    props: {
+      options: replaced_range_enum,
+      placeholder: '请选择顶人下线的范围',
+    },
+    disabled: () => {
+      return form.isConcurrent
+    },
+  },
+  {
+    label: '溢出人数的注销方式',
+    field: 'overflowLogoutMode',
+    type: 'select',
+    span: 12,
+    props: {
+      options: logout_mode_enum,
+      placeholder: '请选择溢出人数的注销方式',
+    },
   },
   {
     label: '状态',

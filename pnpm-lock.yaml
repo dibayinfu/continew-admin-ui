@@ -8,9 +8,6 @@ importers:
 
   .:
     dependencies:
-      '@amap/amap-jsapi-loader':
-        specifier: ^1.0.1
-        version: 1.0.1
       '@arco-design/color':
         specifier: ^0.4.0
         version: 0.4.0
@@ -32,18 +29,6 @@ importers:
       '@visactor/vchart':
         specifier: ^2.0.22
         version: 2.0.22
-      '@vue-office/docx':
-        specifier: 1.6.0
-        version: 1.6.0(vue-demi@0.14.10(vue@3.5.12(typescript@5.0.4)))(vue@3.5.12(typescript@5.0.4))
-      '@vue-office/excel':
-        specifier: 1.7.1
-        version: 1.7.1(vue-demi@0.14.10(vue@3.5.12(typescript@5.0.4)))(vue@3.5.12(typescript@5.0.4))
-      '@vue-office/pdf':
-        specifier: 1.6.4
-        version: 1.6.4(vue-demi@0.14.10(vue@3.5.12(typescript@5.0.4)))(vue@3.5.12(typescript@5.0.4))
-      '@vueuse/components':
-        specifier: ^10.5.0
-        version: 10.9.0(vue@3.5.12(typescript@5.0.4))
       '@vueuse/core':
         specifier: ^10.5.0
         version: 10.9.0(vue@3.5.12(typescript@5.0.4))
@@ -56,9 +41,6 @@ importers:
       axios:
         specifier: ^0.27.2
         version: 0.27.2
-      codemirror:
-        specifier: ^6.0.1
-        version: 6.0.1(@lezer/common@1.2.1)
       cron-parser:
         specifier: ^4.9.0
         version: 4.9.0
@@ -128,9 +110,6 @@ importers:
       vue-cropper:
         specifier: ^1.1.1
         version: 1.1.3
-      vue-demi:
-        specifier: ^0.14.10
-        version: 0.14.10(vue@3.5.12(typescript@5.0.4))
       vue-draggable-plus:
         specifier: ^0.3.5
         version: 0.3.5(@types/sortablejs@1.15.8)
@@ -171,9 +150,6 @@ importers:
       '@types/node':
         specifier: ^20.2.5
         version: 20.12.12
-      '@types/query-string':
-        specifier: ^6.3.0
-        version: 6.3.0
       '@types/spark-md5':
         specifier: ^3.0.5
         version: 3.0.5
@@ -233,9 +209,6 @@ importers:
         version: 2.0.19(typescript@5.0.4)
 
 packages:
-
-  '@amap/amap-jsapi-loader@1.0.1':
-    resolution: {integrity: sha512-nPyLKt7Ow/ThHLkSvn2etQlUzqxmTVgK7bIgwdBRTg2HK5668oN7xVxkaiRe3YZEzGzfV2XgH5Jmu2T73ljejw==}
 
   '@ampproject/remapping@2.3.0':
     resolution: {integrity: sha512-30iZtAPgz+LTIYoeivqYo853f02jBYSd5uGnGpkFV0M3xOt9aN73erkgYAmZU43x4VfqcnLxW9Kpg3R5LC4YYw==}
@@ -1312,10 +1285,6 @@ packages:
   '@types/normalize-package-data@2.4.4':
     resolution: {integrity: sha512-37i+OaWTh9qeK4LSHPsyRC7NahnGotNuZvjLSgcPzblpHB3rrCJxAOgI5gCdKm7coonsaX1Of0ILiTcnZjbfxA==}
 
-  '@types/query-string@6.3.0':
-    resolution: {integrity: sha512-yuIv/WRffRzL7cBW+sla4HwBZrEXRNf1MKQ5SklPEadth+BKbDxiVG8A3iISN5B3yC4EeSCzMZP8llHTcUhOzQ==}
-    deprecated: This is a stub types definition. query-string provides its own type definitions, so you do not need this installed.
-
   '@types/sortablejs@1.15.8':
     resolution: {integrity: sha512-b79830lW+RZfwaztgs1aVPgbasJ8e7AXtZYHTELNXZPsERt4ymJdjV4OccDbHQAvHrCcFpbF78jkm0R6h/pZVg==}
 
@@ -1442,36 +1411,6 @@ packages:
   '@volar/typescript@2.2.5':
     resolution: {integrity: sha512-eSV/n75+ppfEVugMC/salZsI44nXDPAyL6+iTYCNLtiLHGJsnMv9GwiDMujrvAUj/aLQyqRJgYtXRoxop2clCw==}
 
-  '@vue-office/docx@1.6.0':
-    resolution: {integrity: sha512-OKEapOPq223uszA8mRSOWPhdfBchJa6sIqP46eMrMMe5RSUrG9m3QE/o0JBIaMgxDrtNd7aI9CvF2kDvb7G2hw==}
-    peerDependencies:
-      '@vue/composition-api': ^1.7.1
-      vue: ^2.0.0 || >=3.0.0
-      vue-demi: ^0.14.6
-    peerDependenciesMeta:
-      '@vue/composition-api':
-        optional: true
-
-  '@vue-office/excel@1.7.1':
-    resolution: {integrity: sha512-VkaW9pWul+Ui8S2bkdMdZ5tsmaLpk0FN2G7X9b3MbQqHwP8tQMN0XSVi+E5jDkqXWl+dbF2iLVuz/1ZeAcif/A==}
-    peerDependencies:
-      '@vue/composition-api': ^1.7.1
-      vue: ^2.0.0 || >=3.0.0
-      vue-demi: ^0.14.6
-    peerDependenciesMeta:
-      '@vue/composition-api':
-        optional: true
-
-  '@vue-office/pdf@1.6.4':
-    resolution: {integrity: sha512-wY+M62IWqST2KAjtHrRgvvVN48JSjlWfkugpmlfJmuv8CtmwrD8uAFDWQARK+73kW7X8yG7YZtRmYx8k16X7+g==}
-    peerDependencies:
-      '@vue/composition-api': ^1.7.1
-      vue: ^2.0.0 || >=3.0.0
-      vue-demi: ^0.14.6
-    peerDependenciesMeta:
-      '@vue/composition-api':
-        optional: true
-
   '@vue/babel-helper-vue-transform-on@1.2.2':
     resolution: {integrity: sha512-nOttamHUR3YzdEqdM/XXDyCSdxMA9VizUKoroLX6yTyRtggzQMHXcmwh8a7ZErcJttIBIc9s68a1B8GZ+Dmvsw==}
 
@@ -1561,9 +1500,6 @@ packages:
     peerDependenciesMeta:
       '@types/node':
         optional: true
-
-  '@vueuse/components@10.9.0':
-    resolution: {integrity: sha512-BHQpA0yIi3y7zKa1gYD0FUzLLkcRTqVhP8smnvsCK6GFpd94Nziq1XVPD7YpFeho0k5BzbBiNZF7V/DpkJ967A==}
 
   '@vueuse/core@10.9.0':
     resolution: {integrity: sha512-/1vjTol8SXnx6xewDEKfS0Ra//ncg4Hb0DaZiwKf7drgfMsKFExQ+FnnENcN6efPen+1kIzhLQoGSy0eDUVOMg==}
@@ -2571,6 +2507,7 @@ packages:
   eslint-plugin-markdown@5.0.0:
     resolution: {integrity: sha512-kY2u9yDhzvfZ0kmRTsvgm3mTnvZgTSGIIPeHg3yesSx4R5CTCnITUjCPhzCD1MUhNcqHU5Tr6lzx+02EclVPbw==}
     engines: {node: ^18.18.0 || ^20.9.0 || >=21.1.0}
+    deprecated: Please use @eslint/markdown instead
     peerDependencies:
       eslint: '>=8'
 
@@ -5100,8 +5037,6 @@ packages:
 
 snapshots:
 
-  '@amap/amap-jsapi-loader@1.0.1': {}
-
   '@ampproject/remapping@2.3.0':
     dependencies:
       '@jridgewell/gen-mapping': 0.3.5
@@ -6184,10 +6119,6 @@ snapshots:
 
   '@types/normalize-package-data@2.4.4': {}
 
-  '@types/query-string@6.3.0':
-    dependencies:
-      query-string: 9.0.0
-
   '@types/sortablejs@1.15.8': {}
 
   '@types/spark-md5@3.0.5': {}
@@ -6391,21 +6322,6 @@ snapshots:
       '@volar/language-core': 2.2.5
       path-browserify: 1.0.1
 
-  '@vue-office/docx@1.6.0(vue-demi@0.14.10(vue@3.5.12(typescript@5.0.4)))(vue@3.5.12(typescript@5.0.4))':
-    dependencies:
-      vue: 3.5.12(typescript@5.0.4)
-      vue-demi: 0.14.10(vue@3.5.12(typescript@5.0.4))
-
-  '@vue-office/excel@1.7.1(vue-demi@0.14.10(vue@3.5.12(typescript@5.0.4)))(vue@3.5.12(typescript@5.0.4))':
-    dependencies:
-      vue: 3.5.12(typescript@5.0.4)
-      vue-demi: 0.14.10(vue@3.5.12(typescript@5.0.4))
-
-  '@vue-office/pdf@1.6.4(vue-demi@0.14.10(vue@3.5.12(typescript@5.0.4)))(vue@3.5.12(typescript@5.0.4))':
-    dependencies:
-      vue: 3.5.12(typescript@5.0.4)
-      vue-demi: 0.14.10(vue@3.5.12(typescript@5.0.4))
-
   '@vue/babel-helper-vue-transform-on@1.2.2': {}
 
   '@vue/babel-plugin-jsx@1.2.2(@babel/core@7.24.5)':
@@ -6563,15 +6479,6 @@ snapshots:
   '@vue/tsconfig@0.1.3(@types/node@20.12.12)':
     optionalDependencies:
       '@types/node': 20.12.12
-
-  '@vueuse/components@10.9.0(vue@3.5.12(typescript@5.0.4))':
-    dependencies:
-      '@vueuse/core': 10.9.0(vue@3.5.12(typescript@5.0.4))
-      '@vueuse/shared': 10.9.0(vue@3.5.12(typescript@5.0.4))
-      vue-demi: 0.14.10(vue@3.5.12(typescript@5.0.4))
-    transitivePeerDependencies:
-      - '@vue/composition-api'
-      - vue
 
   '@vueuse/core@10.9.0(vue@3.5.12(typescript@5.0.4))':
     dependencies:

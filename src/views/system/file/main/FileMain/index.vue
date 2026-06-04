@@ -114,7 +114,6 @@
 
       <a-empty v-if="!fileList.length" />
     </a-spin>
-    <FilePreview ref="filePreviewRef" />
     <div class="pagination">
       <a-pagination v-bind="pagination" />
     </div>
@@ -148,9 +147,6 @@ import { ImageTypes, OfficeTypes } from '@/constant/file'
 import 'viewerjs/dist/viewer.css'
 import { downloadByUrl } from '@/utils/downloadFile'
 import mittBus from '@/utils/mitt'
-import type { ExcelConfig } from '@/components/FilePreview/type'
-
-const FilePreview = defineAsyncComponent(() => import('@/components/FilePreview/index.vue'))
 
 const FileList = defineAsyncComponent(() => import('./FileList.vue'))
 const route = useRoute()
@@ -174,7 +170,6 @@ const {
   pagination,
   search,
 } = useTable((page) => listFile({ ...queryForm, ...page }), { immediate: false, paginationOption })
-const filePreviewRef = ref()
 
 const pathNameMap = ref<Map<string, string>>(new Map())
 
@@ -195,23 +190,7 @@ const handleClickFile = (item: FileItem) => {
     }
   }
   if (OfficeTypes.includes(item.extension)) {
-    const excelConfig: ExcelConfig = {
-      xls: item.extension === 'xls',
-      minColLength: 0,
-      minRowLength: 0,
-      widthOffset: 10,
-      heightOffset: 10,
-      beforeTransformData: (workbookData) => {
-        return workbookData
-      },
-      transformData: (workbookData) => {
-        return workbookData
-      },
-    }
-    filePreviewRef.value.onPreview({
-      fileInfo: { data: item.url, fileName: item.originalName, fileType: item.extension },
-      excelConfig,
-    })
+    item.url && downloadByUrl({ url: item.url, target: '_blank', fileName: item.originalName })
   }
   if (item.extension === 'mp4') {
     previewFileVideoModal(item)

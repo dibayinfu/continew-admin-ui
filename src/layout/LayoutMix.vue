@@ -10,7 +10,11 @@
       :style="appStore.menuDark ? appStore.themeCSSVar : undefined"
     >
       <Logo :collapsed="appStore.menuCollapse" />
-      <Menu :menus="twoLevelMenus" :menu-style="{ flex: 1 }" />
+      <div class="layout-mix-menu-scroll">
+        <a-scrollbar style="height: 100%; overflow: auto" :outer-style="{ height: '100%' }">
+          <Menu :menus="twoLevelMenus" :menu-style="{ width: '100%' }" />
+        </a-scrollbar>
+      </div>
       <WwAds class="ads" />
     </section>
 
@@ -56,6 +60,7 @@ import { getToken } from '@/utils/auth'
 
 import WwAds from '@/layout/components/WwAds.vue'
 import NoticePopup from '@/views/user/message/components/NoticePopup.vue'
+import { isPrototypeMode } from '@/utils/prototype'
 
 /** 组件名称 */
 defineOptions({ name: 'LayoutMix' })
@@ -78,6 +83,7 @@ const noticePopupRef = ref<InstanceType<typeof NoticePopup>>()
 
 // 检查并显示未读公告
 const checkAndShowNotices = () => {
+  if (isPrototypeMode) return
   const token = getToken()
 
   // 如果有token，检查未读公告
@@ -140,9 +146,16 @@ onMounted(() => {
   &-left {
     display: flex;
     flex-direction: column;
+    min-height: 0;
     overflow: hidden;
     background-color: var(--color-bg-1);
     border-right: 1px solid var(--color-border);
+  }
+
+  &-menu-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
   }
 
   &-right {

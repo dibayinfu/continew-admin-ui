@@ -40,6 +40,7 @@ import { useLevelMenu } from '@/layout/hooks/useLevelMenu'
 import { useDevice } from '@/hooks'
 import NoticePopup from '@/views/user/message/components/NoticePopup.vue'
 import { getToken } from '@/utils/auth'
+import { isPrototypeMode } from '@/utils/prototype'
 
 defineOptions({ name: 'LayoutColumns' })
 
@@ -59,6 +60,7 @@ const noticePopupRef = ref<InstanceType<typeof NoticePopup>>()
 
 // 检查并显示未读公告
 const checkAndShowNotices = () => {
+  if (isPrototypeMode) return
   const token = getToken()
 
   // 如果有token，检查未读公告
@@ -90,6 +92,7 @@ onMounted(() => {
   &__right-menu {
     display: flex;
     flex-direction: column;
+    min-height: 0;
     overflow: hidden;
     background-color: var(--color-bg-1);
     width: 200px;
@@ -138,6 +141,7 @@ onMounted(() => {
   }
   &__menu {
     flex: 1;
+    min-height: 0;
     overflow: auto;
     border-right: 1px solid var(--color-border-2);
     transition: all 0.3s ease-in-out;

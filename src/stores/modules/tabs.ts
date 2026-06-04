@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { type RouteLocationNormalized, type RouteRecordName, useRouter } from 'vue-router'
 import _XEUtils_ from 'xe-utils'
 import { useRouteStore } from '@/stores'
+import { isPrototypeMode } from '@/utils/prototype'
 
 const storeSetup = () => {
   const router = useRouter()
@@ -169,4 +170,4 @@ const storeSetup = () => {
   }
 }
 
-export const useTabsStore = defineStore('tabs', storeSetup, { persist: { storage: sessionStorage } })
+export const useTabsStore = defineStore('tabs', storeSetup, { persist: isPrototypeMode ? false : { storage: sessionStorage } })

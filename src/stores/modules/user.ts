@@ -17,6 +17,7 @@ import {
 } from '@/apis'
 import { clearToken, getToken, setToken } from '@/utils/auth'
 import { resetHasRouteFlag } from '@/router/guard'
+import { isPrototypeMode, prototypeToken, prototypeUserInfo } from '@/utils/prototype'
 
 const storeSetup = () => {
   const tenantStore = useTenantStore()
@@ -53,6 +54,14 @@ const storeSetup = () => {
 
   // 登录
   const accountLogin = async (req: AccountLoginReq, tenantCode?: string) => {
+    if (isPrototypeMode) {
+      setToken(prototypeToken)
+      token.value = prototypeToken
+      Object.assign(userInfo, prototypeUserInfo)
+      roles.value = prototypeUserInfo.roles
+      permissions.value = prototypeUserInfo.permissions
+      return
+    }
     const res = await accountLoginApi({ ...req, clientId: import.meta.env.VITE_CLIENT_ID, authType: AuthTypeConstants.ACCOUNT }, tenantCode)
     setToken(res.data.token)
     tenantStore.setTenantId(res.data.tenantId)
@@ -95,6 +104,10 @@ const storeSetup = () => {
 
   // 退出登录
   const logout = async () => {
+    if (isPrototypeMode) {
+      await logoutCallBack()
+      return true
+    }
     try {
       await logoutApi()
       await logoutCallBack()
@@ -106,6 +119,12 @@ const storeSetup = () => {
 
   // 获取用户信息
   const getInfo = async () => {
+    if (isPrototypeMode) {
+      Object.assign(userInfo, prototypeUserInfo)
+      roles.value = prototypeUserInfo.roles
+      permissions.value = prototypeUserInfo.permissions
+      return
+    }
     const res = await getUserInfoApi()
     Object.assign(userInfo, res.data)
     userInfo.avatar = res.data.avatar

@@ -19,8 +19,8 @@
         :content-style="{ marginTop: '-5px', padding: 0, border: 'none' }"
         :arrow-style="{ width: 0, height: 0 }"
       >
-        <a-badge :count="unreadMessageCount" dot>
-          <a-button size="mini" class="gi_hover_btn">
+        <a-badge :count="displayUnreadCount" dot>
+          <a-button size="mini" class="gi_hover_btn" :class="{ 'alarm-blink': sanitationUnreadCount > 0 }">
             <template #icon>
               <icon-notification :size="18" />
             </template>
@@ -76,13 +76,15 @@
 <script setup lang="ts">
 import { Modal } from '@arco-design/web-vue'
 import { useFullscreen } from '@vueuse/core'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import Message from './Message.vue'
 import SettingDrawer from './SettingDrawer.vue'
 import Search from './Search.vue'
 import { getUnreadMessageCount } from '@/apis'
+import { sanitationAlarms } from '@/views/sanitation/data/alert-task'
 import { useUserStore } from '@/stores'
 import { getToken } from '@/utils/auth'
+import { isPrototypeMode } from '@/utils/prototype'
 import { useBreakpoint, useDevice } from '@/hooks'
 
 defineOptions({ name: 'HeaderRight' })
@@ -97,6 +99,8 @@ onBeforeUnmount(() => {
 })
 
 const unreadMessageCount = ref(0)
+const sanitationUnreadCount = computed(() => sanitationAlarms.filter((item) => item.readStatus === '未读').length)
+const displayUnreadCount = computed(() => unreadMessageCount.value + sanitationUnreadCount.value)
 // 初始化 WebSocket
 const initWebSocket = (token: string) => {
   socket = new WebSocket(`${import.meta.env.VITE_API_WS_URL}/websocket?token=${token}`)
@@ -122,7 +126,7 @@ const getMessageCount = async () => {
   const { data } = await getUnreadMessageCount()
   unreadMessageCount.value = data.total
   const token = getToken()
-  if (token) {
+  if (token && !isPrototypeMode) {
     initWebSocket(token)
   }
 }
@@ -174,6 +178,20 @@ onMounted(() => {
   .arco-icon-down {
     transition: all 0.3s;
     margin-left: 2px;
+  }
+}
+
+.alarm-blink {
+  color: rgb(var(--red-6));
+  animation: alarmBlink 1s ease-in-out infinite;
+}
+
+@keyframes alarmBlink {
+  0%, 100% {
+    background: rgba(var(--red-1), 0.65);
+  }
+  50% {
+    background: rgba(var(--red-3), 0.95);
   }
 }
 </style>

@@ -3,6 +3,7 @@ import { computed, reactive, toRefs } from 'vue'
 import { generate, getRgbStr } from '@arco-design/color'
 import { type BasicConfig, listSiteOptionDict } from '@/apis/system'
 import { getSettings } from '@/config/setting'
+import { isPrototypeMode } from '@/utils/prototype'
 
 const storeSetup = () => {
   // App配置
@@ -58,6 +59,16 @@ const storeSetup = () => {
   const siteConfig = reactive({}) as BasicConfig
   // 初始化系统配置
   const initSiteConfig = () => {
+    if (isPrototypeMode) {
+      setSiteConfig({
+        SITE_FAVICON: '/favicon.ico',
+        SITE_LOGO: '/static/images/logo.png',
+        SITE_TITLE: '智慧环卫产品原型',
+        SITE_COPYRIGHT: '智慧环卫运营管理平台',
+        SITE_BEIAN: '',
+      })
+      return
+    }
     listSiteOptionDict().then((res) => {
       const resMap = new Map()
       res.data.forEach((item) => {

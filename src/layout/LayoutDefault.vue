@@ -24,6 +24,7 @@ import NoticePopup from '@/views/user/message/components/NoticePopup.vue'
 import { useAppStore } from '@/stores'
 import { useDevice } from '@/hooks'
 import { getToken } from '@/utils/auth'
+import { isPrototypeMode } from '@/utils/prototype'
 
 defineOptions({ name: 'LayoutDefault' })
 const appStore = useAppStore()
@@ -34,6 +35,7 @@ const noticePopupRef = ref<InstanceType<typeof NoticePopup>>()
 
 // 检查并显示未读公告
 const checkAndShowNotices = () => {
+  if (isPrototypeMode) return
   const token = getToken()
 
   // 如果有token，检查未读公告

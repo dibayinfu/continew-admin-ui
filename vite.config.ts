@@ -30,16 +30,18 @@ export default defineConfig(({ command, mode }) => {
     },
     server: {
       // 服务启动时是否自动打开浏览器
-      open: true,
+      open: env.VITE_OPEN_DEVTOOLS === 'true',
       // 本地跨域代理 -> 代理到服务器的接口地址
-      proxy: {
-        [env.VITE_API_PREFIX]: {
-          target: env.VITE_API_BASE_URL, // 后台服务器地址
-          changeOrigin: true, // 是否允许不同源
-          secure: false, // 支持https
-          rewrite: (path) => path.replace(new RegExp(`^${env.VITE_API_PREFIX}`), ''),
-        },
-      },
+      proxy: env.VITE_API_BASE_URL
+        ? {
+            [env.VITE_API_PREFIX]: {
+              target: env.VITE_API_BASE_URL, // 后台服务器地址
+              changeOrigin: true, // 是否允许不同源
+              secure: false, // 支持https
+              rewrite: (path) => path.replace(new RegExp(`^${env.VITE_API_PREFIX}`), ''),
+            },
+          }
+        : undefined,
     },
     plugins: createVitePlugins(env, command === 'build'),
     // 构建

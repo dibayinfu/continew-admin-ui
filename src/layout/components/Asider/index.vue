@@ -8,9 +8,11 @@
       :collapsed="appStore.menuCollapse" @collapse="handleCollapse"
     >
       <Logo :collapsed="appStore.menuCollapse"></Logo>
-      <a-scrollbar outer-class="menu-scroll-view" style="height: 100%; overflow: auto">
-        <Menu></Menu>
-      </a-scrollbar>
+      <div class="menu-scroll-view">
+        <a-scrollbar style="height: 100%; overflow: auto" :outer-style="{ height: '100%' }">
+          <Menu></Menu>
+        </a-scrollbar>
+      </div>
       <WwAds class="ads" />
     </a-layout-sider>
   </div>
@@ -55,6 +57,7 @@ const handleCollapse = (isCollapsed: boolean) => {
   overflow: hidden;
   display: flex;
   flex-direction: column;
+  min-height: 0;
 }
 
 .asider {
@@ -68,7 +71,9 @@ const handleCollapse = (isCollapsed: boolean) => {
 
   .menu-scroll-view {
     flex: 1;
-    overflow: hidden;
+    min-height: 0;
+    overflow-y: hidden;
+    overflow-x: hidden;
   }
 
   .menu {

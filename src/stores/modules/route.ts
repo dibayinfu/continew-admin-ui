@@ -7,6 +7,7 @@ import { constantRoutes, systemRoutes } from '@/router/route'
 import { type RouteItem, getUserRoute } from '@/apis'
 import { transformPathToName } from '@/utils'
 import { asyncRouteModules } from '@/router/asyncModules'
+import { isPrototypeMode } from '@/utils/prototype'
 
 const layoutComponentMap = {
   Layout: () => import('@/layout/index.vue'),
@@ -80,6 +81,10 @@ const storeSetup = () => {
   // 动态路由(异步路由)
   const asyncRoutes = ref<RouteRecordRaw[]>([])
 
+  const getPrototypeRoutes = () => {
+    return systemRoutes.filter((route) => ['/login', '/pwdExpired', '/social/callback', '/user', '/sanitation'].includes(route.path))
+  }
+
   // 合并路由
   const setRoutes = (data: RouteRecordRaw[]) => {
     // 合并路由并排序
@@ -90,10 +95,16 @@ const storeSetup = () => {
 
   // 生成路由
   const generateRoutes = async (): Promise<RouteRecordRaw[]> => {
+    if (isPrototypeMode) {
+      routes.value = [...constantRoutes, ...getPrototypeRoutes()]
+        .sort((a, b) => (a.meta?.sort ?? 0) - (b.meta?.sort ?? 0))
+      asyncRoutes.value = []
+      return []
+    }
     const { data } = await getUserRoute()
-    const asyncRoutes = formatAsyncRoutes(data)
-    const flatRoutes = flatMultiLevelRoutes(cloneDeep(asyncRoutes))
-    setRoutes(asyncRoutes)
+    const formattedRoutes = formatAsyncRoutes(data)
+    const flatRoutes = flatMultiLevelRoutes(cloneDeep(formattedRoutes))
+    setRoutes(formattedRoutes)
     return flatRoutes
   }
 
@@ -104,4 +115,4 @@ const storeSetup = () => {
   }
 }
 
-export const useRouteStore = defineStore('route', storeSetup, { persist: true })
+export const useRouteStore = defineStore('route', storeSetup, { persist: !isPrototypeMode })

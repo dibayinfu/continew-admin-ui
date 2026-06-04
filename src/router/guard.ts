@@ -2,8 +2,9 @@ import { Button, Message, Notification, Space } from '@arco-design/web-vue'
 import NProgress from 'nprogress'
 import type { Router } from 'vue-router'
 import { useRouteStore, useUserStore } from '@/stores'
-import { getToken } from '@/utils/auth'
+import { getToken, setToken } from '@/utils/auth'
 import { isHttp } from '@/utils/validate'
+import { isPrototypeMode, prototypeHomePath, prototypeToken } from '@/utils/prototype'
 import 'nprogress/nprogress.css'
 import { setRouteEmitter } from '@/hooks'
 
@@ -83,13 +84,20 @@ export const resetHasRouteFlag = () => {
 export const setupRouterGuard = (router: Router) => {
   router.beforeEach(async (to, from, next) => {
     NProgress.start()
+    if (isPrototypeMode && !getToken()) {
+      setToken(prototypeToken)
+    }
     const userStore = useUserStore()
     const routeStore = useRouteStore()
+    if (isPrototypeMode && ['/', '/dashboard/workplace', '/dashboard/analysis'].includes(to.path)) {
+      next(prototypeHomePath)
+      return
+    }
     // 判断该用户是否登录
     if (getToken()) {
       if (to.path === '/login') {
         // 如果已经登录，并准备进入 Login 页面，则重定向到主页
-        next()
+        next(isPrototypeMode ? prototypeHomePath : undefined)
       } else {
         if (!hasRouteFlag) {
           try {

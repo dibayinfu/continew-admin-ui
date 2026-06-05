@@ -148,47 +148,90 @@
     </a-drawer>
 
     <!-- 任务单详情抽屉（含地图轨迹，仅全部任务单使用） -->
-    <a-drawer v-model:visible="taskDrawerVisible" title="全部任务单详情" :width="520" unmount-on-close>
+    <a-drawer v-model:visible="taskDrawerVisible" title="全部任务单详情" :width="760" unmount-on-close>
       <template v-if="detailTask">
-        <div class="task-detail-section">
-          <div class="section-title">收运轨迹</div>
-          <div class="route-map">
-            <svg viewBox="0 0 100 80" preserveAspectRatio="none">
-              <polyline :points="detailTask.track.map((item: any) => `${item.x},${item.y}`).join(' ')" fill="none" stroke="rgba(22, 93, 255, 0.28)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
-            </svg>
-            <div v-for="point in detailTask.track" :key="point.label" class="map-point" :class="{ done: point.done }" :style="{ left: `${point.x}%`, top: `${point.y}%` }">
-              <span></span>
-              <b>{{ point.label }}</b>
+        <div class="task-detail-hero">
+          <div>
+            <div class="task-detail-title">{{ detailTask.taskName }}</div>
+            <div class="task-detail-sub">
+              {{ detailTask.id }} · {{ detailTask.vehicle }} · {{ detailTask.driver }}
             </div>
           </div>
-          <div class="map-weight" v-if="detailTask.weight">⚖️ 称重：<b>{{ detailTask.weight }}t</b></div>
+          <a-space :size="6">
+            <StatusTag :value="detailTask.collectionStatus" />
+            <StatusTag :value="detailTask.overtimeStatus" />
+            <StatusTag :value="detailTask.priority" />
+          </a-space>
         </div>
-        <a-divider />
+
+        <div class="task-detail-route">
+          <div class="route-node">
+            <span>始发点</span>
+            <b>{{ detailTask.startAddress }}</b>
+            <em>{{ getStartFenceText(detailTask) }}</em>
+          </div>
+          <div class="route-arrow">→</div>
+          <div class="route-node">
+            <span>目的地</span>
+            <b>{{ detailTask.destinationName }}</b>
+            <em>{{ getDestFenceText(detailTask) }}</em>
+          </div>
+        </div>
+
+        <div class="task-kpi-grid">
+          <div>
+            <span>当前进度</span>
+            <b>{{ detailTask.currentStep }}</b>
+          </div>
+          <div>
+            <span>时效</span>
+            <b :class="{ overtime: detailTask.overtimeStatus === '已超时' }">{{ detailTask.durationText || '待开始' }}</b>
+            <em>要求 {{ detailTask.slaMinutes }} 分钟内</em>
+          </div>
+          <div>
+            <span>称重</span>
+            <b>{{ detailTask.weight ? `${detailTask.weight} t` : '-' }}</b>
+            <em>{{ detailTask.boxType === '小勾臂箱' ? '收集点垃圾量' : '转运箱重量' }}</em>
+          </div>
+          <div>
+            <span>作业规则</span>
+            <b>{{ getRouteRuleText(detailTask) }}</b>
+          </div>
+        </div>
+
         <div class="task-detail-section">
-          <div class="section-title">任务信息</div>
+          <div class="section-title">轨迹与围栏</div>
+          <TaskTrackMap :track="detailTask.track" :weight="detailTask.weight" />
+        </div>
+
+        <div class="task-detail-section">
+          <div class="section-title">关键事件</div>
+          <a-timeline>
+            <a-timeline-item
+              v-for="point in getEventPoints(detailTask)"
+              :key="point.label"
+              :label="point.time"
+              :dot-color="point.done ? 'green' : 'gray'"
+            >
+              <b>{{ point.label }}</b>
+              <p>{{ point.address }}</p>
+              <p v-if="point.fenceRadius">电子围栏 {{ point.fenceRadius }}m</p>
+            </a-timeline-item>
+          </a-timeline>
+        </div>
+
+        <div class="task-detail-section">
+          <div class="section-title">辅助信息</div>
           <a-descriptions :column="1" bordered size="small">
-            <a-descriptions-item label="任务单号">{{ detailTask.id }}</a-descriptions-item>
-            <a-descriptions-item label="任务名称">{{ detailTask.taskName }}</a-descriptions-item>
-            <a-descriptions-item label="箱体名称">{{ detailTask.boxName }}</a-descriptions-item>
-            <a-descriptions-item label="箱体编号">{{ detailTask.boxNo }}</a-descriptions-item>
-            <a-descriptions-item label="箱体类型">{{ detailTask.boxType }}</a-descriptions-item>
+            <a-descriptions-item label="箱体">{{ detailTask.boxName }}（{{ detailTask.boxNo }}）</a-descriptions-item>
+            <a-descriptions-item label="箱体类型 / 任务类型">{{ detailTask.boxType }} / {{ detailTask.taskType }}</a-descriptions-item>
             <a-descriptions-item label="所属乡镇">{{ detailTask.town }}</a-descriptions-item>
-            <a-descriptions-item label="起点地址">{{ detailTask.startAddress }}</a-descriptions-item>
-            <a-descriptions-item label="目的地">{{ detailTask.destinationName }}</a-descriptions-item>
             <a-descriptions-item label="目的地地址">{{ detailTask.destinationAddress }}</a-descriptions-item>
-            <a-descriptions-item label="驾驶员">{{ detailTask.driver }}</a-descriptions-item>
-            <a-descriptions-item label="联系电话">{{ detailTask.driverPhone }}</a-descriptions-item>
             <a-descriptions-item label="车辆">{{ detailTask.vehicle }}（{{ detailTask.vehicleType }}）</a-descriptions-item>
-            <a-descriptions-item label="优先级">{{ detailTask.priority }}</a-descriptions-item>
-            <a-descriptions-item label="时效要求">{{ detailTask.slaMinutes }} 分钟</a-descriptions-item>
-            <a-descriptions-item label="收运状态"><StatusTag :value="detailTask.collectionStatus" /></a-descriptions-item>
-            <a-descriptions-item label="超时状态"><StatusTag :value="detailTask.overtimeStatus" /></a-descriptions-item>
-            <a-descriptions-item label="实际耗时">{{ detailTask.durationText }}</a-descriptions-item>
-            <a-descriptions-item label="称重">{{ detailTask.weight || '-' }}</a-descriptions-item>
-            <a-descriptions-item label="创建时间">{{ detailTask.createTime }}</a-descriptions-item>
-            <a-descriptions-item label="接单时间">{{ detailTask.acceptTime || '-' }}</a-descriptions-item>
-            <a-descriptions-item label="开始时间">{{ detailTask.startTime || '-' }}</a-descriptions-item>
-            <a-descriptions-item label="完成时间">{{ detailTask.finishTime || '-' }}</a-descriptions-item>
+            <a-descriptions-item label="驾驶员电话">{{ detailTask.driverPhone }}</a-descriptions-item>
+            <a-descriptions-item label="创建 / 接单">{{ detailTask.createTime }} / {{ detailTask.acceptTime || '-' }}</a-descriptions-item>
+            <a-descriptions-item label="装车 / 完成">{{ detailTask.startTime || '-' }} / {{ detailTask.finishTime || '-' }}</a-descriptions-item>
+            <a-descriptions-item label="来源告警">{{ detailTask.alarmId }}</a-descriptions-item>
           </a-descriptions>
         </div>
       </template>
@@ -312,9 +355,10 @@ import ModuleHeader from './ModuleHeader.vue'
 import MetricGrid from './MetricGrid.vue'
 import StatusTag from './StatusTag.vue'
 import MapPicker from './MapPicker.vue'
+import TaskTrackMap from './TaskTrackMap.vue'
 import type { PrototypePageConfig } from '../data/pageConfigs'
 import { pageConfigs, peopleRows, smallBoxStatusConfig } from '../data/pageConfigs'
-import { collectionTasks } from '../data/alert-task'
+import { collectionTasks, type CollectionTask } from '../data/alert-task'
 // 直接引入省市数据，不走后端 API
 import areaData from '@/mock/_data/area'
 import type { MockAreaItem } from '@/mock/_data/_type'
@@ -418,6 +462,26 @@ const taskMetrics = computed(() => {
     { label: '垃圾量', value: weight.toFixed(1), unit: 't' },
   ]
 })
+
+function getEventPoints(task: CollectionTask) {
+  return task.track.filter((point) => point.label)
+}
+
+function getStartFenceText(task: CollectionTask) {
+  const startEvent = getEventPoints(task).find((point) => point.label === '始发点')
+  const startType = task.boxType === '小勾臂箱' ? '收集点' : '中转站'
+  return `${startType}围栏 ${startEvent?.fenceRadius || 500}m`
+}
+
+function getDestFenceText(task: CollectionTask) {
+  const destEvent = getEventPoints(task).find((point) => point.label === '目的地')
+  return `${task.destinationType}围栏 ${destEvent?.fenceRadius || 500}m`
+}
+
+function getRouteRuleText(task: CollectionTask) {
+  if (task.boxType === '小勾臂箱') return '收集点 500m 内装车，中转站 500m 内卸车'
+  return '中转站 500m 内装车，焚烧厂 1000m 内卸车'
+}
 
 // 车辆档案：驾驶员变动 → 自动带出类型和电话
 watch(() => formData.value.driver, (driverName: string | undefined) => {
@@ -990,7 +1054,6 @@ function onMapPickConfirm(data: { longitude: number; latitude: number }) {
   }
 }
 
-/* 任务单详情 - 地图轨迹 */
 .task-detail-section {
   margin-bottom: 16px;
 
@@ -1004,58 +1067,130 @@ function onMapPickConfirm(data: { longitude: number; latitude: number }) {
   }
 }
 
-.route-map {
-  position: relative;
-  width: 100%;
-  height: 240px;
+.task-detail-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px;
+  margin-bottom: 12px;
   background: var(--color-fill-1);
-  border-radius: 6px;
-  overflow: hidden;
-
-  svg {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-  }
+  border-radius: 4px;
 }
 
-.map-point {
-  position: absolute;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
+.task-detail-title {
+  margin-bottom: 6px;
+  color: var(--color-text-1);
+  font-size: 17px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.task-detail-sub {
+  color: var(--color-text-3);
+  font-size: 13px;
+}
+
+.task-detail-route {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px minmax(0, 1fr);
+  gap: 10px;
+  align-items: stretch;
+  margin-bottom: 12px;
+}
+
+.route-node {
+  padding: 12px;
+  background: var(--color-bg-2);
+  border: 1px solid var(--color-border-2);
+  border-radius: 4px;
 
   span {
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--color-fill-4);
-    border: 2px solid var(--color-text-4);
-  }
-
-  &.done span {
-    background: rgb(var(--green-6));
-    border-color: rgb(var(--green-6));
+    display: block;
+    margin-bottom: 6px;
+    color: var(--color-text-3);
+    font-size: 12px;
   }
 
   b {
-    font-size: 11px;
-    color: var(--color-text-3);
-    white-space: nowrap;
+    display: block;
+    color: var(--color-text-1);
+    line-height: 1.5;
+  }
+
+  em {
+    display: block;
+    margin-top: 6px;
+    color: var(--color-text-4);
+    font-size: 12px;
+    font-style: normal;
   }
 }
 
-.map-weight {
-  margin-top: 10px;
-  padding: 8px 14px;
-  background: rgba(var(--arcoblue-1), 0.4);
-  border-radius: 4px;
-  font-size: 14px;
+.route-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: rgb(var(--arcoblue-6));
+  font-size: 22px;
+  font-weight: 700;
+}
 
-  b { font-size: 16px; }
+.task-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+
+  div {
+    padding: 12px;
+    background: var(--color-fill-1);
+    border-radius: 4px;
+  }
+
+  span {
+    display: block;
+    margin-bottom: 7px;
+    color: var(--color-text-3);
+    font-size: 12px;
+  }
+
+  b {
+    display: block;
+    color: var(--color-text-1);
+    line-height: 1.5;
+  }
+
+  em {
+    display: block;
+    margin-top: 5px;
+    color: var(--color-text-4);
+    font-size: 12px;
+    font-style: normal;
+  }
+}
+
+.overtime {
+  color: rgb(var(--danger-6)) !important;
+}
+
+:deep(.arco-timeline-item-content) {
+  p {
+    margin: 6px 0 0;
+    color: var(--color-text-3);
+    font-size: 12px;
+  }
+}
+
+@media (max-width: 900px) {
+  .task-detail-route,
+  .task-kpi-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .route-arrow {
+    min-height: 24px;
+    transform: rotate(90deg);
+  }
 }
 </style>

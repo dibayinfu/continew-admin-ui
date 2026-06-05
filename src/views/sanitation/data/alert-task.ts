@@ -9,9 +9,11 @@ export interface TrackPoint {
   label: string
   address: string
   time: string
-  x: number
-  y: number
+  lng: number
+  lat: number
   done: boolean
+  eventType?: 'start' | 'load' | 'arrive' | 'unload'
+  fenceRadius?: number
 }
 
 export interface SanitationAlarm {
@@ -173,6 +175,48 @@ export const sanitationAlarms: SanitationAlarm[] = [
   },
 ]
 
+/**
+ * 生成两点之间的平滑插值点。使用确定性偏移模拟车辆实际行驶轨迹，避免地图刷新时路线抖动。
+ */
+function interpolatePoints(
+  from: { lng: number; lat: number },
+  to: { lng: number; lat: number },
+  count: number,
+  curve = 0.0012,
+): Array<{ lng: number; lat: number }> {
+  const points: Array<{ lng: number; lat: number }> = []
+  const dx = to.lng - from.lng
+  const dy = to.lat - from.lat
+  const len = Math.sqrt(dx * dx + dy * dy) || 1
+  const normalLng = -dy / len
+  const normalLat = dx / len
+  for (let i = 1; i <= count; i++) {
+    const t = i / (count + 1)
+    const offset = Math.sin(Math.PI * t) * curve
+    const lng = from.lng + dx * t + normalLng * offset
+    const lat = from.lat + dy * t + normalLat * offset
+    points.push({ lng, lat })
+  }
+  return points
+}
+
+function makeEventPoint(
+  label: string,
+  address: string,
+  time: string,
+  lng: number,
+  lat: number,
+  done: boolean,
+  eventType: NonNullable<TrackPoint['eventType']>,
+  fenceRadius?: number,
+): TrackPoint {
+  return { label, address, time, lng, lat, done, eventType, fenceRadius }
+}
+
+function makeRoutePoint(point: { lng: number; lat: number }, done: boolean): TrackPoint {
+  return { label: '', address: '', time: '', lng: point.lng, lat: point.lat, done }
+}
+
 export const collectionTasks: CollectionTask[] = [
   {
     id: 'ST20260520001',
@@ -206,12 +250,14 @@ export const collectionTasks: CollectionTask[] = [
       '/src/assets/images/task-proof-1.svg',
     ],
     weight: 2.4,
-    track: [
-      { label: '到达箱体', address: '牛家窑村文化广场', time: '08:41', x: 18, y: 66, done: true },
-      { label: '装车完成', address: '牛家窑村文化广场', time: '08:48', x: 31, y: 52, done: true },
-      { label: '转运途中', address: '马投涧镇北环路', time: '09:02', x: 55, y: 42, done: true },
-      { label: '到达中转站', address: '马投涧中转站', time: '09:16', x: 82, y: 28, done: true },
-    ],
+    track: (() => {
+      const p1 = makeEventPoint('始发点', '牛家窑村文化广场收集点', '08:28', 114.276, 36.038, true, 'start', 500)
+      const p2 = makeEventPoint('装车', '牛家窑村文化广场收集点', '08:48', 114.276, 36.038, true, 'load')
+      const p3 = makeEventPoint('目的地', '马投涧中转站', '09:10', 114.294, 36.050, true, 'arrive', 500)
+      const p4 = makeEventPoint('卸车', '马投涧中转站卸料区', '09:16', 114.296, 36.052, true, 'unload')
+      const waypoints2 = interpolatePoints(p2, p3, 7).map((c) => makeRoutePoint(c, true))
+      return [p1, p2, ...waypoints2, p3, p4]
+    })(),
   },
   {
     id: 'ST20260520002',
@@ -241,12 +287,15 @@ export const collectionTasks: CollectionTask[] = [
     currentStep: '前往焚烧厂途中',
     weight: 13.8,
     proof: '待上传完成凭证',
-    track: [
-      { label: '接单', address: '马投涧中转站', time: '07:56', x: 14, y: 40, done: true },
-      { label: '装车完成', address: '马投涧中转站', time: '08:08', x: 30, y: 52, done: true },
-      { label: '转运途中', address: '龙安大道', time: '08:46', x: 56, y: 48, done: true },
-      { label: '焚烧厂', address: '龙安生活垃圾焚烧厂', time: '预计 09:42', x: 84, y: 32, done: false },
-    ],
+    track: (() => {
+      const p1 = makeEventPoint('始发点', '马投涧中转站压缩箱区', '07:56', 114.296, 36.052, true, 'start', 500)
+      const p2 = makeEventPoint('装车', '马投涧中转站压缩箱区', '08:08', 114.296, 36.052, true, 'load')
+      const p3 = makeEventPoint('目的地', '龙安生活垃圾焚烧厂', '预计 09:34', 114.350, 36.067, false, 'arrive', 1000)
+      const p4 = makeEventPoint('卸车', '龙安生活垃圾焚烧厂卸料大厅', '预计 09:42', 114.352, 36.068, false, 'unload')
+      const waypoints2 = interpolatePoints(p2, p3, 10).map((c, index) => makeRoutePoint(c, index < 7))
+      const waypoints3 = interpolatePoints(p3, p4, 3, 0.0004).map((c) => makeRoutePoint(c, false))
+      return [p1, p2, ...waypoints2, p3, ...waypoints3, p4]
+    })(),
   },
   {
     id: 'ST20260520003',
@@ -273,14 +322,28 @@ export const collectionTasks: CollectionTask[] = [
     durationText: '待开始',
     currentStep: '等待驾驶员接单',
     proof: '待上传完成凭证',
-    track: [
-      { label: '起点', address: '西上庄村村委会西侧', time: '待到达', x: 20, y: 60, done: false },
-      { label: '装车', address: '西上庄村村委会西侧', time: '待处理', x: 36, y: 48, done: false },
-      { label: '转运途中', address: '龙泉镇主路', time: '待处理', x: 58, y: 38, done: false },
-      { label: '目的地', address: '龙泉中转站', time: '待到达', x: 80, y: 28, done: false },
-    ],
+    weight: 0,
+    track: (() => {
+      const p1 = makeEventPoint('始发点', '西上庄村村委会西侧收集点', '待到达', 114.302, 36.085, false, 'start', 500)
+      const p2 = makeEventPoint('装车', '西上庄村村委会西侧收集点', '待处理', 114.302, 36.085, false, 'load')
+      const p3 = makeEventPoint('目的地', '龙泉中转站', '待到达', 114.310, 36.090, false, 'arrive', 500)
+      const p4 = makeEventPoint('卸车', '龙泉中转站卸料区', '待到达', 114.312, 36.092, false, 'unload')
+      const waypoints2 = interpolatePoints(p2, p3, 6).map((c) => makeRoutePoint(c, false))
+      return [p1, p2, ...waypoints2, p3, p4]
+    })(),
   },
 ]
+
+// 各地点真实 GPS 坐标（龙安区）
+const locationCoords: Record<string, { lng: number; lat: number }> = {
+  '马投涧镇': { lng: 114.283, lat: 36.045 },
+  '龙泉镇': { lng: 114.308, lat: 36.089 },
+  '善应镇': { lng: 114.296, lat: 36.062 },
+  '马投涧中转站': { lng: 114.296, lat: 36.052 },
+  '龙泉中转站': { lng: 114.312, lat: 36.092 },
+  '善应中转站': { lng: 114.298, lat: 36.064 },
+  '龙安生活垃圾焚烧厂': { lng: 114.352, lat: 36.068 },
+}
 
 export function createCollectionTaskFromAlarm(alarm: SanitationAlarm, driverName = '张师傅', destinationName?: string) {
   const driver = drivers.find((item) => item.name === driverName) || drivers[0]
@@ -288,6 +351,9 @@ export function createCollectionTaskFromAlarm(alarm: SanitationAlarm, driverName
     ? destinations.find((item) => item.name === destinationName && item.type === '中转站') || destinations[0]
     : destinations.find((item) => item.type === '焚烧厂') || destinations[3]
   const taskId = `ST20260520${String(collectionTasks.length + 1).padStart(3, '0')}`
+  // 根据地址推算 GPS 坐标
+  const alarmCoords = locationCoords[alarm.town] || locationCoords['马投涧镇']
+  const destCoords = locationCoords[destination.name] || { lng: alarmCoords.lng + 0.06, lat: alarmCoords.lat + 0.02 }
   const task: CollectionTask = {
     id: taskId,
     alarmId: alarm.id,
@@ -313,12 +379,16 @@ export function createCollectionTaskFromAlarm(alarm: SanitationAlarm, driverName
     durationText: '待开始',
     currentStep: '等待驾驶员接单',
     proof: '待上传完成凭证',
-    track: [
-      { label: '起点', address: alarm.address, time: '待到达', x: 18, y: 64, done: false },
-      { label: '装车', address: alarm.address, time: '待处理', x: 36, y: 52, done: false },
-      { label: '转运途中', address: alarm.town, time: '待处理', x: 58, y: 42, done: false },
-      { label: '目的地', address: destination.address, time: '待到达', x: 82, y: 28, done: false },
-    ],
+    track: (() => {
+      const startRadius = 500
+      const destRadius = destination.type === '焚烧厂' ? 1000 : 500
+      const p1 = makeEventPoint('始发点', alarm.address, '待到达', alarmCoords.lng, alarmCoords.lat, false, 'start', startRadius)
+      const p2 = makeEventPoint('装车', alarm.address, '待处理', alarmCoords.lng, alarmCoords.lat, false, 'load')
+      const p3 = makeEventPoint('目的地', destination.name, '待到达', destCoords.lng, destCoords.lat, false, 'arrive', destRadius)
+      const p4 = makeEventPoint('卸车', destination.address, '待到达', destCoords.lng, destCoords.lat, false, 'unload')
+      const w2 = interpolatePoints(p2, p3, 6).map((c) => makeRoutePoint(c, false))
+      return [p1, p2, ...w2, p3, p4]
+    })(),
   }
   collectionTasks.unshift(task)
   alarm.linkedTaskId = taskId
@@ -371,8 +441,12 @@ export function acceptCollectionTask(task: CollectionTask) {
   task.collectionStatus = '已接单'
   task.acceptTime = formatNow()
   task.currentStep = '驾驶员已接单，前往箱体位置'
-  task.track[0].done = true
-  task.track[0].time = '已接单'
+  // 标记始发点为已到达
+  const startPt = task.track.find((p) => p.label === '始发点')
+  if (startPt) {
+    startPt.done = true
+    startPt.time = formatNow().slice(11, 16)
+  }
   return true
 }
 
@@ -382,9 +456,19 @@ export function startCollectionTask(task: CollectionTask) {
   task.collectionStatus = '收运中'
   task.startTime = formatNow()
   task.currentStep = '勾臂箱已装车，正在转运'
-  task.track.slice(0, 3).forEach((item) => {
-    item.done = true
+  // 标记到"装车"为止的所有点为已完成
+  let hitLoad = false
+  task.track.forEach((p) => {
+    if (p.label === '装车') hitLoad = true
+    if (hitLoad) return
+    p.done = true
   })
+  // 找到"装车"点也标记为已完成
+  const loadPt = task.track.find((p) => p.label === '装车')
+  if (loadPt) {
+    loadPt.done = true
+    loadPt.time = formatNow().slice(11, 16)
+  }
   task.weight = task.boxType === '小勾臂箱' ? Number((1.5 + Math.random() * 1.5).toFixed(1)) : Number((8 + Math.random() * 10).toFixed(1))
   return true
 }
@@ -399,9 +483,16 @@ export function autoCompleteCollectionTask(task: CollectionTask, mode: 'auto' | 
   task.collectionStatus = '已完成'
   task.currentStep = mode === 'force' ? '运营人员已强制完成' : '车辆到达目的地，系统自动完成'
   task.weight = task.weight || (task.boxType === '小勾臂箱' ? Number((1.5 + Math.random() * 1.5).toFixed(1)) : Number((8 + Math.random() * 10).toFixed(1)))
-  task.track.forEach((item) => {
-    item.done = true
+  // 标记所有点为已完成
+  task.track.forEach((p) => {
+    if (!p.done) p.done = true
   })
+  // 更新各事件时间
+  const nowStr = formatNow().slice(11, 16)
+  const destPt = task.track.find((p) => p.label === '目的地')
+  if (destPt && destPt.time === '待到达') destPt.time = nowStr
+  const unloadPt = task.track.find((p) => p.label === '卸车')
+  if (unloadPt && unloadPt.time === '待到达') unloadPt.time = nowStr
   if (!task.proofImages?.length) task.proof = mode === 'force' ? '强制完成，待补充凭证' : '系统自动完成，待补传凭证照片'
   return true
 }

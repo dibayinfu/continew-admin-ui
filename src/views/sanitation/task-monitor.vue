@@ -31,14 +31,14 @@
                 <tbody>
                   <tr class="prd-section-row"><td class="prd-section-title" colspan="2">🎯 功能要点（开发 / 测试关注）</td></tr>
                   <tr><td class="prd-label">页面</td><td class="prd-value">「收运单监控」和「全部任务单」共用同一组件，根据 URL 路径动态切换标题/副标题</td></tr>
-                  <tr><td class="prd-label">业务流</td><td class="prd-value">创建收运任务单 → 驾驶员接单 → 装车 → 转运 → 到达目的地 → 完成</td></tr>
-                  <tr><td class="prd-label">数据关联</td><td class="prd-value">任务单（CollectionTask）来自本页弹窗或告警中心创建；箱体位置从 boxes 档案按 boxNo 匹配</td></tr>
+                  <tr><td class="prd-label">业务流</td><td class="prd-value">创建收运单 → 驾驶员接单 → 进入始发点围栏 → 装车 → 按车辆实际轨迹转运 → 到达目的地围栏 → 卸车完成</td></tr>
+                  <tr><td class="prd-label">数据关联</td><td class="prd-value">一个收运单必须有始发点、目的地、时效要求和四个事件点；小勾臂为收集点→中转站，大勾臂为中转站→焚烧厂</td></tr>
                   <tr><td class="prd-label">快速创建任务</td><td class="prd-value">顶部按钮 → 本页弹出创建弹窗，选箱体后自动填充驾驶员/车辆/目的地，提交后追加到列表</td></tr>
                   <tr><td class="prd-label">创建弹窗</td><td class="prd-value">上半：箱体选择器（AutoComplete，搜索编号/名称）→ 展示位置/类型/乡镇 | 下半：任务配置表单</td></tr>
-                  <tr><td class="prd-label">布局</td><td class="prd-value">三栏布局：左侧任务列表（280px）| 中间地图/详情 | 右侧时间线/详情（360px）</td></tr>
-                  <tr><td class="prd-label">左侧列表</td><td class="prd-value">展示任务名称、收运状态+超时状态双标签、车牌/驾驶员、SLA、优先级、目的地、箱体信息。点击切换选中</td></tr>
-                  <tr><td class="prd-label">中间面板</td><td class="prd-value">任务名称、当前步骤、SVG 轨迹路线图、称重数据、详情网格（箱体位置/起点/目的地/驾驶员/时效/实际耗时）</td></tr>
-                  <tr><td class="prd-label">右侧面板</td><td class="prd-value">任务详情（20+ 字段，含箱体位置/驾驶员电话/车辆信息/称重等）、收运轨迹时间线</td></tr>
+                  <tr><td class="prd-label">布局</td><td class="prd-value">三栏布局：左侧运单卡片（运营筛选）| 中间地图轨迹（调度判断）| 右侧关键详情（核查与复盘）</td></tr>
+                  <tr><td class="prd-label">左侧列表</td><td class="prd-value">卡片第一层展示运单名称、状态、车牌司机、SLA；第二层用箭头明确「始发点 → 目的地」，弱化箱体编号等辅助信息</td></tr>
+                  <tr><td class="prd-label">中间面板</td><td class="prd-value">地图按车辆实际轨迹点绘制平滑线路，实线表示已行驶、虚线表示待完成；始发点和目的地电子围栏按业务半径显示</td></tr>
+                  <tr><td class="prd-label">右侧面板</td><td class="prd-value">优先展示时效、始发/目的地、四个事件时间和围栏规则；箱体编号、告警号、电话等放在辅助信息区</td></tr>
                   <tr><td class="prd-label">称重数据</td><td class="prd-value">装车后称重设备读取垃圾重量（吨），收运中/已完成时在地图面板和右侧详情中展示，模拟推进/强制完成时自动生成随机重量</td></tr>
                   <tr><td class="prd-label">模拟推进</td><td class="prd-value">点击按状态机推进：待接单→已接单→收运中→已完成，实时计算耗时、超时和称重</td></tr>
                   <tr><td class="prd-label">完成凭证</td><td class="prd-value">已完成任务显示证明图片（SVG 占位图），可预览放大</td></tr>
@@ -56,9 +56,9 @@
                   <tr class="prd-section-row"><td class="prd-section-title" colspan="2">🔑 状态设计</td></tr>
                   <tr><td class="prd-label">收运状态</td><td class="prd-value">待接单 / 已接单 / 收运中 / 已完成，四个值互斥</td></tr>
                   <tr><td class="prd-label">超时状态</td><td class="prd-value">未超时 / 已超时，独立于收运状态，可通过 overtimeStatus 单独筛选</td></tr>
-                  <tr><td class="prd-label">待接单 → 已接单</td><td class="prd-value">设置 acceptTime，currentStep ← 驾驶员已接单</td></tr>
-                  <tr><td class="prd-label">已接单 → 收运中</td><td class="prd-value">设置 startTime，currentStep ← 勾臂箱已装车</td></tr>
-                  <tr><td class="prd-label">收运中 → 已完成</td><td class="prd-value">设置 finishTime = 当前时间；计算实际耗时（startTime→now）；超时判定（>slaMinutes）设 overtimeStatus；生成 proofImages</td></tr>
+                  <tr><td class="prd-label">待接单 → 已接单</td><td class="prd-value">设置 acceptTime，点亮「始发点」事件，表示车辆进入始发点电子围栏</td></tr>
+                  <tr><td class="prd-label">已接单 → 收运中</td><td class="prd-value">设置 startTime，点亮「装车」事件；装车必须发生在始发点电子围栏内</td></tr>
+                  <tr><td class="prd-label">收运中 → 已完成</td><td class="prd-value">设置到达目的地和卸车时间；卸车必须发生在目的地电子围栏内；计算耗时并判定超时</td></tr>
                   <tr><td class="prd-label">已完成</td><td class="prd-value">所有 track.done = true，不可再推进</td></tr>
                 </tbody>
               </table>
@@ -71,7 +71,9 @@
                   <tr><td class="prd-label">✓ 选中切换</td><td class="prd-value">左侧点击任务 → 中间/右侧联动刷新</td></tr>
                   <tr><td class="prd-label">✓ 箱体位置</td><td class="prd-value">小勾臂箱显示收集点地址，大勾臂箱显示中转站地址</td></tr>
                   <tr><td class="prd-label">✓ 两种状态独立</td><td class="prd-value">收运状态和超时状态各自独立显示标签，可分别筛选</td></tr>
-                  <tr><td class="prd-label">✓ 模拟推进</td><td class="prd-value">5 个状态依次推进，轨迹点同步点亮，最终计算实际耗时</td></tr>
+                  <tr><td class="prd-label">✓ 四事件上图</td><td class="prd-value">进入始发点、装车、到达目的地、卸车四个事件必须在地图和右侧时间线上同步显示</td></tr>
+                  <tr><td class="prd-label">✓ 围栏半径</td><td class="prd-value">小勾臂始发收集点 500m、目的中转站 500m；大勾臂始发中转站 500m、目的焚烧厂 1000m</td></tr>
+                  <tr><td class="prd-label">✓ 模拟推进</td><td class="prd-value">按接单、装车、到达/卸车推进，轨迹和四个事件同步点亮，最终计算实际耗时</td></tr>
                   <tr><td class="prd-label">✓ 强制完成</td><td class="prd-value">未完成任务可强制完成，自动计算耗时/超时/称重，track 全部点亮</td></tr>
                   <tr><td class="prd-label">✓ 称重显示</td><td class="prd-value">收运中/已完成状态显示称重数据（地图面板 + 右侧详情），完成后统计卡更新垃圾量</td></tr>
                   <tr><td class="prd-label">✓ 转单</td><td class="prd-value">未完成任务可选目标驾驶员转单，driver/phone/vehicle 同步更新，不能选相同驾驶员</td></tr>
@@ -127,10 +129,20 @@
             <div class="task-item-meta">
               <span>{{ task.vehicle }}</span>
               <span>{{ task.driver }}</span>
-              <span class="task-sla">{{ task.slaMinutes }}min</span>
+              <span class="task-sla">SLA {{ task.slaMinutes }}min</span>
               <StatusTag :value="task.priority" />
             </div>
-            <div class="task-item-dest">{{ task.destinationName }}</div>
+            <div class="task-route">
+              <div>
+                <span>始发</span>
+                <b>{{ task.startAddress }}</b>
+              </div>
+              <div class="route-arrow">→</div>
+              <div>
+                <span>目的地</span>
+                <b>{{ task.destinationName }}</b>
+              </div>
+            </div>
             <div class="task-item-box">{{ task.boxType }} · {{ task.boxName }}</div>
           </button>
         </div>
@@ -150,59 +162,34 @@
         </div>
 
         <div class="route-map">
-          <svg viewBox="0 0 100 80" preserveAspectRatio="none">
-            <polyline
-              :points="selectedTask.track.map((item) => `${item.x},${item.y}`).join(' ')"
-              fill="none"
-              stroke="rgba(22, 93, 255, 0.28)"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-            />
-          </svg>
-          <div
-            v-for="point in selectedTask.track"
-            :key="point.label"
-            class="map-point"
-            :class="{ done: point.done }"
-            :style="{ left: `${point.x}%`, top: `${point.y}%` }"
-          >
-            <span></span>
-            <b>{{ point.label }}</b>
-          </div>
-          <div class="map-weight" v-if="selectedTask.weight && (selectedTask.collectionStatus === '收运中' || selectedTask.collectionStatus === '已完成')">
-            ⚖️ 称重：<b>{{ selectedTask.weight }} 吨</b>
-          </div>
+          <TaskTrackMap :track="selectedTask.track" :weight="selectedTask.weight" />
         </div>
 
-        <div class="detail-grid">
+        <div class="ops-summary">
           <div>
-            <span>{{ selectedTask.boxType === '小勾臂箱' ? '收集点地址' : '中转站地址' }}</span>
-            <b>{{ boxAddress }}</b>
-          </div>
-          <div>
-            <span>起点地址</span>
+            <span>始发点</span>
             <b>{{ selectedTask.startAddress }}</b>
+            <em>{{ startFenceText }}</em>
           </div>
           <div>
             <span>目的地</span>
             <b>{{ selectedTask.destinationName }}</b>
+            <em>{{ destFenceText }}</em>
+          </div>
+          <div>
+            <span>时效</span>
+            <b :class="{ overtime: selectedTask.overtimeStatus === '已超时' }">{{ selectedTask.durationText || '待开始' }}</b>
+            <em>要求 {{ selectedTask.slaMinutes }} 分钟内</em>
           </div>
           <div>
             <span>驾驶员/车辆</span>
             <b>{{ selectedTask.driver }} / {{ selectedTask.vehicle }}</b>
-          </div>
-          <div>
-            <span>时效要求</span>
-            <b>{{ selectedTask.slaMinutes }} 分钟内完成</b>
+            <em>{{ selectedTask.vehicleType }}</em>
           </div>
           <div v-if="selectedTask.weight">
             <span>称重</span>
             <b>{{ selectedTask.weight }} t</b>
-          </div>
-          <div v-if="selectedTask.durationText">
-            <span>实际耗时</span>
-            <b :class="{ overtime: selectedTask.overtimeStatus === '已超时' }">{{ selectedTask.durationText }}</b>
+            <em>{{ selectedTask.boxType === '小勾臂箱' ? '收集点垃圾量' : '转运箱重量' }}</em>
           </div>
         </div>
 
@@ -224,34 +211,46 @@
       </section>
 
       <aside class="timeline-panel">
-        <div class="panel-title">任务详情</div>
+        <div class="panel-title">运单重点</div>
+        <div class="focus-card">
+          <div>
+            <span>当前状态</span>
+            <b>{{ selectedTask.currentStep }}</b>
+          </div>
+          <div>
+            <span>时效要求</span>
+            <b :class="{ overtime: selectedTask.overtimeStatus === '已超时' }">{{ selectedTask.slaMinutes }} 分钟 / {{ selectedTask.durationText || '待开始' }}</b>
+          </div>
+          <div>
+            <span>作业规则</span>
+            <b>{{ routeRuleText }}</b>
+          </div>
+        </div>
+
+        <div class="panel-title timeline-title">关键事件</div>
+        <a-timeline>
+          <a-timeline-item
+            v-for="point in eventPoints"
+            :key="point.label"
+            :label="point.time"
+            :dot-color="point.done ? 'green' : 'gray'"
+          >
+            <b>{{ point.label }}</b>
+            <p>{{ point.address }}</p>
+            <p v-if="point.fenceRadius">电子围栏 {{ point.fenceRadius }}m</p>
+          </a-timeline-item>
+        </a-timeline>
+
+        <div class="panel-title timeline-title">辅助信息</div>
         <a-descriptions :column="1" size="small" bordered>
           <a-descriptions-item label="任务单号">{{ selectedTask.id }}</a-descriptions-item>
           <a-descriptions-item label="来源告警">{{ selectedTask.alarmId }}</a-descriptions-item>
-          <a-descriptions-item label="箱体名称">{{ selectedTask.boxName }}</a-descriptions-item>
-          <a-descriptions-item label="箱体编号">{{ selectedTask.boxNo }}</a-descriptions-item>
+          <a-descriptions-item label="箱体">{{ selectedTask.boxName }}（{{ selectedTask.boxNo }}）</a-descriptions-item>
           <a-descriptions-item label="箱体位置">{{ boxAddress }}</a-descriptions-item>
-          <a-descriptions-item label="箱体类型">{{ selectedTask.boxType }}</a-descriptions-item>
           <a-descriptions-item label="所属乡镇">{{ selectedTask.town }}</a-descriptions-item>
-          <a-descriptions-item label="任务类型">{{ selectedTask.taskType }}</a-descriptions-item>
-          <a-descriptions-item label="优先级 / 时效">
-            {{ selectedTask.priority }} · {{ selectedTask.slaMinutes }} 分钟内完成
-          </a-descriptions-item>
-          <a-descriptions-item label="驾驶员">{{ selectedTask.driver }}</a-descriptions-item>
-          <a-descriptions-item label="联系电话">{{ selectedTask.driverPhone }}</a-descriptions-item>
-          <a-descriptions-item label="车辆信息">{{ selectedTask.vehicle }}（{{ selectedTask.vehicleType }}）</a-descriptions-item>
-          <a-descriptions-item label="目的地类型">{{ selectedTask.destinationType }}</a-descriptions-item>
-          <a-descriptions-item label="目的地地址">{{ selectedTask.destinationAddress }}</a-descriptions-item>
-          <a-descriptions-item label="创建时间">{{ selectedTask.createTime }}</a-descriptions-item>
-          <a-descriptions-item label="接单时间">{{ selectedTask.acceptTime || '待接单' }}</a-descriptions-item>
-          <a-descriptions-item label="开始时间">{{ selectedTask.startTime || '待开始' }}</a-descriptions-item>
-          <a-descriptions-item label="完成时间">{{ selectedTask.finishTime || '待完成' }}</a-descriptions-item>
-          <a-descriptions-item v-if="selectedTask.durationText" label="实际耗时">
-            <span :class="{ overtime: selectedTask.overtimeStatus === '已超时' }">{{ selectedTask.durationText }}</span>
-          </a-descriptions-item>
-          <a-descriptions-item v-if="selectedTask.weight" label="称重">
-            {{ selectedTask.weight }} 吨
-          </a-descriptions-item>
+          <a-descriptions-item label="司机电话">{{ selectedTask.driverPhone }}</a-descriptions-item>
+          <a-descriptions-item label="创建/接单">{{ selectedTask.createTime }} / {{ selectedTask.acceptTime || '待接单' }}</a-descriptions-item>
+          <a-descriptions-item label="装车/完成">{{ selectedTask.startTime || '待装车' }} / {{ selectedTask.finishTime || '待完成' }}</a-descriptions-item>
           <a-descriptions-item label="完成凭证">
             <template v-if="selectedTask.proofImages?.length">
               <p style="margin-bottom: 8px;">{{ selectedTask.proof }}</p>
@@ -269,19 +268,6 @@
             <template v-else>{{ selectedTask.proof }}</template>
           </a-descriptions-item>
         </a-descriptions>
-
-        <div class="panel-title timeline-title">收运轨迹</div>
-        <a-timeline>
-          <a-timeline-item
-            v-for="point in selectedTask.track"
-            :key="point.label"
-            :label="point.time"
-            :dot-color="point.done ? 'green' : 'gray'"
-          >
-            <b>{{ point.label }}</b>
-            <p>{{ point.address }}</p>
-          </a-timeline-item>
-        </a-timeline>
       </aside>
     </div>
 
@@ -398,7 +384,18 @@ import { useRoute, useRouter } from 'vue-router'
 import ModuleHeader from './components/ModuleHeader.vue'
 import MetricGrid from './components/MetricGrid.vue'
 import StatusTag from './components/StatusTag.vue'
-import { collectionTasks, createCollectionTaskFromAlarm, destinations, drivers, type CollectionTask, type SanitationAlarm } from './data/alert-task'
+import TaskTrackMap from './components/TaskTrackMap.vue'
+import {
+  acceptCollectionTask,
+  autoCompleteCollectionTask,
+  collectionTasks,
+  createCollectionTaskFromAlarm,
+  destinations,
+  drivers,
+  startCollectionTask,
+  type CollectionTask,
+  type SanitationAlarm,
+} from './data/alert-task'
 import { boxes } from './data/mock'
 
 defineOptions({ name: 'SanitationTaskMonitor' })
@@ -414,7 +411,7 @@ const isAllTasks = computed(() => route.path.includes('workOrderStats'))
 const pageTitle = computed(() => isAllTasks.value ? '全部任务单' : '收运单监控')
 const pageSubtitle = computed(() => isAllTasks.value
   ? '查看全部收运任务单（含已完成和未完成），支持快速创建、转单、强制完成和状态跟踪。'
-  : '监控和调度满溢告警转出的收运任务单，支持快速创建、跟踪接单、装车、转运和完成情况。')
+  : '围绕始发点、目的地、时效和四个关键事件监控收运单，支持轨迹核查、围栏判断和调度处置。')
 
 const metrics = computed(() => {
   const smallBoxWeight = collectionTasks
@@ -524,6 +521,16 @@ const boxAddress = computed(() => {
   return box.currentLocation
 })
 
+const eventPoints = computed(() => selectedTask.value.track.filter((point) => point.label))
+const startEvent = computed(() => eventPoints.value.find((point) => point.label === '始发点'))
+const destEvent = computed(() => eventPoints.value.find((point) => point.label === '目的地'))
+const startFenceText = computed(() => `${selectedTask.value.boxType === '小勾臂箱' ? '收集点' : '中转站'}围栏 ${startEvent.value?.fenceRadius || 500}m`)
+const destFenceText = computed(() => `${selectedTask.value.destinationType}围栏 ${destEvent.value?.fenceRadius || 500}m`)
+const routeRuleText = computed(() => {
+  if (selectedTask.value.boxType === '小勾臂箱') return '收集点 500m 内装车，中转站 500m 内卸车'
+  return '中转站 500m 内装车，焚烧厂 1000m 内卸车'
+})
+
 const filteredTasks = computed(() => {
   let result = collectionTasks
   if (keyword.value) {
@@ -555,67 +562,18 @@ function advanceSelected() {
     ArcoMessage.info('当前任务已完成')
     return
   }
-  const firstPending = task.track.find((item) => !item.done)
-  if (firstPending) firstPending.done = true
   if (task.collectionStatus === '待接单') {
-    task.collectionStatus = '已接单'
-    task.acceptTime = '2026-05-20 10:22:00'
-    task.currentStep = '驾驶员已接单，前往箱体位置'
+    acceptCollectionTask(task)
   } else if (task.collectionStatus === '已接单') {
-    task.collectionStatus = '收运中'
-    task.startTime = '2026-05-20 10:31:00'
-    task.currentStep = '勾臂箱已装车，正在转运'
+    startCollectionTask(task)
   } else if (task.collectionStatus === '收运中') {
-    task.collectionStatus = '收运中'
-    task.currentStep = '车辆已到达目的地，等待完成确认'
-  } else {
-    const now = new Date()
-    const fmtTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
-    task.finishTime = fmtTime
-
-    // 计算实际耗时（分钟）
-    const start = task.startTime ? new Date(task.startTime.replace(/-/g, '/')) : new Date(task.createTime.replace(/-/g, '/'))
-    const end = new Date(fmtTime.replace(/-/g, '/'))
-    const elapsedMinutes = Math.round((end.getTime() - start.getTime()) / 60000)
-    const hours = Math.floor(elapsedMinutes / 60)
-    const mins = elapsedMinutes % 60
-    task.durationText = hours > 0 ? `${hours}小时${mins}分钟` : `${mins}分钟`
-    const isOvertime = elapsedMinutes > task.slaMinutes
-    task.overtimeStatus = isOvertime ? '已超时' : '未超时'
-
-    // 生成称重数据
-    task.weight = task.boxType === '小勾臂箱' ? Number((1.5 + Math.random() * 1.5).toFixed(1)) : Number((8 + Math.random() * 10).toFixed(1))
-
-    task.collectionStatus = '已完成'
-    task.currentStep = isOvertime ? '任务已完成（已超时）' : '任务已完成'
-    task.proof = '完成照片 1 张，司机提交 1 条'
-    task.proofImages = [
-      '/src/assets/images/task-proof-1.svg',
-    ]
-    task.track.forEach((item) => {
-      item.done = true
-    })
+    autoCompleteCollectionTask(task)
   }
   ArcoMessage.success('任务状态已推进')
 }
 
 function forceComplete() {
-  const task = selectedTask.value
-  const now = new Date()
-  const fmtTime = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
-  task.finishTime = fmtTime
-
-  const start = task.startTime ? new Date(task.startTime.replace(/-/g, '/')) : new Date(task.createTime.replace(/-/g, '/'))
-  const elapsedMinutes = Math.round((new Date().getTime() - start.getTime()) / 60000)
-  const hours = Math.floor(elapsedMinutes / 60)
-  const mins = elapsedMinutes % 60
-  task.durationText = hours > 0 ? `${hours}小时${mins}分钟` : `${mins}分钟`
-  task.overtimeStatus = elapsedMinutes > task.slaMinutes ? '已超时' : '未超时'
-  task.weight = task.boxType === '小勾臂箱' ? Number((1.5 + Math.random() * 1.5).toFixed(1)) : Number((8 + Math.random() * 10).toFixed(1))
-  task.collectionStatus = '已完成'
-  task.currentStep = '已强制完成'
-  task.proof = '强制完成，无凭证'
-  task.track.forEach((item) => { item.done = true })
+  autoCompleteCollectionTask(selectedTask.value, 'force')
   ArcoMessage.success('已强制完成')
 }
 
@@ -723,12 +681,6 @@ function doTransfer() {
   }
 }
 
-.task-item-dest {
-  font-size: 12px;
-  color: var(--color-text-3);
-  margin-bottom: 2px;
-}
-
 /* 产品需求说明折叠面板 */
 .prd-panel {
   background: var(--color-bg-2);
@@ -827,14 +779,6 @@ function doTransfer() {
   margin-left: 4px;
 }
 
-.map-weight {
-  padding: 10px 16px;
-  background: rgba(var(--arcoblue-1), 0.4);
-  border-radius: 4px;
-  font-size: 14px;
-  b { font-size: 16px; }
-}
-
 .map-actions {
   display: flex;
   gap: 8px;
@@ -854,8 +798,43 @@ function doTransfer() {
 }
 
 .task-item-box {
+  margin-top: 8px;
   font-size: 12px;
   color: var(--color-text-4);
+}
+
+.task-route {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22px minmax(0, 1fr);
+  gap: 6px;
+  align-items: center;
+  padding: 8px;
+  background: var(--color-bg-2);
+  border-radius: 4px;
+
+  span {
+    display: block;
+    margin-bottom: 4px;
+    font-size: 11px;
+    color: var(--color-text-4);
+  }
+
+  b {
+    display: -webkit-box;
+    overflow: hidden;
+    color: var(--color-text-1);
+    font-size: 12px;
+    line-height: 1.35;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+}
+
+.route-arrow {
+  color: rgb(var(--arcoblue-6));
+  font-size: 18px;
+  font-weight: 700;
+  text-align: center;
 }
 
 .map-header {
@@ -877,53 +856,15 @@ function doTransfer() {
 }
 
 .route-map {
-  position: relative;
-  min-height: 360px;
+  min-height: 280px;
+  border: 1px solid var(--color-border-2);
+  border-radius: 4px;
   overflow: hidden;
-  background:
-    linear-gradient(90deg, rgba(22, 93, 255, 0.08) 1px, transparent 1px),
-    linear-gradient(rgba(22, 93, 255, 0.08) 1px, transparent 1px),
-    var(--color-fill-1);
-  background-size: 42px 42px;
-  border: 1px solid var(--color-border-2);
-  border-radius: 4px;
-
-  svg {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-  }
 }
 
-.map-point {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  color: var(--color-text-2);
-  background: var(--color-bg-2);
-  border: 1px solid var(--color-border-2);
-  border-radius: 4px;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
-
-  span {
-    width: 10px;
-    height: 10px;
-    background: rgb(var(--gray-5));
-    border-radius: 50%;
-  }
-
-  &.done span {
-    background: rgb(var(--green-6));
-  }
-}
-
-.detail-grid {
+.ops-summary {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: 10px;
   margin-top: 14px;
 
@@ -941,13 +882,43 @@ function doTransfer() {
   }
 
   b {
+    display: block;
     line-height: 1.5;
+  }
+
+  em {
+    display: block;
+    margin-top: 6px;
+    color: var(--color-text-4);
+    font-size: 12px;
+    font-style: normal;
+    line-height: 1.4;
   }
 }
 
 .panel-title {
   margin-bottom: 14px;
   font-weight: 600;
+}
+
+.focus-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: var(--color-fill-1);
+  border-radius: 4px;
+
+  span {
+    display: block;
+    margin-bottom: 5px;
+    color: var(--color-text-3);
+    font-size: 12px;
+  }
+
+  b {
+    line-height: 1.5;
+  }
 }
 
 .timeline-title {
@@ -967,7 +938,7 @@ function doTransfer() {
     grid-template-columns: 1fr;
   }
 
-  .detail-grid {
+  .ops-summary {
     grid-template-columns: repeat(2, 1fr);
   }
 }

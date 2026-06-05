@@ -139,7 +139,7 @@
     </div>
 
     <!-- 详情抽屉 -->
-    <a-drawer v-model:visible="drawerVisible" :title="drawerTitle" width="480" unmount-on-close>
+    <a-drawer v-model:visible="drawerVisible" :title="drawerTitle" :width="480" unmount-on-close>
       <a-descriptions :column="1" bordered size="large">
         <a-descriptions-item v-for="item in drawerItems" :key="item.label" :label="item.label">
           {{ item.value }}
@@ -148,7 +148,7 @@
     </a-drawer>
 
     <!-- 任务单详情抽屉（含地图轨迹，仅全部任务单使用） -->
-    <a-drawer v-model:visible="taskDrawerVisible" title="全部任务单详情" width="520" unmount-on-close>
+    <a-drawer v-model:visible="taskDrawerVisible" title="全部任务单详情" :width="520" unmount-on-close>
       <template v-if="detailTask">
         <div class="task-detail-section">
           <div class="section-title">收运轨迹</div>

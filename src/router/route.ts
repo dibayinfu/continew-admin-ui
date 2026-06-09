@@ -168,7 +168,6 @@ export const systemRoutes: RouteRecordRaw[] = [
         children: [
           { path: '/sanitation/smallBoxState', name: 'SanitationSmallBoxState', component: () => import('@/views/sanitation/prototype.vue'), props: { pageKey: 'smallBoxState' }, meta: { title: '小勾臂箱监控', icon: 'file', hidden: false } },
           { path: '/sanitation/bigBoxState', name: 'SanitationBigBoxState', component: () => import('@/views/sanitation/prototype.vue'), props: { pageKey: 'bigBoxState' }, meta: { title: '大勾臂箱监控', icon: 'file', hidden: false } },
-          { path: '/sanitation/boxMap', name: 'SanitationBoxMap', component: () => import('@/views/sanitation/prototype.vue'), props: { pageKey: 'boxMap' }, meta: { title: '箱体地图', icon: 'file', hidden: false } },
           { path: '/sanitation/overflowRule', name: 'SanitationOverflowRule', component: () => import('@/views/sanitation/alert-rule.vue'), props: { pageKey: 'overflowRule' }, meta: { title: '监控告警规则', icon: 'file', hidden: false } },
         ],
       },

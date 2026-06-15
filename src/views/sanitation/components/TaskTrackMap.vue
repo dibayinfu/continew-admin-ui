@@ -179,6 +179,15 @@ onMounted(() => nextTick(() => initMap()))
 
 watch(() => props.track, () => nextTick(() => initMap()), { deep: true })
 
+function focusStartPoint() {
+  const startPoint = props.track.find((p) => p.lng != null && p.lat != null)
+  if (!map || !startPoint) return
+  map.invalidateSize()
+  map.setView([startPoint.lat, startPoint.lng], 17, { animate: true })
+}
+
+defineExpose({ focusStartPoint })
+
 onBeforeUnmount(() => { if (map) { map.remove(); map = null } })
 </script>
 

@@ -67,6 +67,8 @@ export interface CollectionTask {
   proofImages?: string[]
   /** 称重重量（吨），小勾臂箱满溢收运后读取 */
   weight?: number
+  /** 箱体满溢百分比 */
+  fillRate?: number
   track: TrackPoint[]
 }
 
@@ -250,6 +252,7 @@ export const collectionTasks: CollectionTask[] = [
       '/src/assets/images/task-proof-1.svg',
     ],
     weight: 2.4,
+    fillRate: 91,
     track: (() => {
       const p1 = makeEventPoint('始发点', '牛家窑村文化广场收集点', '08:28', 114.276, 36.038, true, 'start', 500)
       const p2 = makeEventPoint('装车', '牛家窑村文化广场收集点', '08:48', 114.276, 36.038, true, 'load')
@@ -286,6 +289,7 @@ export const collectionTasks: CollectionTask[] = [
     durationText: '已用 1小时18分钟',
     currentStep: '前往焚烧厂途中',
     weight: 13.8,
+    fillRate: 94,
     proof: '待上传完成凭证',
     track: (() => {
       const p1 = makeEventPoint('始发点', '马投涧中转站压缩箱区', '07:56', 114.296, 36.052, true, 'start', 500)
@@ -323,6 +327,7 @@ export const collectionTasks: CollectionTask[] = [
     currentStep: '等待驾驶员接单',
     proof: '待上传完成凭证',
     weight: 0,
+    fillRate: 45,
     track: (() => {
       const p1 = makeEventPoint('始发点', '西上庄村村委会西侧收集点', '待到达', 114.302, 36.085, false, 'start', 500)
       const p2 = makeEventPoint('装车', '西上庄村村委会西侧收集点', '待处理', 114.302, 36.085, false, 'load')

@@ -40,6 +40,7 @@
                   <tr><td class="prd-label">中间面板</td><td class="prd-value">地图按车辆实际轨迹点绘制平滑线路，实线表示已行驶、虚线表示待完成；始发点和目的地电子围栏按业务半径显示</td></tr>
                   <tr><td class="prd-label">右侧面板</td><td class="prd-value">优先展示时效、始发/目的地、四个事件时间和围栏规则；箱体编号、告警号、电话等放在辅助信息区</td></tr>
                   <tr><td class="prd-label">称重数据</td><td class="prd-value">装车后称重设备读取垃圾重量（吨），收运中/已完成时在地图面板和右侧详情中展示，模拟推进/强制完成时自动生成随机重量</td></tr>
+                  <tr><td class="prd-label">满溢率</td><td class="prd-value">箱体当前满溢百分比（来自满溢传感器），在运单重点区域展示，≥90% 红色高亮标记「满溢」</td></tr>
                   <tr><td class="prd-label">模拟推进</td><td class="prd-value">点击按状态机推进：待接单→已接单→收运中→已完成，实时计算耗时、超时和称重</td></tr>
                   <tr><td class="prd-label">完成凭证</td><td class="prd-value">已完成任务显示证明图片（SVG 占位图），可预览放大</td></tr>
                   <tr><td class="prd-label">强制完成</td><td class="prd-value">中间面板底部按钮，未完成的任务可强制设为已完成，自动计算耗时/超时/称重，当前步骤标记「已强制完成」</td></tr>
@@ -216,6 +217,10 @@
           <div>
             <span>当前状态</span>
             <b>{{ selectedTask.currentStep }}</b>
+          </div>
+          <div>
+            <span>满溢率</span>
+            <b :class="{ overtime: (selectedTask.fillRate ?? 0) >= 90 }">{{ selectedTask.fillRate != null ? selectedTask.fillRate + '%' : '—' }}</b>
           </div>
           <div>
             <span>时效要求</span>

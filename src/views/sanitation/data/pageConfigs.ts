@@ -424,7 +424,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
     filters: ['全部类型', '垃圾桶点', '小勾臂箱摆放点'],
     metrics: [],
     columns: [
-      { title: '点位名称', dataIndex: 'name', width: 160 },
+      { title: '点位名称', dataIndex: 'name', width: 200 },
       { title: '所属乡镇', dataIndex: 'town', width: 120 },
       { title: '所属村庄', dataIndex: 'village', width: 140 },
       { title: '联系人', dataIndex: 'contactPerson', width: 100 },

@@ -102,8 +102,6 @@ export const alertList: AlertItem[] = [
   { id: 'AL003', type: '满溢告警', level: '严重', title: '马投涧压缩箱C满溢', content: '移动压缩箱满溢 94%，需转运至焚烧厂。', source: '马投涧压缩箱C', time: '2026-06-11 07:45', readStatus: '已读', handleStatus: '已处理', linkedTaskId: 'ST002' },
   { id: 'AL004', type: '低电量告警', level: '重要', title: '陈家庄2号箱低电量', content: '电量仅 8%，建议运维人员线下更换电池。', source: '陈家庄2号小勾臂箱', time: '2026-06-11 09:38', readStatus: '未读', handleStatus: '待处理' },
   { id: 'AL005', type: '设备离线', level: '一般', title: '石岩村南箱体离线', content: '满溢传感器超过 2 小时未上报。', source: '石岩村南收集点箱体', time: '2026-06-11 08:11', readStatus: '未读', handleStatus: '待处理' },
-  { id: 'AL006', type: '称重异常', level: '重要', title: '豫E8K270称重突变', content: '5分钟内称重数据从12.3t变为13.8t', source: '豫E8K270', time: '2026-06-11 09:14', readStatus: '已读', handleStatus: '待处理' },
-  { id: 'AL007', type: '主动安全', level: '严重', title: '豫E8K270分神驾驶', content: 'DMS检测到驾驶员分神超过3秒', source: '豫E8K270', time: '2026-06-11 10:05', readStatus: '未读', handleStatus: '待处理' },
 ]
 
 // ==================== 运单列表 ====================
@@ -118,7 +116,7 @@ export interface WaybillItem {
   startAddress: string
   destination: string
   priority: '紧急' | '普通'
-  status: '待派发' | '待接单' | '已接单' | '收运中' | '已完成'
+  status: '待接单' | '已接单' | '收运中' | '已完成'
   overtimeStatus: '未超时' | '已超时'
   createTime: string
   deadline: string

@@ -196,8 +196,8 @@ export const systemRoutes: RouteRecordRaw[] = [
           { path: '/sanitation/app-driver', name: 'SanitationAppDriver', component: () => import('@/views/sanitation/app-driver.vue'), meta: { title: '驾驶员端', icon: 'file', hidden: false } },
           { path: '/sanitation/app-dispatcher', name: 'SanitationAppDispatcher', component: () => import('@/views/sanitation/app-dispatcher.vue'), meta: { title: '调度员端', icon: 'file', hidden: false } },
           { path: '/sanitation/app-admin', name: 'SanitationAppAdmin', component: () => import('@/views/sanitation/app-admin.vue'), meta: { title: '管理员端', icon: 'file', hidden: false } },
-          { path: '/sanitation/app', name: 'SanitationApp', component: () => import('@/views/sanitation/mobile.vue'), props: { type: 'app' }, meta: { title: 'APP端原型', icon: 'file', hidden: false } },
-          { path: '/sanitation/mini-program', name: 'SanitationMiniProgram', component: () => import('@/views/sanitation/mobile.vue'), props: { type: 'mini' }, meta: { title: '小程序端原型', icon: 'apps', hidden: false } },
+          { path: '/sanitation/app', name: 'SanitationApp', component: () => import('@/views/sanitation/mobile.vue'), props: { type: 'app' }, meta: { title: 'APP端原型', icon: 'file', hidden: true } },
+          { path: '/sanitation/mini-program', name: 'SanitationMiniProgram', component: () => import('@/views/sanitation/mobile.vue'), props: { type: 'mini' }, meta: { title: '小程序端原型', icon: 'apps', hidden: true } },
         ],
       },
 

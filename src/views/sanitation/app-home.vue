@@ -22,8 +22,8 @@
                 <tbody>
                   <tr><td>箱体监控</td><td>管理员、调度员</td><td>管理员端 → 箱体监控 Tab</td></tr>
                   <tr><td>告警派单</td><td>调度员</td><td>调度员端 → 告警消息 Tab</td></tr>
-                  <tr><td>运单监控</td><td>管理员、调度员</td><td>调度员端 → 运单管控 Tab</td></tr>
-                  <tr><td>收运看板</td><td>管理员、调度员</td><td>管理员端 → 综合看板 Tab</td></tr>
+                  <tr><td>运单监控</td><td>管理员、调度员</td><td>调度员端 → 运单监控</td></tr>
+                  <tr><td>收运看板</td><td>管理员、调度员</td><td>管理员端 → 收运看板 Tab</td></tr>
                   <tr><td>收运任务</td><td>驾驶员</td><td>驾驶员端 → 任务 Tab</td></tr>
                 </tbody>
               </table>

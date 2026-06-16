@@ -2,7 +2,7 @@ import type { UserInfo } from '@/apis'
 
 export const isPrototypeMode = import.meta.env.VITE_PROTOTYPE_MODE === 'true'
 
-export const prototypeHomePath = import.meta.env.VITE_PROTOTYPE_HOME || '/sanitation/overview'
+export const prototypeHomePath = import.meta.env.VITE_PROTOTYPE_HOME || '/sanitation/command-center'
 
 export const prototypeToken = 'prototype-token'
 

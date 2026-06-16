@@ -16,7 +16,7 @@ export const systemRoutes: RouteRecordRaw[] = [
     path: '/',
     name: 'Dashboard',
     component: Layout,
-    redirect: isPrototypeMode ? prototypeHomePath : '/dashboard/workplace',
+    redirect: '/sanitation/command-center',
     meta: { title: '仪表盘', icon: 'dashboard', hidden: false },
     children: [
       {
@@ -118,20 +118,6 @@ export const systemRoutes: RouteRecordRaw[] = [
     redirect: '/sanitation/overview',
     meta: { title: '智慧环卫', icon: 'dashboard', hidden: false, sort: 12 },
     children: [
-      // ===== 运营概览 =====
-      {
-        path: '/sanitation/overview',
-        name: 'SanitationOverview',
-        component: () => import('@/views/sanitation/index.vue'),
-        meta: { title: '运营概览', icon: 'desktop', hidden: false },
-      },
-      // ===== 全域地图监管 =====
-      {
-        path: '/sanitation/map',
-        name: 'SanitationMap',
-        component: () => import('@/views/sanitation/map.vue'),
-        meta: { title: '全域地图监管', icon: 'location', hidden: false },
-      },
       // ===== 数字大屏指挥中心 =====
       {
         path: '/sanitation/command-center',
@@ -198,6 +184,18 @@ export const systemRoutes: RouteRecordRaw[] = [
           { path: '/sanitation/app-admin', name: 'SanitationAppAdmin', component: () => import('@/views/sanitation/app-admin.vue'), meta: { title: '管理员端', icon: 'file', hidden: false } },
           { path: '/sanitation/app', name: 'SanitationApp', component: () => import('@/views/sanitation/mobile.vue'), props: { type: 'app' }, meta: { title: 'APP端原型', icon: 'file', hidden: true } },
           { path: '/sanitation/mini-program', name: 'SanitationMiniProgram', component: () => import('@/views/sanitation/mobile.vue'), props: { type: 'mini' }, meta: { title: '小程序端原型', icon: 'apps', hidden: true } },
+        ],
+      },
+
+      // ===== 7月份阶段（子菜单） =====
+      {
+        path: '/sanitation/july-phase',
+        name: 'SanitationJulyPhase',
+        redirect: '/sanitation/overview',
+        meta: { title: '7月份阶段', icon: 'calendar', hidden: false },
+        children: [
+          { path: '/sanitation/overview', name: 'SanitationOverview', component: () => import('@/views/sanitation/index.vue'), meta: { title: '运营概览', icon: 'desktop', hidden: false } },
+          { path: '/sanitation/map', name: 'SanitationMap', component: () => import('@/views/sanitation/map.vue'), meta: { title: '全域地图监管', icon: 'location', hidden: false } },
         ],
       },
 

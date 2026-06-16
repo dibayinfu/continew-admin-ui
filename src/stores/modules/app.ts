@@ -62,7 +62,7 @@ const storeSetup = () => {
     if (isPrototypeMode) {
       setSiteConfig({
         SITE_FAVICON: '/favicon.ico',
-        SITE_LOGO: '/static/images/logo.png',
+        SITE_LOGO: '/logo.svg',
         SITE_TITLE: '智慧环卫产品原型',
         SITE_COPYRIGHT: '智慧环卫运营管理平台',
         SITE_BEIAN: '',

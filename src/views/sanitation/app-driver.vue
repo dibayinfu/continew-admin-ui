@@ -6,62 +6,67 @@
       phase="APP端"
       priority="P0"
       module="移动端"
-    >
-      <template #extra>
-        <a-button type="primary" @click="showPrdPanel">产品需求说明</a-button>
-      </template>
-    </ModuleHeader>
+    />
 
-    <div ref="prdPanelRef" class="prd-panel">
-      <a-collapse v-model:active-key="prdActiveKeys" :bordered="false">
+    <!-- ========== 产品需求说明 ========== -->
+    <div class="prd-panel">
+      <a-collapse :bordered="false">
         <a-collapse-item key="prd" header="📋 产品需求说明">
           <div class="prd-body">
             <div class="prd-section">
               <table class="prd-table">
                 <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">🎯 功能要点（开发 / 测试关注）</td></tr>
-                  <tr><td class="prd-label">页面</td><td class="prd-value">驾驶员端「任务列表 → 收运任务详情」，用于驾驶员查看任务、接单、确认路线、理解系统自动流转结果，并在完成后补传凭证照片</td></tr>
-                  <tr><td class="prd-label">目标用户</td><td class="prd-value">小勾臂车 / 大勾臂车驾驶员，主要在车内、收集点、中转站、焚烧厂等移动现场使用</td></tr>
-                  <tr><td class="prd-label">业务流</td><td class="prd-value">任务列表点击任务 → 进入详情 → 查看下一步动作和路线 → 待接单时驾驶员接单 → 系统识别进入始发点围栏并开始收运 → 系统识别到达目的地并自动完成 → 已完成后补传车辆照片</td></tr>
-                  <tr><td class="prd-label">信息优先级</td><td class="prd-value">顶部优先展示状态、任务类型、任务名称和下一步动作；路线摘要、核心指标和地图优先于关键事件；单据信息作为下方辅助核对信息</td></tr>
-                  <tr><td class="prd-label">顶部状态区</td><td class="prd-value">根据待接单 / 已接单 / 收运中 / 已完成 / 已超时显示不同状态色；“下一步”是轻量提示条，不表现为按钮，避免误导驾驶员点击</td></tr>
-                  <tr><td class="prd-label">路线摘要</td><td class="prd-value">展示「收运点 → 目的地」，小勾臂为收集点到中转站，大勾臂为中转站到焚烧厂</td></tr>
-                  <tr><td class="prd-label">地图轨迹</td><td class="prd-value">详情页地图复用收运单监控的轨迹展示能力，显示车辆实际轨迹、未完成路段、始发点和目的地电子围栏及称重信息</td></tr>
-                  <tr><td class="prd-label">查看始发点</td><td class="prd-value">点击“查看始发点”后，地图聚焦并放大到轨迹始发点，帮助驾驶员快速确认起点位置</td></tr>
-                  <tr><td class="prd-label">关键事件</td><td class="prd-value">关键事件不平铺完整大时间线，只展示当前进度附近事件和完成进度，减少详情页占用空间</td></tr>
-                  <tr><td class="prd-label">单据信息</td><td class="prd-value">完整展示任务单号、关联运单、任务类型、状态、驾驶员、车辆、箱体、收运点、目的地、截止时间、满溢率、称重、创建/接单/装车/完成时间和凭证状态</td></tr>
-                  <tr><td class="prd-label">凭证上传</td><td class="prd-value">已完成且未上传凭证时，底部显示补传凭证入口；进入上传页后提示上传收运完车辆照片，支持水印相机拍照和从相册选择</td></tr>
-                  <tr><td class="prd-label">底部操作</td><td class="prd-value">底部操作区始终浮在地图图层之上；待接单显示接单按钮，已接单/收运中显示系统自动识别说明，已完成未传凭证显示补传入口</td></tr>
+                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">🎯 功能要点</td></tr>
+                  <tr><td class="prd-label">目标用户</td><td class="prd-value">驾驶员，在车内使用 APP 查看收运任务、接单、确认路线、补传凭证</td></tr>
+                  <tr><td class="prd-label">页面结构</td><td class="prd-value">2 个底部 Tab：「任务」「我的」。默认进入「任务」Tab</td></tr>
+                  <tr><td class="prd-label">Tab 1：任务</td><td class="prd-value">6 个状态筛选 Tab（全部/待接单/已接单/收运中/已完成/待补传），卡片列表展示筛选结果，点击卡片进入全屏详情</td></tr>
+                  <tr><td class="prd-label">Tab 2：我的</td><td class="prd-value">驾驶员信息（头像+姓名+车辆），「我的运单」标题+日期选择（日历网格含每日运单数），当日统计（总运单/正常完成/超时，三色区分），运单列表</td></tr>
                 </tbody>
               </table>
             </div>
             <div class="prd-section">
               <table class="prd-table">
                 <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">🔑 状态设计</td></tr>
-                  <tr><td class="prd-label">收运状态</td><td class="prd-value">待接单 / 已接单 / 收运中 / 已完成，四个状态互斥；超时状态独立展示</td></tr>
-                  <tr><td class="prd-label">待接单 → 已接单</td><td class="prd-value">驾驶员手动点击接单，记录 acceptTime，任务进入“已接单”</td></tr>
-                  <tr><td class="prd-label">已接单 → 收运中</td><td class="prd-value">驾驶员无需点击到达；系统识别车辆进入始发点围栏并完成装车后，自动设置 startTime 并变为“收运中”</td></tr>
-                  <tr><td class="prd-label">收运中 → 已完成</td><td class="prd-value">驾驶员无需点击卸车完成；系统识别车辆进入中转站 / 焚烧厂目的地围栏并完成卸车后，自动设置 finishTime 并变为“已完成”</td></tr>
-                  <tr><td class="prd-label">已完成</td><td class="prd-value">任务不可再推进；如果 proofUploaded=false，引导驾驶员补传收运完车辆照片</td></tr>
-                  <tr><td class="prd-label">原型模拟</td><td class="prd-value">为演示自动识别流程，原型保留“模拟系统识别 / 模拟系统完成”入口，真实 APP 中由定位、电子围栏和作业事件自动触发</td></tr>
+                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">📱 任务详情页结构</td></tr>
+                  <tr><td class="prd-label">顶部栏</td><td class="prd-value">「返回」按钮 + 任务单号 + 状态标签（待接单/已接单/收运中/已完成）+ 超时标签（红色）</td></tr>
+                  <tr><td class="prd-label">标题区</td><td class="prd-value">优先级（紧急红色/普通灰色）+ 任务类型 + 任务名称 + 「下一步」文字提示（仅引导，非按钮）</td></tr>
+                  <tr><td class="prd-label">路线卡片</td><td class="prd-value">收运点（绿点）→ 目的地（红点），中间竖线连接</td></tr>
+                  <tr><td class="prd-label">核心指标</td><td class="prd-value">2×2 网格：截止时间/SLA、满溢率（≥90%红色）、称重（吨）、箱体编号/车辆</td></tr>
+                  <tr><td class="prd-label">地图轨迹</td><td class="prd-value">Leaflet 地图（实线已行驶/虚线未完成，围栏圆圈标注），顶部「查看始发点」按钮聚焦放大到起点</td></tr>
+                  <tr><td class="prd-label">关键事件</td><td class="prd-value">a-timeline 时间线，8 步：派单→接单→到达始发地→装车→发车→到达目的地→卸车完成→上传照片。仅显示已完成步骤+当前第一步未完成步骤，隐藏未来步骤避免空时间。进度计数如 5/8</td></tr>
+                  <tr><td class="prd-label">单据信息</td><td class="prd-value">a-descriptions 表格 15 字段：任务单号、关联运单、任务类型、任务状态、驾驶员、车辆、箱体编号、收运点、目的地、截止时间、满溢率、称重、创建时间、接单/装车/完成时间、凭证状态</td></tr>
+                  <tr><td class="prd-label">凭证照片</td><td class="prd-value">已上传时显示单张全宽凭证照片（SVG 模拟），含车辆号、目的地、完成时间水印</td></tr>
                 </tbody>
               </table>
             </div>
             <div class="prd-section">
               <table class="prd-table">
                 <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">⚠️ 边界 & 验收要点</td></tr>
-                  <tr><td class="prd-label">✓ 列表进详情</td><td class="prd-value">任务列表点击任一任务后进入详情，详情内容与所选任务一致</td></tr>
-                  <tr><td class="prd-label">✓ 状态引导</td><td class="prd-value">不同状态展示不同颜色和下一步动作；“下一步”不应像按钮</td></tr>
-                  <tr><td class="prd-label">✓ 地图优先级</td><td class="prd-value">地图展示顺序高于关键事件，驾驶员可先看路线和始发点</td></tr>
-                  <tr><td class="prd-label">✓ 始发点放大</td><td class="prd-value">点击“查看始发点”后，地图中心切到始发点并放大</td></tr>
-                  <tr><td class="prd-label">✓ 自动开始收运</td><td class="prd-value">已接单状态不出现“到达收集点/开始装车”手动按钮，由系统自动切换到收运中</td></tr>
-                  <tr><td class="prd-label">✓ 自动完成</td><td class="prd-value">收运中状态不出现“到达中转站/卸车完成”手动按钮，由系统自动完成任务</td></tr>
-                  <tr><td class="prd-label">✓ 单据信息完整</td><td class="prd-value">单据信息必须覆盖任务、司机、车辆、箱体、地址、时效、称重、时间和凭证状态，不能缺失关键字段</td></tr>
-                  <tr><td class="prd-label">✓ 凭证上传</td><td class="prd-value">点击补传凭证后进入上传页，页面明确提示上传收运完车辆照片，可模拟水印相机拍照、相册选择、照片预览和提交</td></tr>
-                  <tr><td class="prd-label">✓ 图层遮挡</td><td class="prd-value">底部操作区层级高于地图，不被 Leaflet 地图控件或图层遮挡</td></tr>
-                  <tr><td class="prd-label">✓ 数据来源</td><td class="prd-value">当前为 mock 数据；后续对接后端时，任务状态、轨迹点、围栏事件、称重和凭证需走 API 同步</td></tr>
+                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">🔑 状态流转与操作</td></tr>
+                  <tr><td class="prd-label">状态定义</td><td class="prd-value">待接单 / 已接单 / 收运中 / 已完成，四状态互斥按序流转。超时状态（未超时/已超时）独立展示</td></tr>
+                  <tr><td class="prd-label">待接单 → 已接单</td><td class="prd-value">底部「接单」按钮 → Modal.confirm 二次确认 → 记录 acceptTime → 点亮「接单」步骤 → 状态变为已接单</td></tr>
+                  <tr><td class="prd-label">已接单 → 收运中</td><td class="prd-value">底部"等待系统自动识别到达始发点"文字 + 原型「模拟系统识别」按钮。点击后点亮「到达始发地」「装车」「发车」三步，随机生成称重，状态变为收运中。真实 APP 由 GPS+电子围栏自动触发</td></tr>
+                  <tr><td class="prd-label">收运中 → 已完成</td><td class="prd-value">底部"等待系统自动识别到达目的地"文字 + 原型「模拟系统完成」按钮。点击后点亮「到达目的地」「卸车完成」两步，记录 finishTime，计算耗时并判定超时。真实 APP 由系统自动触发</td></tr>
+                  <tr><td class="prd-label">已完成 + 未上传</td><td class="prd-value">底部「补传凭证照片」按钮 → 进入上传页（水印相机/相册选择，1 张）→ 提交后点亮「上传照片」步骤，proofUploaded=true</td></tr>
+                  <tr><td class="prd-label">已完成 + 已上传</td><td class="prd-value">底部绿色提示"任务已完成，凭证已上传"，不可再操作</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="prd-section">
+              <table class="prd-table">
+                <tbody>
+                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">⚠️ 验收要点</td></tr>
+                  <tr><td class="prd-label">✓ 状态筛选</td><td class="prd-value">6 Tab 切换过滤，计数实时；待接单置顶，超时红色标记</td></tr>
+                  <tr><td class="prd-label">✓ 列表进详情</td><td class="prd-value">点击卡片进入全屏详情，返回不刷新</td></tr>
+                  <tr><td class="prd-label">✓ 接单确认</td><td class="prd-value">Modal.confirm 二次确认，确认后状态即时变更</td></tr>
+                  <tr><td class="prd-label">✓ 8 步骤时间线</td><td class="prd-value">已完成绿点、当前蓝点、未来步骤隐藏；进度计数与实际显示一致</td></tr>
+                  <tr><td class="prd-label">✓ 满溢率展示</td><td class="prd-value">核心指标中显示，≥90% 红色高亮</td></tr>
+                  <tr><td class="prd-label">✓ 地图轨迹</td><td class="prd-value">实线已行驶/虚线未完成，始发点目的地围栏标注</td></tr>
+                  <tr><td class="prd-label">✓ 原型模拟</td><td class="prd-value">模拟系统识别/完成按钮可用，真实 APP 由系统自动触发</td></tr>
+                  <tr><td class="prd-label">✓ 凭证上传</td><td class="prd-value">水印相机+相册，1 张照片，提交后详情页显示凭证照片</td></tr>
+                  <tr><td class="prd-label">✓ 我的运单</td><td class="prd-value">日历日期附带当日运单数，统计三色区分（总蓝/正常绿/超时红）</td></tr>
+                  <tr><td class="prd-label">✓ 图层遮挡</td><td class="prd-value">底部操作区 z-index 高于 Leaflet 地图控件</td></tr>
+                  <tr><td class="prd-label">✓ 数据来源</td><td class="prd-value">当前为 mock 数据，后续对接后端 API</td></tr>
                 </tbody>
               </table>
             </div>
@@ -70,14 +75,13 @@
       </a-collapse>
     </div>
 
+    <!-- ========== 手机外框 ========== -->
     <div class="phone-wrapper">
       <div class="phone-frame">
-        <div class="phone-status-bar">
-          <span>10:22</span>
-          <span>🔋 91%</span>
-        </div>
+        <div class="phone-status-bar"><span>10:22</span><span>🔋 91%</span></div>
 
         <div class="phone-body">
+
           <!-- ===== 全屏运单详情 ===== -->
           <div v-if="detailTask" class="detail-overlay">
             <div class="detail-header">
@@ -88,88 +92,38 @@
                 <span v-if="detailTask.overtimeStatus === '已超时'" class="dt-tag dt-overtime-tag">超时</span>
               </a-space>
             </div>
-
             <div class="detail-body">
               <div class="dt-hero" :class="{ danger: detailTask.overtimeStatus === '已超时' }">
-                <div class="dt-title-row">
-                  <span class="dt-pri" :class="'pri-' + detailTask.priority">{{ detailTask.priority }}</span>
-                  <span>{{ detailTask.taskType }}</span>
-                </div>
+                <div class="dt-title-row"><span class="dt-pri" :class="'pri-' + detailTask.priority">{{ detailTask.priority }}</span><span>{{ detailTask.taskType }}</span></div>
                 <h3>{{ detailTask.taskName }}</h3>
-                <div class="dt-next">
-                  <span class="dt-next-label">下一步</span>
-                  <b>{{ getNextActionText(detailTask) }}</b>
-                </div>
+                <div class="dt-next"><span class="dt-next-label">下一步</span><b>{{ getNextActionText(detailTask) }}</b></div>
               </div>
-
               <div class="dt-route-card">
-                <div class="route-point">
-                  <span class="route-dot start"></span>
-                  <div>
-                    <span>收运点</span>
-                    <b>{{ detailTask.startAddress }}</b>
-                  </div>
-                </div>
+                <div class="route-point"><span class="route-dot start"></span><div><span>收运点</span><b>{{ detailTask.startAddress }}</b></div></div>
                 <div class="route-line"></div>
-                <div class="route-point">
-                  <span class="route-dot end"></span>
-                  <div>
-                    <span>目的地</span>
-                    <b>{{ detailTask.destination }}</b>
-                  </div>
-                </div>
+                <div class="route-point"><span class="route-dot end"></span><div><span>目的地</span><b>{{ detailTask.destination }}</b></div></div>
               </div>
-
               <div class="dt-metric-grid">
-                <div class="dm-item" :class="{ danger: detailTask.overtimeStatus === '已超时' }">
-                  <span>截止</span>
-                  <b>{{ getShortDeadline(detailTask.deadline) }}</b>
-                  <em>SLA {{ detailTask.slaMinutes }}min</em>
-                </div>
-                <div class="dm-item" :class="{ danger: (detailTask.fillRate ?? 0) >= 90 }">
-                  <span>满溢率</span>
-                  <b>{{ detailTask.fillRate != null ? `${detailTask.fillRate}%` : '-' }}</b>
-                  <em>{{ (detailTask.fillRate ?? 0) >= 90 ? '需优先处理' : '正常' }}</em>
-                </div>
-                <div class="dm-item">
-                  <span>称重</span>
-                  <b>{{ detailTask.weight != null ? `${detailTask.weight}t` : '待采集' }}</b>
-                  <em>{{ detailTask.status === '收运中' ? '卸车后确认' : '系统记录' }}</em>
-                </div>
-                <div class="dm-item">
-                  <span>箱体</span>
-                  <b>{{ detailTask.boxNo }}</b>
-                  <em>{{ detailTask.vehicle }}</em>
-                </div>
+                <div class="dm-item" :class="{ danger: detailTask.overtimeStatus === '已超时' }"><span>截止</span><b>{{ getShortDeadline(detailTask.deadline) }}</b><em>SLA {{ detailTask.slaMinutes }}min</em></div>
+                <div class="dm-item" :class="{ danger: (detailTask.fillRate ?? 0) >= 90 }"><span>满溢率</span><b>{{ detailTask.fillRate != null ? detailTask.fillRate + '%' : '-' }}</b><em>{{ (detailTask.fillRate ?? 0) >= 90 ? '需优先处理' : '正常' }}</em></div>
+                <div class="dm-item"><span>称重</span><b>{{ detailTask.weight != null ? detailTask.weight + 't' : '待采集' }}</b><em>{{ detailTask.status === '收运中' ? '卸车后确认' : '系统记录' }}</em></div>
+                <div class="dm-item"><span>箱体</span><b>{{ detailTask.boxNo }}</b><em>{{ detailTask.vehicle }}</em></div>
               </div>
-
               <div class="dt-map-card">
-                <div class="dt-section-head">
-                  <span>路线轨迹</span>
-                  <button class="start-point-btn" type="button" @click="showStartPoint(detailTask)">查看始发点</button>
-                </div>
-                <TaskTrackMap ref="detailMapRef" :track="detailTask.track" :weight="detailTask.weight" />
+                <div class="dt-section-head"><span>路线轨迹</span><button class="start-point-btn" type="button" @click="showStartPoint(detailTask)">查看始发点</button></div>
+                <TaskTrackMap ref="detailMapRef" :track="(detailTask.track as any)" :weight="detailTask.weight" />
               </div>
-
               <!-- ===== 关键事件 ===== -->
-              <div class="dt-section-head">
-                <span>关键事件</span>
-                <b>{{ getDoneStepCount(detailTask) }}/{{ detailTask.steps.length }}</b>
-              </div>
-              <div class="dt-events">
-                <div v-for="step in getCompactSteps(detailTask)" :key="step.label" class="event-row" :class="{ done: step.done }">
-                  <span class="event-dot"></span>
-                  <div>
+              <div class="dt-section-head"><span>关键事件</span><b>{{ getDoneStepCount(detailTask) }}/{{ detailTask.steps.length }}</b></div>
+              <div class="dt-events-compact">
+                <a-timeline>
+                  <a-timeline-item v-for="step in visibleSteps(detailTask)" :key="step.label" :dot-color="step.done ? 'green' : 'gray'">
                     <b>{{ step.label }}</b>
-                    <span>{{ step.time || (step.done ? '已完成' : '待处理') }}</span>
-                  </div>
-                </div>
+                    <p v-if="step.time">{{ step.time }}</p>
+                  </a-timeline-item>
+                </a-timeline>
               </div>
-
-              <!-- ===== 辅助信息 ===== -->
-              <div class="dt-section-head">
-                <span>单据信息</span>
-              </div>
+              <div class="dt-section-head"><span>单据信息</span></div>
               <a-descriptions class="dt-desc" :column="1" size="small" bordered>
                 <a-descriptions-item label="任务单号">{{ detailTask.id }}</a-descriptions-item>
                 <a-descriptions-item label="关联运单">{{ detailTask.waybillId }}</a-descriptions-item>
@@ -181,167 +135,110 @@
                 <a-descriptions-item label="收运点">{{ detailTask.startAddress }}</a-descriptions-item>
                 <a-descriptions-item label="目的地">{{ detailTask.destination }}</a-descriptions-item>
                 <a-descriptions-item label="截止时间">{{ detailTask.deadline }}</a-descriptions-item>
-                <a-descriptions-item label="满溢率">{{ detailTask.fillRate != null ? `${detailTask.fillRate}%` : '—' }}</a-descriptions-item>
-                <a-descriptions-item label="称重">{{ detailTask.weight != null ? `${detailTask.weight} 吨` : '待采集' }}</a-descriptions-item>
+                <a-descriptions-item label="满溢率">{{ detailTask.fillRate != null ? detailTask.fillRate + '%' : '—' }}</a-descriptions-item>
+                <a-descriptions-item label="称重">{{ detailTask.weight != null ? detailTask.weight + ' 吨' : '待采集' }}</a-descriptions-item>
                 <a-descriptions-item label="创建时间">{{ detailTask.createTime }}</a-descriptions-item>
                 <a-descriptions-item label="接单/装车/完成">{{ detailTask.acceptTime || '—' }} / {{ detailTask.startTime || '—' }} / {{ detailTask.finishTime || '—' }}</a-descriptions-item>
                 <a-descriptions-item label="凭证状态">{{ detailTask.proofUploaded ? '已上传' : '待上传' }}</a-descriptions-item>
               </a-descriptions>
-
-              <!-- 凭证 -->
-              <div v-if="detailTask.proofUploaded" class="dt-section-head">
-                <span>凭证照片</span>
-              </div>
-              <div v-if="detailTask.proofUploaded" class="dt-proof-imgs">
-                <div class="dpi-card"><span>装车照</span></div>
-                <div class="dpi-card"><span>卸车照</span></div>
+              <div v-if="detailTask.proofUploaded" class="dt-section-head"><span>凭证照片</span></div>
+              <div v-if="detailTask.proofUploaded" class="dt-proof-photos">
+                <div class="dpp-img">
+                  <svg viewBox="0 0 320 180"><rect width="320" height="180" fill="#e8f3ff"/><text x="160" y="60" text-anchor="middle" fill="#165DFF" font-size="18" font-weight="700">完成任务凭证</text><text x="160" y="85" text-anchor="middle" fill="#86909c" font-size="12">{{ detailTask.vehicle }}</text><text x="160" y="105" text-anchor="middle" fill="#4e5969" font-size="11">{{ detailTask.destination }}</text><rect x="0" y="155" width="320" height="25" fill="rgba(0,0,0,.3)"/><text x="160" y="172" text-anchor="middle" fill="#fff" font-size="11">{{ detailTask.vehicle }} · {{ detailTask.finishTime || detailTask.acceptTime || detailTask.createTime }}</text></svg>
+                </div>
               </div>
             </div>
-
-            <!-- 操作 -->
             <div class="dt-actions">
               <a-button v-if="detailTask.status === '待接单'" type="primary" long size="large" @click="confirmAccept(detailTask)">接单</a-button>
-              <div v-if="detailTask.status === '已接单'" class="dt-auto-state">
-                <b>等待系统自动识别到达始发点</b>
-                <span>进入收集点或中转站围栏后，状态自动变为收运中。</span>
-                <button type="button" @click="simulateAutoStart(detailTask)">模拟系统识别</button>
-              </div>
-              <div v-if="detailTask.status === '收运中'" class="dt-auto-state">
-                <b>等待系统自动识别到达目的地</b>
-                <span>进入中转站或焚烧厂围栏并完成卸车后，任务自动完成。</span>
-                <button type="button" @click="simulateAutoFinish(detailTask)">模拟系统完成</button>
-              </div>
+              <div v-if="detailTask.status === '已接单'" class="dt-auto-state"><b>等待系统自动识别到达始发点</b><span>进入收集点或中转站围栏后自动变为收运中。</span><button type="button" @click="simulateAutoStart(detailTask)">模拟系统识别</button></div>
+              <div v-if="detailTask.status === '收运中'" class="dt-auto-state"><b>等待系统自动识别到达目的地</b><span>进入中转站或焚烧厂围栏并卸车后自动完成。</span><button type="button" @click="simulateAutoFinish(detailTask)">模拟系统完成</button></div>
               <a-button v-if="detailTask.status === '已完成' && !detailTask.proofUploaded" type="primary" status="success" long size="large" @click="openProofUpload(detailTask)">补传凭证照片</a-button>
               <div v-if="detailTask.status === '已完成' && detailTask.proofUploaded" class="dt-done">任务已完成，凭证已上传</div>
             </div>
           </div>
 
+          <!-- ===== 凭证上传弹层 ===== -->
           <div v-if="proofUploadTask" class="proof-upload-overlay">
-            <div class="proof-upload-header">
-              <span class="back-btn" @click="closeProofUpload">返回</span>
-              <b>补传凭证照片</b>
-              <span>{{ proofPhotos.length }}/2</span>
-            </div>
-
+            <div class="proof-upload-header"><span class="back-btn" @click="closeProofUpload">返回</span><b>上传完成凭证</b></div>
             <div class="proof-upload-body">
-              <div class="proof-tip">
-                <b>请上传收运完车辆的照片</b>
-                <span>建议包含车牌、箱体或卸车现场。照片会自动叠加任务水印。</span>
-              </div>
-
-              <div class="watermark-camera">
-                <div class="camera-frame">
-                  <div class="camera-crosshair"></div>
-                  <div class="camera-watermark">
-                    <b>{{ proofUploadTask.vehicle }}</b>
-                    <span>{{ proofUploadTask.taskName }}</span>
-                    <span>{{ proofUploadTask.destination }} · {{ nowTime() }}</span>
-                  </div>
-                </div>
-                <div class="camera-caption">水印相机预览</div>
-              </div>
-
-              <div class="proof-actions-grid">
-                <button type="button" @click="addProofPhoto('camera')">
-                  <b>打开水印相机</b>
-                  <span>拍照上传</span>
-                </button>
-                <button type="button" @click="addProofPhoto('album')">
-                  <b>从相册选择</b>
-                  <span>支持历史照片</span>
-                </button>
-              </div>
-
-              <div class="proof-preview-list">
-                <div v-for="photo in proofPhotos" :key="photo" class="proof-preview-item">
-                  <span>{{ photo }}</span>
-                </div>
-                <div v-if="proofPhotos.length === 0" class="proof-preview-empty">暂无照片</div>
-              </div>
+              <div class="proof-tip"><b>请上传完成任务时的现场照片</b><span>建议包含车牌、卸车现场。</span></div>
+              <div class="watermark-camera"><div class="camera-frame"><div class="camera-crosshair"></div><div class="camera-watermark"><b>{{ proofUploadTask.vehicle }}</b><span>{{ proofUploadTask.taskName }}</span><span>{{ proofUploadTask.destination }} · {{ nowTime() }}</span></div></div><div class="camera-caption">水印相机预览</div></div>
+              <div class="proof-actions-grid"><button type="button" @click="addProofPhoto('camera')"><b>打开水印相机</b><span>拍照上传</span></button><button type="button" @click="addProofPhoto('album')"><b>从相册选择</b><span>支持历史照片</span></button></div>
+              <div class="proof-preview-list"><div v-for="photo in proofPhotos" :key="photo" class="proof-preview-item"><span>{{ photo }}</span></div><div v-if="proofPhotos.length === 0" class="proof-preview-empty">暂无照片</div></div>
             </div>
-
-            <div class="dt-actions proof-submit-actions">
-              <a-button type="primary" status="success" long size="large" :disabled="proofPhotos.length === 0" @click="submitProofUpload">提交凭证</a-button>
-            </div>
+            <div class="dt-actions proof-submit-actions"><a-button type="primary" status="success" long size="large" :disabled="proofPhotos.length === 0" @click="submitProofUpload">提交凭证</a-button></div>
           </div>
 
           <!-- ===== 任务列表 ===== -->
           <div v-else-if="store.activeDriverTab === 'task'" class="phone-content">
-            <div class="top-bar">
-              <span class="top-title">我的收运任务</span>
-              <span class="top-user">张师傅 · 豫E3G516</span>
-            </div>
-
-            <!-- 状态筛选 -->
+            <div class="top-bar"><span class="top-title">我的收运任务</span><span class="top-user">张师傅 · 豫E3G516</span></div>
             <div class="filter-tabs">
-              <div
-                v-for="tab in statusTabs"
-                :key="tab.key"
-                class="ft-item"
-                :class="{ active: taskStatFilter === tab.key }"
-                @click="taskStatFilter = tab.key"
-              >
-                <span class="ft-label">{{ tab.label }}</span>
-                <span class="ft-count">{{ tab.count }}</span>
+              <div v-for="tab in statusTabs" :key="tab.key" class="ft-item" :class="{ active: taskStatFilter === tab.key }" @click="taskStatFilter = tab.key as any">
+                <span class="ft-label">{{ tab.label }}</span><span class="ft-count">{{ tab.count }}</span>
               </div>
             </div>
-
-            <!-- 卡片列表 -->
             <div class="task-list">
-              <div v-if="filteredDriverTasks.length === 0" class="empty-state">
-                <span class="empty-icon">📋</span><span>暂无任务</span>
-              </div>
+              <div v-if="filteredDriverTasks.length === 0" class="empty-state"><span class="empty-icon">📋</span><span>暂无任务</span></div>
               <div v-for="task in filteredDriverTasks" :key="task.id" class="task-card" @click="detailTask = task">
-                <div class="tc-head">
-                  <b>{{ task.taskName }}</b>
-                  <span class="tc-st" :class="'ts-' + task.status">{{ task.status }}</span>
-                </div>
+                <div class="tc-head"><b>{{ task.taskName }}</b><span class="tc-st" :class="'ts-' + task.status">{{ task.status }}</span></div>
                 <div class="tc-addr">📍 {{ task.startAddress }} → {{ task.destination }}</div>
                 <div class="tc-row">
                   <span class="tc-pri" :class="'pri-' + task.priority">{{ task.priority }}</span>
-                  <span v-if="task.fillRate != null" class="tc-fill" :class="{ 'tc-fill-high': task.fillRate >= 90 }">
-                    满溢 {{ task.fillRate }}%
-                  </span>
+                  <span v-if="task.fillRate != null" class="tc-fill" :class="{ 'tc-fill-high': task.fillRate >= 90 }">满溢 {{ task.fillRate }}%</span>
                   <span class="tc-deadline">{{ task.deadline }} 截止</span>
                   <span v-if="task.overtimeStatus === '已超时'" class="tc-ot">超时</span>
                 </div>
-                <div class="tc-steps-dots">
-                  <span v-for="(s, i) in task.steps" :key="i" class="tsd" :class="{ done: s.done }"></span>
-                </div>
+                <div class="tc-steps-dots"><span v-for="(s, i) in task.steps" :key="i" class="tsd" :class="{ done: s.done }"></span></div>
               </div>
             </div>
           </div>
 
           <!-- ===== 路线 ===== -->
           <div v-if="store.activeDriverTab === 'route'" class="phone-content">
-            <div class="top-bar"><span class="top-title">路线导航</span></div>
-            <div class="map-placeholder" @click="handleNavigate">
-              <span class="mp-icon">🗺️</span>
-              <span>当前任务路线</span>
-              <span class="mp-hint">点击开始导航</span>
-            </div>
-            <div v-if="currentTask" class="route-card">
-              <b>{{ currentTask.taskName }}</b>
-              <div class="rc-points">
-                <span class="rc-dot done"></span><span>{{ currentTask.startAddress }}</span>
-              </div>
-              <div class="rc-line"></div>
-              <div class="rc-points">
-                <span class="rc-dot" :class="{ done: currentTask.status !== '待接单' }"></span><span>{{ currentTask.destination }}</span>
-              </div>
-              <div class="rc-info"><span>{{ currentTask.slaMinutes }}min</span><span>{{ Math.round(currentTask.slaMinutes * 0.6) }}km</span></div>
-            </div>
           </div>
 
           <!-- ===== 凭证 ===== -->
           <div v-if="store.activeDriverTab === 'proof'" class="phone-content">
-            <div class="top-bar"><span class="top-title">凭证中心</span></div>
-            <div class="proof-list">
-              <div v-for="t in proofTasks" :key="t.id" class="proof-card" @click="handleProofClick(t)">
-                <div class="pc-head"><b>{{ t.taskName }}</b><span :class="t.proofUploaded ? 'pc-yes' : 'pc-no'">{{ t.proofUploaded ? '已上传' : '待上传' }}</span></div>
-                <p>{{ t.destination }}</p>
-                <div v-if="t.proofUploaded" class="pc-previews"><span>📸</span><span>📸</span></div>
-                <a-button v-if="!t.proofUploaded" size="mini" type="primary" @click.stop="openProofUpload(t)">上传凭证</a-button>
+          </div>
+
+          <!-- ===== 我的 ===== -->
+          <div v-if="store.activeDriverTab === 'mine'" class="phone-content">
+            <!-- 驾驶员信息 -->
+            <div class="mine-profile">
+              <div class="mp-avatar">张</div>
+              <div class="mp-info"><b>张师傅</b><span>豫E3G516 · 小勾臂车</span></div>
+            </div>
+
+            <!-- 日期选择 -->
+            <div class="mine-date-header" @click="showDatePicker = !showDatePicker">
+              <div class="mdh-left">
+                <span class="mdh-title">我的运单</span>
+                <span class="mdh-date">{{ mineDate }}</span>
+                <span class="mdh-arrow">▾</span>
+              </div>
+            </div>
+
+            <div v-if="showDatePicker" class="mine-date-picker">
+              <div class="mdp-grid">
+                <span v-for="d in recentDates" :key="d.value" class="mdp-day" :class="{ active: mineDate === d.value, today: d.isToday }" @click="selectDate(d.value)">
+                  {{ d.label }}<em>{{ d.count || '' }}</em>
+                </span>
+              </div>
+            </div>
+
+            <!-- 统计 -->
+            <div class="mine-day-stats">
+              <div class="mds-card"><span class="mds-val" style="color:#165DFF">{{ mineDateTasks.length }}</span><span class="mds-label">总运单</span></div>
+              <div class="mds-card"><span class="mds-val success">{{ mineDateNormal }}</span><span class="mds-label">正常完成</span></div>
+              <div class="mds-card"><span class="mds-val danger">{{ mineDateOvertime }}</span><span class="mds-label">超时</span></div>
+            </div>
+
+            <!-- 运单列表 -->
+            <div class="mine-history">
+              <div v-if="mineDateTasks.length === 0" class="empty-state"><span class="empty-icon">📋</span><span>该日暂无运单</span></div>
+              <div v-for="t in mineDateTasks" :key="t.id" class="mh-item" @click="detailTask = t">
+                <div class="mh-head"><b>{{ t.taskName }}</b><span class="tc-st" :class="'ts-' + t.status">{{ t.status }}</span></div>
+                <div class="mh-meta"><span>{{ t.createTime }}</span><span v-if="t.overtimeStatus === '已超时'" class="tc-ot">超时</span><span v-if="t.weight">⚖️{{ t.weight }}t</span></div>
               </div>
             </div>
           </div>
@@ -349,7 +246,7 @@
 
         <!-- 底部导航 -->
         <div class="bottom-nav">
-          <div v-for="nav in driverNavs" :key="nav.key" class="nav-item" :class="{ active: store.activeDriverTab === nav.key }" @click="store.activeDriverTab = nav.key">
+          <div v-for="nav in driverNavs" :key="nav.key" class="nav-item" :class="{ active: store.activeDriverTab === nav.key }" @click="store.activeDriverTab = nav.key as any">
             <span class="ni-icon">{{ nav.icon }}</span><span class="ni-label">{{ nav.label }}</span>
           </div>
         </div>
@@ -371,24 +268,37 @@ const store = useAppStore
 const taskStatFilter = ref<'all' | 'pending' | 'accepted' | 'running' | 'done' | 'proof'>('all')
 const detailTask = ref<DriverTask | null>(null)
 const detailMapRef = ref<{ focusStartPoint: () => void } | null>(null)
-const prdPanelRef = ref<HTMLElement | null>(null)
-const prdActiveKeys = ref<string[]>(['prd'])
 const proofUploadTask = ref<DriverTask | null>(null)
 const proofPhotos = ref<string[]>([])
 
 const driverNavs = [
   { key: 'task', label: '任务', icon: '📋' },
-  { key: 'route', label: '路线', icon: '🧭' },
-  { key: 'proof', label: '凭证', icon: '📸' },
+  { key: 'mine', label: '我的', icon: '👤' },
 ]
 
-const currentTask = computed(() => driverTaskList.find(t => ['已接单','收运中'].includes(t.status)))
-const proofTasks = computed(() => driverTaskList.filter(t => t.status === '已完成'))
+const currentTask = computed(() => driverTaskList.find(t => ['已接单', '收运中'].includes(t.status)))
+const allDriverTasks = computed(() => [...driverTaskList].sort((a, b) => b.createTime.localeCompare(a.createTime)))
 
-const statusStepMap: Record<string, string> = {
-  '待接单': '等待驾驶员接单', '已接单': '已接单，前往始发点',
-  '收运中': '已装车，正在转运', '已完成': '已卸车完成',
-}
+const todayStr = '2026-06-15'
+const mineDate = ref(todayStr)
+const showDatePicker = ref(false)
+
+function selectDate(d: string) { mineDate.value = d; showDatePicker.value = false }
+
+const recentDates = computed(() => {
+  const dates: { value: string; label: string; isToday: boolean; count: number }[] = []
+  for (let i = 14; i >= 0; i--) {
+    const d = new Date('2026-06-15'); d.setDate(d.getDate() - i)
+    const val = d.toISOString().split('T')[0]
+    const count = driverTaskList.filter(t => t.createTime.startsWith(val)).length
+    dates.push({ value: val, label: `${d.getMonth() + 1}/${d.getDate()}`, isToday: val === todayStr, count })
+  }
+  return dates
+})
+
+const mineDateTasks = computed(() => allDriverTasks.value.filter(t => t.createTime.startsWith(mineDate.value)))
+const mineDateNormal = computed(() => mineDateTasks.value.filter(t => t.status === '已完成' && t.overtimeStatus === '未超时').length)
+const mineDateOvertime = computed(() => mineDateTasks.value.filter(t => t.overtimeStatus === '已超时').length)
 
 const statusTabs = computed(() => [
   { key: 'all', label: '全部', count: driverTaskList.length },
@@ -411,27 +321,12 @@ const filteredDriverTasks = computed(() => {
 })
 
 function nowTime() { return new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) }
-
-function showPrdPanel() {
-  prdActiveKeys.value = ['prd']
-  prdPanelRef.value?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+function getShortDeadline(d: string) { return d.split(' ').pop() || d }
+function getDoneStepCount(t: DriverTask) { return t.steps.filter(s => s.done).length }
+function visibleSteps(t: DriverTask) {
+  const idx = t.steps.findIndex(s => !s.done)
+  return idx === -1 ? t.steps : t.steps.slice(0, idx + 1)
 }
-
-function getShortDeadline(deadline: string) {
-  return deadline.split(' ').pop() || deadline
-}
-
-function getDoneStepCount(t: DriverTask) {
-  return t.steps.filter(s => s.done).length
-}
-
-function getCompactSteps(t: DriverTask) {
-  const lastDoneIndex = t.steps.map(s => s.done).lastIndexOf(true)
-  const nextIndex = t.steps.findIndex(s => !s.done)
-  const start = Math.max(0, Math.min(lastDoneIndex >= 0 ? lastDoneIndex : 0, nextIndex >= 0 ? nextIndex : t.steps.length - 1) - 1)
-  return t.steps.slice(start, start + 3)
-}
-
 function getNextActionText(t: DriverTask) {
   if (t.status === '待接单') return '确认接单'
   if (t.status === '已接单') return '前往始发点，系统自动开始收运'
@@ -448,110 +343,59 @@ function confirmAccept(t: DriverTask) {
     ArcoMessage.success('已接单'); detailTask.value = null
   }})
 }
-
 function simulateAutoStart(t: DriverTask) {
   t.status = '收运中'; t.startTime = nowTime()
-  t.steps.filter(s => s.label.includes('到达') || s.label === '装车').forEach(s => { s.done = true; if (!s.time) s.time = nowTime() })
+  t.steps.filter(s => s.label === '到达始发地' || s.label === '装车' || s.label === '发车').forEach(s => { s.done = true; if (!s.time) s.time = nowTime() })
   t.track.forEach(p => { if (!p.done && p.label === '装车点') p.done = true })
   t.weight = +(Math.random() * 3 + 1.5).toFixed(1)
   ArcoMessage.success('系统已识别进入始发点围栏，任务变更为收运中')
 }
-
 function simulateAutoFinish(t: DriverTask) {
   t.status = '已完成'; t.finishTime = nowTime()
   t.steps.forEach(s => { if (!s.done) { s.done = true; s.time = nowTime() } })
   t.track.forEach(p => { if (!p.done) p.done = true })
   ArcoMessage.success('系统已识别到达目的地并卸车完成，任务自动完成')
 }
-
 function showStartPoint(t: DriverTask) {
   detailMapRef.value?.focusStartPoint()
   ArcoMessage.info(`始发点：${t.startAddress}`)
 }
-
-function openProofUpload(t: DriverTask) {
-  proofUploadTask.value = t
-  proofPhotos.value = []
-}
-
-function closeProofUpload() {
-  proofUploadTask.value = null
-  proofPhotos.value = []
-}
-
+function openProofUpload(t: DriverTask) { proofUploadTask.value = t; proofPhotos.value = [] }
+function closeProofUpload() { proofUploadTask.value = null; proofPhotos.value = [] }
 function addProofPhoto(source: 'camera' | 'album') {
-  if (proofPhotos.value.length >= 2) {
-    ArcoMessage.info('最多模拟上传 2 张凭证照片')
-    return
-  }
-  proofPhotos.value.push(source === 'camera' ? `水印相机照片 ${proofPhotos.value.length + 1}` : `相册照片 ${proofPhotos.value.length + 1}`)
-  ArcoMessage.success(source === 'camera' ? '已拍摄水印照片' : '已选择相册照片')
+  if (proofPhotos.value.length >= 1) { ArcoMessage.info('仅需上传 1 张凭证照片'); return }
+  proofPhotos.value.push(source === 'camera' ? `水印相机照片` : `相册照片`)
+  ArcoMessage.success(source === 'camera' ? '已拍摄' : '已选择')
 }
-
 function submitProofUpload() {
   if (!proofUploadTask.value || proofPhotos.value.length === 0) return
   proofUploadTask.value.proofUploaded = true
   if (detailTask.value?.id === proofUploadTask.value.id) detailTask.value.proofUploaded = true
-  ArcoMessage.success('凭证照片已上传')
-  closeProofUpload()
+  ArcoMessage.success('凭证已上传'); closeProofUpload()
 }
-
 function handleNavigate() { ArcoMessage.info('正在启动导航...') }
 function handleProofClick(t: DriverTask) { detailTask.value = t }
 </script>
 
 <style scoped lang="scss">
 .sanitation-page { display: flex; flex-direction: column; gap: 14px; }
+
+// ====== PRD 面板 ======
 .prd-panel {
-  background: #fff;
-  border: 1px solid #e5e6eb;
-  border-radius: 8px;
-  overflow: hidden;
+  background: var(--color-bg-2);
+  border-radius: 4px;
+  :deep(.arco-collapse-item-header) { font-weight: 600; font-size: 14px; }
 }
-.prd-body {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 0 4px 10px;
-}
-.prd-section-title {
-  padding: 8px 12px;
-  color: #165dff;
-  background: #e8f3ff;
-  font-weight: 700;
-}
+.prd-body { display: flex; flex-direction: column; gap: 20px; padding: 4px 0; }
+.prd-section-title { font-size: 14px; font-weight: 600; color: var(--color-text-1); margin: 0 0 8px; }
 .prd-table {
-  width: 100%;
-  overflow: hidden;
-  border-collapse: separate;
-  border-spacing: 0;
-  border: 1px solid #e5e6eb;
-  border-radius: 6px;
-
-  td {
-    padding: 8px 12px;
-    border-bottom: 1px solid #f2f3f5;
-    font-size: 13px;
-    line-height: 1.5;
-    vertical-align: top;
-  }
-
-  tr:last-child td {
-    border-bottom: none;
-  }
-
-  .prd-label {
-    width: 140px;
-    color: #1d2129;
-    background: #f7f8fa;
-    font-weight: 600;
-    white-space: nowrap;
-  }
-
-  .prd-value {
-    color: #4e5969;
-  }
+  width: 100%; border-collapse: collapse; font-size: 13px;
+  tr:nth-child(even) { background: var(--color-fill-1); }
+  td { padding: 6px 12px; border: 1px solid var(--color-border-2); vertical-align: top; line-height: 1.6; }
+  .prd-label { width: 140px; min-width: 140px; font-weight: 500; color: var(--color-text-2); white-space: nowrap; }
 }
+
+// ====== 手机外框 ======
 .phone-wrapper { display: flex; justify-content: center; padding: 12px 0; }
 .phone-frame { width: 390px; min-height: 780px; background: #f0f2f5; border: 3px solid #1f2937; border-radius: 30px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.16); display: flex; flex-direction: column; }
 .phone-status-bar { display: flex; justify-content: space-between; padding: 10px 20px 4px; background: #fff; font-size: 12px; color: #1d2129; font-weight: 600; }
@@ -561,15 +405,9 @@ function handleProofClick(t: DriverTask) { detailTask.value = t }
 .top-title { font-size: 17px; font-weight: 700; color: #1d2129; }
 .top-user { font-size: 12px; color: rgb(var(--arcoblue-6)); font-weight: 600; }
 
-// ===== 状态筛选 =====
-.filter-tabs {
-  display: flex; gap: 0; margin-bottom: 10px;
-  background: #fff; border-radius: 8px; overflow: hidden;
-}
-.ft-item {
-  flex: 1; display: flex; flex-direction: column; align-items: center;
-  padding: 7px 2px; cursor: pointer; border-bottom: 2px solid transparent;
-  transition: all .15s; min-width: 0;
+// ====== 状态筛选 ======
+.filter-tabs { display: flex; gap: 0; margin-bottom: 10px; background: #fff; border-radius: 8px; overflow: hidden; }
+.ft-item { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 7px 2px; cursor: pointer; border-bottom: 2px solid transparent; transition: all .15s; min-width: 0;
   &.active { border-bottom-color: rgb(var(--arcoblue-6)); background: #e8f3ff; }
   .ft-label { font-size: 11px; color: #86909c; white-space: nowrap; }
   .ft-count { font-size: 15px; font-weight: 700; color: #1d2129; line-height: 1.3; }
@@ -577,7 +415,7 @@ function handleProofClick(t: DriverTask) { detailTask.value = t }
   &.active .ft-count { color: rgb(var(--arcoblue-6)); }
 }
 
-// ===== 任务卡片 =====
+// ====== 任务卡片 ======
 .task-list { display: flex; flex-direction: column; gap: 8px; }
 .task-card { background: #fff; border-radius: 10px; padding: 12px; cursor: pointer; &:active { background: #f7f8fa; } }
 .tc-head { display: flex; justify-content: space-between; align-items: center; b { font-size: 14px; color: #1d2129; } }
@@ -586,274 +424,133 @@ function handleProofClick(t: DriverTask) { detailTask.value = t }
 .tc-addr { font-size: 12px; color: #4e5969; margin: 4px 0; }
 .tc-row { display: flex; align-items: center; gap: 6px; font-size: 11px; flex-wrap: wrap; }
 .tc-pri { padding: 0 4px; border-radius: 3px; font-size: 10px; }
-.pri-紧急 { background:#fff0f0; color:#f53f3f; } .pri-普通 { background:#f2f3f5; color:#86909c; }
-.tc-fill { color: #ff7d00; font-weight: 500; }
-.tc-fill-high { color: #f53f3f; font-weight: 700; }
-.tc-deadline { color: #86909c; }
-.tc-ot { color: #f53f3f; font-weight: 700; }
+.pri-紧急 { background: #fff0f0; color: #f53f3f; } .pri-普通 { background: #f2f3f5; color: #86909c; }
+.tc-fill { color: #ff7d00; font-weight: 500; } .tc-fill-high { color: #f53f3f; font-weight: 700; }
+.tc-deadline { color: #86909c; } .tc-ot { color: #f53f3f; font-weight: 700; }
 .tc-steps-dots { display: flex; gap: 3px; margin-top: 6px; }
-.tsd { width: 6px; height: 6px; border-radius: 50%; background: #e5e6eb; }
-.tsd.done { background: #00b42a; }
+.tsd { width: 6px; height: 6px; border-radius: 50%; background: #e5e6eb; } .tsd.done { background: #00b42a; }
 
-.empty-state { display:flex; flex-direction:column; align-items:center; padding:40px; gap:8px; color:#c9cdd4; .empty-icon{font-size:36px;}}
+.empty-state { display: flex; flex-direction: column; align-items: center; padding: 40px; gap: 8px; color: #c9cdd4; .empty-icon { font-size: 36px; } }
 
-// ===== 全屏详情 =====
-.detail-overlay { position: absolute; inset: 0; z-index: 10; background: #f3f5f8; display: flex; flex-direction: column; }
-.detail-header { display: grid; grid-template-columns: 64px 1fr auto; align-items: center; gap: 8px; padding: 10px 14px; background: #fff; border-bottom: 1px solid #e5e6eb; flex-shrink: 0; }
-.back-btn { font-size: 14px; color: rgb(var(--arcoblue-6)); font-weight: 600; cursor: pointer; &:active { opacity: .7; } }
-.detail-id { overflow: hidden; color: #86909c; font-size: 12px; font-weight: 600; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
+// ====== 全屏详情 ======
+.detail-overlay { position: absolute; inset: 0; z-index: 10; background: var(--color-bg-1); display: flex; flex-direction: column; }
+.detail-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--color-bg-2); border-bottom: 1px solid var(--color-border-2); flex-shrink: 0; }
+.back-btn { font-size: 15px; color: rgb(var(--arcoblue-6)); font-weight: 600; cursor: pointer; &:active { opacity: .7; } }
+.detail-id { font-size: 12px; color: #86909c; }
 .dt-tag { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
 .dt-待接单 { background: #fff7e8; color: #ff7d00; } .dt-已接单, .dt-收运中 { background: #e8f3ff; color: #165dff; } .dt-已完成 { background: #e8ffea; color: #00b42a; }
 .dt-overtime-tag { background: #fff0f0; color: #f53f3f !important; }
+.detail-body { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 14px; }
 
-.detail-body { flex: 1; overflow-y: auto; padding: 12px 12px 88px; display: flex; flex-direction: column; gap: 10px; }
-
-.dt-hero {
-  padding: 10px 12px;
-  color: #fff;
-  background: linear-gradient(135deg, #165dff 0%, #0e42d2 100%);
-  border-radius: 8px;
-  box-shadow: 0 6px 14px rgba(22, 93, 255, .18);
-  &.danger { background: linear-gradient(135deg, #f53f3f 0%, #cb272d 100%); box-shadow: 0 6px 14px rgba(245, 63, 63, .16); }
-  h3 { margin: 6px 0 8px; font-size: 17px; line-height: 1.3; letter-spacing: 0; }
-}
-.dt-title-row { display: flex; align-items: center; gap: 8px; font-size: 12px; opacity: .9; }
-.dt-pri { font-size: 10px; padding: 1px 6px; border-radius: 4px; }
-.dt-hero .dt-pri { color: #fff; background: rgba(255,255,255,.2); }
-.dt-next {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  align-items: center;
-  gap: 8px;
-  padding-top: 8px;
-  border-top: 1px solid rgba(255,255,255,.22);
-  b { font-size: 13px; line-height: 1.3; text-align: left; }
-}
-.dt-next-label { flex-shrink: 0; padding: 1px 5px; color: rgba(255,255,255,.9); background: rgba(255,255,255,.14); border-radius: 3px; font-size: 11px; }
-
-.dt-route-card,
-.dt-map-card,
-.dt-events,
-.dt-desc,
-.dt-proof-imgs {
-  background: #fff;
-  border-radius: 8px;
-}
-.dt-route-card { padding: 12px; }
-.route-point { display: grid; grid-template-columns: 16px 1fr; gap: 8px; align-items: flex-start; }
-.route-point span:not(.route-dot) { display: block; margin-bottom: 2px; color: #86909c; font-size: 11px; }
-.route-point b { display: block; color: #1d2129; font-size: 13px; line-height: 1.35; }
-.route-dot { width: 10px; height: 10px; margin-top: 4px; border-radius: 50%; }
-.route-dot.start { background: #165dff; }
-.route-dot.end { background: #00b42a; }
-.route-line { width: 1px; height: 16px; margin: 2px 0 2px 4px; background: #c9cdd4; }
-
-.dt-metric-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-.dm-item {
-  min-width: 0;
-  padding: 10px;
-  background: #fff;
-  border-radius: 8px;
-  span, em { display: block; color: #86909c; font-size: 11px; font-style: normal; line-height: 1.3; }
-  b { display: block; overflow: hidden; margin: 3px 0; color: #1d2129; font-size: 16px; line-height: 1.25; text-overflow: ellipsis; white-space: nowrap; }
-  &.danger b, &.danger em { color: #f53f3f; }
+// Hero
+.dt-hero { padding: 12px; background: #f7f8fa; border-radius: 10px; border-left: 4px solid rgb(var(--arcoblue-6));
+  &.danger { border-left-color: #f53f3f; background: #fff0f0; }
+  .dt-title-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #86909c; margin-bottom: 6px; }
+  .dt-pri { font-size: 10px; padding: 1px 6px; border-radius: 4px; }
+  h3 { margin: 0 0 8px; font-size: 17px; color: #1d2129; }
+  .dt-next { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  .dt-next-label { color: #86909c; font-size: 11px; }
+  .dt-next b { color: rgb(var(--arcoblue-6)); }
 }
 
-.dt-section-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 2px 2px 0;
-  color: #1d2129;
-  font-size: 14px;
-  font-weight: 700;
-  b { overflow: hidden; color: #86909c; font-size: 12px; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+// Route
+.dt-route-card { background: #fff; border-radius: 10px; padding: 14px; }
+.route-point { display: flex; gap: 10px; align-items: flex-start;
+  .route-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
+  .route-dot.start { background: #00b42a; } .route-dot.end { background: #f53f3f; }
+  div { span { font-size: 10px; color: #86909c; display: block; } b { font-size: 13px; color: #1d2129; } }
 }
-.dt-events { padding: 4px 12px; }
-.event-row {
-  display: grid;
-  grid-template-columns: 14px 1fr;
-  gap: 8px;
-  align-items: center;
-  min-height: 34px;
-  border-bottom: 1px solid #f2f3f5;
-  &:last-child { border-bottom: 0; }
-  b { display: block; color: #1d2129; font-size: 13px; line-height: 1.25; }
-  span:not(.event-dot) { color: #86909c; font-size: 11px; }
-  &.done .event-dot { background: #00b42a; }
-}
-.event-dot { width: 8px; height: 8px; border-radius: 50%; background: #c9cdd4; }
-.dt-map-card { padding: 10px; }
-.dt-map-card :deep(.map-container) { height: 180px; border-radius: 6px; }
-.dt-map-card :deep(.map-legend) { gap: 6px 10px; padding-top: 8px; font-size: 11px; }
-.dt-map-card :deep(.legend-line) { width: 18px; border-top-width: 3px; }
-.dt-map-card :deep(.legend-weight) { padding: 1px 6px; }
-.start-point-btn {
-  flex-shrink: 0;
-  height: 24px;
-  padding: 0 8px;
-  color: #165dff;
-  background: #e8f3ff;
-  border: 0;
-  border-radius: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.dt-desc { overflow: hidden; }
-.dt-desc :deep(.arco-descriptions-item-label),
-.dt-desc :deep(.arco-descriptions-item-value) { font-size: 12px; }
+.route-line { width: 2px; height: 28px; background: #e5e6eb; margin-left: 5px; }
 
-// 凭证
-.dt-proof-imgs { display: flex; gap: 8px; }
-.dpi-card { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 56px; background: #f7f8fa; border: 1px dashed #c9cdd4; border-radius: 6px; span { font-size: 12px; color: #4e5969; } }
-
-.dt-actions { position: absolute; right: 0; bottom: 0; left: 0; z-index: 5000; padding: 10px 14px 18px; background: rgba(255,255,255,.98); border-top: 1px solid #e5e6eb; box-shadow: 0 -6px 16px rgba(29, 33, 41, .08); }
-.dt-done { text-align: center; padding: 12px; background: #e8ffea; border-radius: 8px; font-size: 14px; color: #00b42a; font-weight: 600; }
-.dt-auto-state {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  gap: 2px 10px;
-  align-items: center;
-  padding: 10px;
-  background: #f7f8fa;
-  border-radius: 8px;
-  b { color: #1d2129; font-size: 13px; line-height: 1.3; }
-  span { color: #86909c; font-size: 11px; line-height: 1.35; }
-  button { grid-row: 1 / span 2; grid-column: 2; height: 30px; padding: 0 10px; color: #165dff; background: #e8f3ff; border: 0; border-radius: 5px; font-size: 12px; font-weight: 600; cursor: pointer; }
+// Metrics
+.dt-metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.dm-item { display: flex; flex-direction: column; gap: 2px; padding: 10px; background: #fff; border-radius: 8px;
+  &.danger { background: #fff0f0; b { color: #f53f3f; } }
+  span { font-size: 10px; color: #86909c; } b { font-size: 15px; color: #1d2129; font-weight: 700; } em { font-size: 10px; color: #86909c; font-style: normal; }
 }
 
-.proof-upload-overlay {
-  position: absolute;
-  inset: 0;
-  z-index: 6000;
-  display: flex;
-  flex-direction: column;
-  background: #f3f5f8;
+// Map
+.dt-map-card { background: #fff; border-radius: 10px; padding: 12px; }
+.dt-section-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;
+  > span { font-size: 14px; font-weight: 600; color: #1d2129; }
+  > b { font-size: 13px; color: var(--color-text-3); }
 }
-.proof-upload-header {
-  display: grid;
-  grid-template-columns: 64px 1fr 40px;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 14px;
-  background: #fff;
-  border-bottom: 1px solid #e5e6eb;
-  b { color: #1d2129; font-size: 15px; text-align: center; }
-  span:last-child { color: #86909c; font-size: 12px; font-weight: 600; text-align: right; }
-}
-.proof-upload-body {
-  flex: 1;
-  overflow-y: auto;
-  padding: 12px 12px 88px;
-}
-.proof-tip {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 12px;
-  background: #fff7e8;
-  border: 1px solid #ffe4ba;
-  border-radius: 8px;
-  b { color: #1d2129; font-size: 14px; }
-  span { color: #86909c; font-size: 12px; line-height: 1.45; }
-}
-.watermark-camera {
-  margin-top: 10px;
-  padding: 10px;
-  background: #fff;
-  border-radius: 8px;
-}
-.camera-frame {
-  position: relative;
-  height: 260px;
-  overflow: hidden;
-  background:
-    linear-gradient(135deg, rgba(22,93,255,.16), rgba(0,180,42,.12)),
-    linear-gradient(180deg, #dfe8f2, #f7f8fa);
-  border-radius: 8px;
-}
-.camera-crosshair {
-  position: absolute;
-  inset: 28px;
-  border: 1px solid rgba(255,255,255,.7);
-  border-radius: 8px;
-  &::before,
-  &::after { position: absolute; content: ''; background: rgba(255,255,255,.7); }
-  &::before { top: 50%; right: 0; left: 0; height: 1px; }
-  &::after { top: 0; bottom: 0; left: 50%; width: 1px; }
-}
-.camera-watermark {
-  position: absolute;
-  right: 10px;
-  bottom: 10px;
-  left: 10px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px;
-  color: #fff;
-  background: rgba(0,0,0,.42);
-  border-radius: 6px;
-  b { font-size: 15px; }
-  span { font-size: 11px; line-height: 1.35; }
-}
-.camera-caption { margin-top: 8px; color: #86909c; font-size: 12px; text-align: center; }
-.proof-actions-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  margin-top: 10px;
-  button {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    min-height: 62px;
-    padding: 10px;
-    background: #fff;
-    border: 1px solid #e5e6eb;
-    border-radius: 8px;
-    cursor: pointer;
-    b { color: #1d2129; font-size: 13px; }
-    span { color: #86909c; font-size: 11px; }
-  }
-}
-.proof-preview-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
-.proof-preview-item,
-.proof-preview-empty {
-  padding: 10px;
-  color: #4e5969;
-  background: #fff;
-  border-radius: 8px;
-  font-size: 12px;
-}
-.proof-preview-item { border-left: 3px solid #00b42a; }
-.proof-preview-empty { color: #c9cdd4; text-align: center; }
-.proof-submit-actions { z-index: 6100; }
+.start-point-btn { font-size: 12px; padding: 4px 10px; background: #e8f3ff; color: rgb(var(--arcoblue-6)); border: none; border-radius: 4px; cursor: pointer; font-weight: 500; }
+.dt-desc { margin-bottom: 8px; }
 
-// 路线 / 凭证 Tab
-.map-placeholder { display:flex; flex-direction:column; align-items:center; justify-content:center; height:180px; background:linear-gradient(135deg,#e8fff0,#d4ffe8); border-radius:12px; cursor:pointer; margin-bottom:12px; .mp-icon{font-size:36px;} span{font-size:14px; color:#4e5969; margin-top:4px;} .mp-hint{font-size:11px; color:#86909c;} }
-.route-card { background:#fff; border-radius:10px; padding:12px; b{font-size:14px;} }
-.rc-points { display:flex; align-items:center; gap:8px; margin:6px 0; font-size:12px; color:#86909c; }
-.rc-dot { width:10px; height:10px; border-radius:50%; background:#e5e6eb; flex-shrink:0; }
-.rc-dot.done { background:#00b42a; }
-.rc-line { width:2px; height:18px; background:#e5e6eb; margin-left:4px; }
-.rc-info { display:flex; justify-content:space-between; font-size:11px; color:#86909c; margin-top:6px; }
+// 紧凑时间线
+.dt-events-compact {
+  :deep(.arco-timeline) { padding: 0; }
+  :deep(.arco-timeline-item) { padding-bottom: 4px; min-height: auto; }
+  :deep(.arco-timeline-item-content) { padding-bottom: 0; }
+  :deep(.arco-timeline-item-content b) { font-size: 13px; display: block; }
+  :deep(.arco-timeline-item-content p) { font-size: 11px; color: #86909c; margin: 1px 0 0; }
+}
 
-.proof-list { display:flex; flex-direction:column; gap:8px; }
-.proof-card { background:#fff; border-radius:10px; padding:12px; cursor:pointer; &:active{background:#f7f8fa;} b{font-size:14px;} }
-.pc-head { display:flex; justify-content:space-between; align-items:center; }
-.pc-yes { font-size:11px; color:#00b42a; font-weight:600; } .pc-no { font-size:11px; color:#ff7d00; }
-.proof-card p { font-size:12px; color:#86909c; margin:4px 0; }
-.pc-previews { display:flex; gap:6px; margin:8px 0; span { font-size:14px; padding:14px 18px; background:#f0f2f5; border-radius:8px; } }
+// Proof photo
+.dt-proof-photos { .dpp-img { border-radius: 8px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,.1); svg { display: block; width: 100%; height: auto; } } }
+.dpp-item { display: none; } /* unused */
+.dpp-label { display: none; } /* unused */
 
-// 底部导航
-.bottom-nav { display: grid; grid-template-columns: repeat(3, 1fr); padding: 8px 0 18px; background: #fff; border-top: 1px solid #e5e6eb; flex-shrink: 0; }
+// Proof imgs (old - keep for compatibility)
+.dt-proof-imgs { display: flex; gap: 8px; .dpi-card { flex: 1; text-align: center; padding: 14px; background: var(--color-fill-1); border-radius: 6px; font-size: 13px; color: var(--color-text-3); } }
+
+// Actions
+.dt-actions { position: sticky; bottom: 0; padding: 12px 14px; background: var(--color-bg-2); border-top: 1px solid var(--color-border-2); flex-shrink: 0; z-index: 20; }
+.dt-auto-state { padding: 10px 12px; background: #e8f3ff; border-radius: 8px; text-align: center;
+  b { display: block; font-size: 13px; color: rgb(var(--arcoblue-6)); margin-bottom: 4px; }
+  span { font-size: 11px; color: #86909c; }
+  button { margin-top: 6px; font-size: 11px; padding: 3px 12px; background: #fff; color: rgb(var(--arcoblue-6)); border: 1px solid rgb(var(--arcoblue-6)); border-radius: 4px; cursor: pointer; }
+}
+.dt-done { text-align: center; padding: 12px; background: #e8ffea; border-radius: 8px; color: #00b42a; font-weight: 600; font-size: 14px; }
+
+// ====== 凭证上传弹层 ======
+.proof-upload-overlay { position: absolute; inset: 0; z-index: 30; background: var(--color-bg-1); display: flex; flex-direction: column; }
+.proof-upload-header { display: flex; justify-content: space-between; align-items: center; padding: 10px 14px; background: var(--color-bg-2); border-bottom: 1px solid var(--color-border-2); flex-shrink: 0; b { font-size: 15px; } }
+.proof-upload-body { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 14px; }
+.proof-tip { b { display: block; font-size: 14px; color: #1d2129; margin-bottom: 4px; } span { font-size: 12px; color: #86909c; } }
+.watermark-camera { .camera-frame { height: 180px; background: #1d2129; border-radius: 10px; position: relative; display: flex; align-items: flex-end; justify-content: center; padding: 14px; overflow: hidden; }
+  .camera-crosshair { position: absolute; inset: 30px; border: 2px dashed rgba(255,255,255,.3); }
+  .camera-watermark { text-align: center; color: rgba(255,255,255,.7); b { display: block; font-size: 14px; } span { display: block; font-size: 10px; } }
+  .camera-caption { text-align: center; font-size: 11px; color: #86909c; margin-top: 6px; }
+}
+.proof-actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; button { padding: 14px; background: #f7f8fa; border: 1px solid #e5e6eb; border-radius: 8px; cursor: pointer; text-align: center; b { display: block; font-size: 13px; color: #1d2129; } span { font-size: 11px; color: #86909c; } } }
+.proof-preview-list { display: flex; gap: 8px; flex-wrap: wrap; .proof-preview-item { padding: 10px 14px; background: #f0f2f5; border-radius: 6px; font-size: 12px; color: #4e5969; } .proof-preview-empty { padding: 20px; text-align: center; color: #c9cdd4; font-size: 12px; width: 100%; } }
+.proof-submit-actions { position: sticky; bottom: 0; }
+
+// ====== 我的 Tab ======
+.mine-profile { display: flex; align-items: center; gap: 12px; padding: 12px 0 8px; }
+.mp-avatar { width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; background: rgb(var(--arcoblue-6)); color: #fff; font-size: 17px; font-weight: 700; border-radius: 50%; }
+.mp-info { display: flex; flex-direction: column; b { font-size: 15px; color: #1d2129; } span { font-size: 11px; color: #86909c; } }
+
+.mine-date-header { display: flex; justify-content: space-between; align-items: center; padding: 8px 0 10px; cursor: pointer; }
+.mdh-left { display: flex; align-items: center; gap: 6px; }
+.mdh-title { font-size: 16px; font-weight: 700; color: #1d2129; }
+.mdh-date { font-size: 12px; color: #86909c; background: #f0f2f5; padding: 2px 8px; border-radius: 4px; }
+.mdh-arrow { font-size: 12px; color: #86909c; }
+.mdh-sub { font-size: 13px; color: #86909c; }
+
+.mine-date-picker { margin-bottom: 10px; }
+.mdp-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.mdp-day { text-align: center; padding: 8px 2px; font-size: 11px; color: #4e5969; background: #fff; border-radius: 6px; cursor: pointer;
+  em { display: block; font-size: 9px; color: #c9cdd4; font-style: normal; margin-top: 2px; }
+  &.active { background: rgb(var(--arcoblue-6)); color: #fff; font-weight: 600; em { color: rgba(255,255,255,.7); } }
+  &.today:not(.active) { color: rgb(var(--arcoblue-6)); font-weight: 600; }
+}
+
+.mine-day-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+.mds-card { display: flex; flex-direction: column; align-items: center; padding: 14px 4px; background: #fff; border-radius: 10px; }
+.mds-val { font-size: 20px; font-weight: 700; color: #1d2129; } .mds-label { font-size: 11px; color: #86909c; margin-top: 2px; }
+.mds-val.success { color: #00b42a !important; }
+.mds-val.danger { color: #f53f3f !important; }
+
+.mine-history { display: flex; flex-direction: column; gap: 8px; }
+.mh-item { background: #fff; border-radius: 10px; padding: 12px; cursor: pointer; &:active { background: #f7f8fa; } }
+.mh-head { display: flex; justify-content: space-between; align-items: center; b { font-size: 14px; color: #1d2129; } }
+.mh-meta { display: flex; gap: 8px; font-size: 11px; color: #86909c; margin-top: 4px; align-items: center; }
+
+// ====== 底部导航 ======
+.bottom-nav { display: grid; grid-template-columns: repeat(2, 1fr); padding: 8px 0 18px; background: #fff; border-top: 1px solid #e5e6eb; flex-shrink: 0; }
 .nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; }
 .ni-icon { font-size: 20px; } .ni-label { font-size: 10px; color: #86909c; }
 .nav-item.active .ni-label { color: rgb(var(--arcoblue-6)); font-weight: 600; }

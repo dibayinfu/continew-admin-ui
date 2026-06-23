@@ -43,12 +43,33 @@
               <table class="prd-table">
                 <tbody>
                   <tr class="prd-section-row"><td class="prd-section-title" colspan="2">🔑 状态流转与操作</td></tr>
-                  <tr><td class="prd-label">状态定义</td><td class="prd-value">待接单 / 已接单 / 收运中 / 已完成，四状态互斥按序流转。超时状态（未超时/已超时）独立展示</td></tr>
+                  <tr><td class="prd-label">收运状态</td><td class="prd-value">待接单 / 已接单 / 收运中 / 已完成，四状态互斥按序流转</td></tr>
+                  <tr><td class="prd-label">待接单</td><td class="prd-value">创建任务单后的初始状态</td></tr>
+                  <tr><td class="prd-label">已接单</td><td class="prd-value">驾驶员手动接单后变为已接单</td></tr>
+                  <tr><td class="prd-label">收运中</td><td class="prd-value">进入任务单中的始发点电子围栏后变为收运中；若未手动接单，系统也自动变为收运中</td></tr>
+                  <tr><td class="prd-label">已完成</td><td class="prd-value">卸货完成，根据目的地电子围栏 + 称重变化判断卸货</td></tr>
+                  <tr><td class="prd-label">超时状态</td><td class="prd-value">未超时（默认）/ 已超时，独立于收运状态展示</td></tr>
+                  <tr><td class="prd-label">已超时</td><td class="prd-value">收运过程中，时长已超过任务时效要求，变为已超时</td></tr>
                   <tr><td class="prd-label">待接单 → 已接单</td><td class="prd-value">底部「接单」按钮 → Modal.confirm 二次确认 → 记录 acceptTime → 点亮「接单」步骤 → 状态变为已接单</td></tr>
-                  <tr><td class="prd-label">已接单 → 收运中</td><td class="prd-value">底部"等待系统自动识别到达始发点"文字 + 原型「模拟系统识别」按钮。点击后点亮「到达始发地」「装车」「发车」三步，随机生成称重，状态变为收运中。真实 APP 由 GPS+电子围栏自动触发</td></tr>
-                  <tr><td class="prd-label">收运中 → 已完成</td><td class="prd-value">底部"等待系统自动识别到达目的地"文字 + 原型「模拟系统完成」按钮。点击后点亮「到达目的地」「卸车完成」两步，记录 finishTime，计算耗时并判定超时。真实 APP 由系统自动触发</td></tr>
+                  <tr><td class="prd-label">已接单 → 收运中</td><td class="prd-value">底部"等待系统自动识别到达始发点"文字 + 原型「模拟系统识别」按钮。点击后点亮「到达始发地」「装车」「发车」三步，随机生成称重，状态变为收运中。真实 APP 由 GPS+电子围栏自动触发。若未手动接单，系统识别进入始发点围栏后也自动变为收运中</td></tr>
+                  <tr><td class="prd-label">收运中 → 已完成</td><td class="prd-value">底部"等待系统自动识别到达目的地"文字 + 原型「模拟系统完成」按钮。点击后点亮「到达目的地」「卸车完成」两步，记录 finishTime，计算耗时并判定超时。真实 APP 由目的地电子围栏+称重变化自动触发</td></tr>
                   <tr><td class="prd-label">已完成 + 未上传</td><td class="prd-value">底部「补传凭证照片」按钮 → 进入上传页（水印相机/相册选择，1 张）→ 提交后点亮「上传照片」步骤，proofUploaded=true</td></tr>
                   <tr><td class="prd-label">已完成 + 已上传</td><td class="prd-value">底部绿色提示"任务已完成，凭证已上传"，不可再操作</td></tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="prd-section">
+              <table class="prd-table">
+                <tbody>
+                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">🔑 关键事件（过程步骤）</td></tr>
+                  <tr><td class="prd-label">① 派单</td><td class="prd-value">任务单创建</td></tr>
+                  <tr><td class="prd-label">② 接单</td><td class="prd-value">驾驶员接单（如果没有手动接单，该步骤没有）</td></tr>
+                  <tr><td class="prd-label">③ 到达始发地</td><td class="prd-value">进入始发电子围栏</td></tr>
+                  <tr><td class="prd-label">④ 装车</td><td class="prd-value">通过始发地+称重变化判断</td></tr>
+                  <tr><td class="prd-label">⑤ 发车</td><td class="prd-value">离开始发地</td></tr>
+                  <tr><td class="prd-label">⑥ 到达目的地</td><td class="prd-value">进入目的地电子围栏</td></tr>
+                  <tr><td class="prd-label">⑦ 卸车完成</td><td class="prd-value">目的地电子围栏+称重变化判断</td></tr>
+                  <tr><td class="prd-label">⑧ 上传照片</td><td class="prd-value">驾驶员补传凭证</td></tr>
                 </tbody>
               </table>
             </div>
@@ -59,10 +80,10 @@
                   <tr><td class="prd-label">✓ 状态筛选</td><td class="prd-value">6 Tab 切换过滤，计数实时；待接单置顶，超时红色标记</td></tr>
                   <tr><td class="prd-label">✓ 列表进详情</td><td class="prd-value">点击卡片进入全屏详情，返回不刷新</td></tr>
                   <tr><td class="prd-label">✓ 接单确认</td><td class="prd-value">Modal.confirm 二次确认，确认后状态即时变更</td></tr>
-                  <tr><td class="prd-label">✓ 8 步骤时间线</td><td class="prd-value">已完成绿点、当前蓝点、未来步骤隐藏；进度计数与实际显示一致</td></tr>
+                  <tr><td class="prd-label">✓ 8 步骤时间线</td><td class="prd-value">已完成绿点、当前蓝点、未来步骤隐藏；进度计数与实际显示一致。8 步：派单→接单→到达始发地→装车→发车→到达目的地→卸车完成→上传照片</td></tr>
                   <tr><td class="prd-label">✓ 满溢率展示</td><td class="prd-value">核心指标中显示，≥90% 红色高亮</td></tr>
                   <tr><td class="prd-label">✓ 地图轨迹</td><td class="prd-value">实线已行驶/虚线未完成，始发点目的地围栏标注</td></tr>
-                  <tr><td class="prd-label">✓ 原型模拟</td><td class="prd-value">模拟系统识别/完成按钮可用，真实 APP 由系统自动触发</td></tr>
+                  <tr><td class="prd-label">✓ 原型模拟</td><td class="prd-value">模拟系统识别/完成按钮可用，真实 APP 由 GPS+电子围栏+称重变化自动触发</td></tr>
                   <tr><td class="prd-label">✓ 凭证上传</td><td class="prd-value">水印相机+相册，1 张照片，提交后详情页显示凭证照片</td></tr>
                   <tr><td class="prd-label">✓ 我的运单</td><td class="prd-value">日历日期附带当日运单数，统计三色区分（总蓝/正常绿/超时红）</td></tr>
                   <tr><td class="prd-label">✓ 图层遮挡</td><td class="prd-value">底部操作区 z-index 高于 Leaflet 地图控件</td></tr>

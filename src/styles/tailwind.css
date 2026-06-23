@@ -1,0 +1,161 @@
+@import "tailwindcss";
+
+@theme {
+  --animate-pulse-dot: pulse-dot 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-ping-slow: ping-slow 3s cubic-bezier(0, 0, 0.2, 1) infinite;
+  --animate-blink-warning: blink-warning 1s step-end infinite;
+  --animate-blink-danger: blink-danger 0.5s step-end infinite;
+  --animate-scan-line: scan-line 4s linear infinite;
+  --animate-dash-march: dash-march 2s linear infinite;
+  --animate-track-glow: track-glow 1.5s ease-in-out infinite;
+  --animate-slide-in-left: slide-in-left 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-slide-in-right: slide-in-right 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-slide-in-up: slide-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-fade-in: fade-in 0.4s ease-out forwards;
+  --animate-scale-in: scale-in 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-kpi-count: kpi-count 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-card-hover: card-hover 0.3s ease-out;
+  --animate-alert-flash: alert-flash 0.6s ease-in-out 3;
+  --animate-alert-shake: alert-shake 0.5s ease-in-out;
+  --animate-alert-in: alert-in 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-modal-in: modal-in 0.25s ease-out forwards;
+  --animate-drawer-right: drawer-right 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-trail-dot: trail-dot 0.6s ease-out forwards;
+  --animate-ripple: ripple 1s ease-out forwards;
+  --animate-data-flash: data-flash 0.3s ease-in-out;
+  --animate-video-scan: video-scan 0.08s linear infinite;
+  --animate-video-noise: video-noise 0.15s steps(3) infinite;
+  --animate-breathe: breathe 3s ease-in-out infinite;
+  --animate-radar-spin: radar-spin 8s linear infinite;
+  --animate-progress-fill: progress-fill 1.5s ease-out forwards;
+  --animate-number-pop: number-pop 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.6); opacity: 0.5; }
+}
+@keyframes ping-slow {
+  0% { transform: scale(1); opacity: 0.8; }
+  75%, 100% { transform: scale(2.2); opacity: 0; }
+}
+@keyframes blink-warning {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+@keyframes blink-danger {
+  0%, 100% { opacity: 1; box-shadow: 0 0 12px #ef4444; }
+  50% { opacity: 0.2; box-shadow: 0 0 24px #ef4444; }
+}
+@keyframes scan-line {
+  0% { top: 0%; }
+  100% { top: 100%; }
+}
+@keyframes dash-march {
+  0% { stroke-dashoffset: 24; }
+  100% { stroke-dashoffset: 0; }
+}
+@keyframes track-glow {
+  0%, 100% { filter: drop-shadow(0 0 4px rgba(34,211,238,0.6)); }
+  50% { filter: drop-shadow(0 0 12px rgba(34,211,238,1)); }
+}
+@keyframes slide-in-left {
+  0% { transform: translateX(-60px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+@keyframes slide-in-right {
+  0% { transform: translateX(60px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+@keyframes slide-in-up {
+  0% { transform: translateY(30px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+@keyframes fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes scale-in {
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes kpi-count {
+  0% { transform: translateY(12px); opacity: 0; }
+  60% { transform: translateY(-2px); opacity: 1; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+@keyframes card-hover {
+  0% { transform: translateY(0); box-shadow: 0 0 0 rgba(34,211,238,0); }
+  100% { transform: translateY(-4px); box-shadow: 0 8px 24px rgba(34,211,238,0.25); }
+}
+@keyframes alert-flash {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: rgba(239,68,68,0.15); }
+}
+@keyframes alert-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-6px); }
+  40% { transform: translateX(6px); }
+  60% { transform: translateX(-4px); }
+  80% { transform: translateX(4px); }
+}
+@keyframes alert-in {
+  0% { transform: translateX(100%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+@keyframes modal-in {
+  0% { transform: scale(0.92); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+@keyframes drawer-right {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(0); }
+}
+@keyframes trail-dot {
+  0% { transform: scale(0); opacity: 0; }
+  50% { transform: scale(1.4); opacity: 1; }
+  100% { transform: scale(1); opacity: 0.8; }
+}
+@keyframes ripple {
+  0% { transform: scale(0); opacity: 0.6; }
+  100% { transform: scale(4); opacity: 0; }
+}
+@keyframes data-flash {
+  0% { filter: brightness(1); }
+  50% { filter: brightness(1.4); }
+  100% { filter: brightness(1); }
+}
+@keyframes video-scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+@keyframes video-noise {
+  0% { opacity: 0.03; }
+  33% { opacity: 0.06; }
+  66% { opacity: 0.02; }
+  100% { opacity: 0.04; }
+}
+@keyframes breathe {
+  0%, 100% { box-shadow: 0 0 8px rgba(34,211,238,0.4); }
+  50% { box-shadow: 0 0 24px rgba(34,211,238,0.9); }
+}
+@keyframes radar-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+@keyframes progress-fill {
+  0% { width: 0%; }
+  100% { width: var(--progress-width); }
+}
+@keyframes number-pop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

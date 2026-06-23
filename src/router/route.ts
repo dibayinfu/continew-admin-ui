@@ -196,6 +196,7 @@ export const systemRoutes: RouteRecordRaw[] = [
         children: [
           { path: '/sanitation/overview', name: 'SanitationOverview', component: () => import('@/views/sanitation/index.vue'), meta: { title: '运营概览', icon: 'desktop', hidden: false } },
           { path: '/sanitation/map', name: 'SanitationMap', component: () => import('@/views/sanitation/map.vue'), meta: { title: '全域地图监管', icon: 'location', hidden: false } },
+          { path: '/sanitation/command-center-july', name: 'SanitationCommandCenterJuly', component: () => import('@/views/sanitation/command-center-july.vue'), meta: { title: '数字大屏指挥中心', icon: 'dashboard', hidden: false } },
         ],
       },
 

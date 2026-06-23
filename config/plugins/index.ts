@@ -1,6 +1,7 @@
 import type { PluginOption } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import vueJsx from '@vitejs/plugin-vue-jsx'
+import tailwindcss from '@tailwindcss/vite'
 
 import appInfo from './app-info'
 import createDevtools from './devtools'
@@ -10,7 +11,7 @@ import createSvgIcon from './svg-icon'
 import createMock from './mock'
 
 export default function createVitePlugins(viteEnv, isBuild = false) {
-  const vitePlugins: (PluginOption | PluginOption[])[] = [appInfo(), vue(), vueJsx()]
+  const vitePlugins: (PluginOption | PluginOption[])[] = [appInfo(), vue(), vueJsx(), tailwindcss()]
   vitePlugins.push(createDevtools(viteEnv))
   vitePlugins.push(createAutoImport())
   vitePlugins.push(createComponents())

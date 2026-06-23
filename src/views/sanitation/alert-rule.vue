@@ -159,12 +159,22 @@
               <a-select
                 v-if="formData.notifyScope === '指定用户'"
                 v-model="formData.notifyUsers"
-                :options="peopleOptions"
-                placeholder="请选择人员"
+                placeholder="请选择平台账户（姓名/手机号/账户）"
                 multiple
                 allow-clear
-                style="width: 320px; margin-left: 12px;"
-              />
+                allow-search
+                filter-option
+                style="width: 380px; margin-left: 12px;"
+              >
+                <a-option
+                  v-for="item in platformAccountOptions"
+                  :key="item.value"
+                  :value="item.value"
+                  :label="item.label"
+                >
+                  <span>{{ item.name }} / {{ item.phone }} / {{ item.account }}</span>
+                </a-option>
+              </a-select>
             </a-form-item>
           </a-col>
           <!-- 通知内容 -->
@@ -207,7 +217,7 @@
 import { computed, ref } from 'vue'
 import ModuleHeader from './components/ModuleHeader.vue'
 import type { PrototypePageConfig } from './data/pageConfigs'
-import { pageConfigs, peopleRows } from './data/pageConfigs'
+import { pageConfigs, platformAccounts } from './data/pageConfigs'
 
 const props = defineProps<{
   pageKey: string
@@ -257,8 +267,14 @@ const defaultLevelMap: Record<string, string> = {
   '大勾臂箱离线': '一般',
 }
 
-const peopleOptions = computed(() =>
-  peopleRows.map((p) => ({ label: `${p.name}（${p.personType}）`, value: p.name }))
+const platformAccountOptions = computed(() =>
+  platformAccounts.map((p) => ({
+    label: `${p.name} / ${p.phone} / ${p.account}`,
+    value: p.name,
+    name: p.name,
+    phone: p.phone,
+    account: p.account,
+  }))
 )
 
 /** 当前阈值单位标签 */

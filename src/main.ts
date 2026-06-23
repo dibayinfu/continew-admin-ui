@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 import ArcoVue, { Card, Drawer, Modal } from '@arco-design/web-vue'
 import '@/styles/arco-ui/index.less'
+import '@/styles/tailwind.css'
 // import '@arco-themes/vue-gi-demo/index.less'
 // import '@arco-design/web-vue/dist/arco.css'
 

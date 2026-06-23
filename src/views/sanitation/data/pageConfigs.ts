@@ -202,6 +202,49 @@ const largeBoxArchiveRows = largeBoxRows.map((item) => {
   }
 })
 
+/** 平台账户（姓名/手机号/账户） */
+export interface PlatformAccount {
+  id: string
+  name: string
+  phone: string
+  account: string
+  org: string
+  status: string
+}
+
+export const platformAccounts: PlatformAccount[] = [
+  { id: 'A001', name: '张师傅', phone: '13900010001', account: 'zhangshift01', org: '马投涧镇', status: '启用' },
+  { id: 'A002', name: '李师傅', phone: '13900010002', account: 'lishifu02', org: '龙泉镇', status: '启用' },
+  { id: 'A003', name: '王磊', phone: '13900010003', account: 'wanglei03', org: '区级', status: '启用' },
+  { id: 'A004', name: '赵强', phone: '13900010004', account: 'zhaoqiang04', org: '马家乡', status: '启用' },
+  { id: 'A005', name: '周小明', phone: '13900010005', account: 'zhouxiaoming05', org: '马投涧镇', status: '启用' },
+  { id: 'A006', name: '吴刚', phone: '13900010006', account: 'wugang06', org: '龙泉镇', status: '启用' },
+  { id: 'A007', name: '郑伟', phone: '13900010007', account: 'zhengwei07', org: '善应镇', status: '启用' },
+  { id: 'A008', name: '冯大伟', phone: '13900010008', account: 'fengdawei08', org: '马家乡', status: '启用' },
+  { id: 'A009', name: '褚怀亮', phone: '13900010009', account: 'chuhuailiang09', org: '东风乡', status: '启用' },
+  { id: 'A010', name: '卫东', phone: '13900010010', account: 'weidong10', org: '马投涧镇', status: '启用' },
+  { id: 'A011', name: '蒋小军', phone: '13900010011', account: 'jiangxiaojun11', org: '龙泉镇', status: '启用' },
+  { id: 'A012', name: '沈国平', phone: '13900010012', account: 'shenguoping12', org: '善应镇', status: '启用' },
+  { id: 'A013', name: '韩志伟', phone: '13900010013', account: 'hanzhiwei13', org: '马家乡', status: '启用' },
+  { id: 'A014', name: '唐金平', phone: '13900010014', account: 'tangjinping14', org: '东风乡', status: '启用' },
+  { id: 'A015', name: '刘敏', phone: '13900010015', account: 'liumin15', org: '马投涧镇', status: '启用' },
+  { id: 'A016', name: '杨秀英', phone: '13900010016', account: 'yangxiuying16', org: '龙泉镇', status: '启用' },
+  { id: 'A017', name: '陈秀兰', phone: '13900010017', account: 'chenxiulan17', org: '善应镇', status: '停用' },
+  { id: 'A018', name: '马春霞', phone: '13900010018', account: 'machunxia18', org: '善应镇', status: '启用' },
+  { id: 'A019', name: '宋立军', phone: '13900010019', account: 'songlijun19', org: '马家乡', status: '启用' },
+  { id: 'A020', name: '周凯', phone: '13900010020', account: 'zhoukai20', org: '马投涧镇', status: '启用' },
+  { id: 'A021', name: '李敏', phone: '13699887766', account: 'limin21', org: '安阳市环卫处', status: '启用' },
+  { id: 'A022', name: '陈建华', phone: '13788996655', account: 'chenjianhua22', org: '安阳市环卫处', status: '启用' },
+  { id: 'A023', name: '王晓东', phone: '13577665544', account: 'wangxiaodong23', org: '龙安区城管局', status: '启用' },
+  { id: 'A024', name: '赵丽华', phone: '13866554433', account: 'zhaolihua24', org: '龙安区城管局', status: '启用' },
+  { id: 'A025', name: '刘洋', phone: '15955443322', account: 'liuyang25', org: '马投涧镇', status: '启用' },
+  { id: 'A026', name: '孙建国', phone: '15844332211', account: 'sunjianguo26', org: '龙泉镇', status: '启用' },
+  { id: 'A027', name: '周玉琴', phone: '15733221100', account: 'zhouyuqin27', org: '善应镇', status: '启用' },
+  { id: 'A028', name: '吴海涛', phone: '15622110099', account: 'wuhaitao28', org: '马家乡', status: '启用' },
+  { id: 'A029', name: '郑雪梅', phone: '15511009988', account: 'zhengxuemei29', org: '东风乡', status: '启用' },
+  { id: 'A030', name: '黄志强', phone: '18600998877', account: 'huangzhiqiang30', org: '安阳市环卫处', status: '启用' },
+]
+
 export const peopleRows = [
   { id: 'P001', name: '张师傅', phone: '13900010001', personType: '驾驶员', town: '马投涧镇', vehicle: '豫E7A031', status: '启用' },
   { id: 'P002', name: '李师傅', phone: '13900010002', personType: '驾驶员', town: '龙泉镇', vehicle: '豫E3G516', status: '启用' },
@@ -1085,7 +1128,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
         items: [
           { label: '通知方式', value: '系统消息（PC/APP）、小程序、短信，可多选' },
           { label: '通知内容', value: '自定义消息模板，支持占位符如 {boxName}、{fillRate}、{temperature}、{battery} 等，上限 200 字' },
-          { label: '通知范围', value: '「所有人」通知该机构所有人员；「指定用户」从人员档案下拉多选' },
+          { label: '通知范围', value: '「所有人」通知该机构所有人员；「指定用户」从该机构平台账户下拉多选，显示姓名/手机号/账户，全球查找人员' },
           { label: '早上定时发送', value: '夜间达到告警阈值时暂不推送，次日指定时间统一发送；关闭则实时触发实时推送' },
         ],
       },

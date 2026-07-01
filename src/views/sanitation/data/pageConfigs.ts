@@ -1058,7 +1058,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
     module: '箱体监控',
     searchPlaceholder: '搜索箱体编号',
     filters: ['全部', '正常', '预警', '满溢'],
-    metrics: [{ label: '小勾臂箱', value: smallBoxRows.length, unit: '个' }, { label: '今日收运', value: 8.6, unit: 't', tooltip: '小勾臂车今日从满溢箱体收运的垃圾总重量' }, { label: '满溢箱体', value: smallBoxRows.filter((b) => b.overflowStatus === '满溢').length, unit: '个', tone: 'danger' }, { label: '低电量箱体', value: smallBoxRows.filter((b) => b.batteryStatus === '低电量').length, unit: '个', tone: 'warning' }, { label: '高温箱体', value: smallBoxRows.filter((b) => b.temperatureStatus === '高温').length, unit: '个', tone: 'danger' }],
+    metrics: [{ label: '小勾臂箱', value: smallBoxRows.length, unit: '个' }, { label: '满溢箱体', value: smallBoxRows.filter((b) => b.overflowStatus === '满溢').length, unit: '个', tone: 'danger' }, { label: '低电量箱体', value: smallBoxRows.filter((b) => b.batteryStatus === '低电量').length, unit: '个', tone: 'warning' }, { label: '高温箱体', value: smallBoxRows.filter((b) => b.temperatureStatus === '高温').length, unit: '个', tone: 'danger' }],
     columns: [
       { title: '箱体名称', dataIndex: 'name', width: 180 },
       { title: '箱体编号', dataIndex: 'boxNo', width: 120 },
@@ -1130,7 +1130,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
     module: '箱体监控',
     searchPlaceholder: '搜索箱体编号',
     filters: ['全部', '正常', '预警', '满溢'],
-    metrics: [{ label: '大勾臂箱', value: largeBoxRows.length, unit: '个' }, { label: '今日收运', value: 36.0, unit: 't', tooltip: '大勾臂车今日从满溢箱体收运的垃圾总重量' }, { label: '满溢箱体', value: largeBoxRows.filter((b) => b.overflowStatus === '满溢').length, unit: '个', tone: 'danger' }],
+    metrics: [{ label: '大勾臂箱', value: largeBoxRows.length, unit: '个' }, { label: '满溢箱体', value: largeBoxRows.filter((b) => b.overflowStatus === '满溢').length, unit: '个', tone: 'danger' }],
     columns: [
       { title: '箱体名称', dataIndex: 'name', width: 180 },
       { title: '箱体编号', dataIndex: 'boxNo', width: 120 },

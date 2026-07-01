@@ -1,10 +1,14 @@
-import { createRouter, createWebHistory } from 'vue-router'
+import { createRouter, createWebHashHistory, createWebHistory } from 'vue-router'
 import { useRouteStore } from '@/stores'
 import { constantRoutes, systemRoutes } from '@/router/route'
 import { setupPageGuard, setupRouterGuard } from '@/router/guard'
 
+// 原型模式使用 Hash 路由，兼容 Neocities 等纯静态托管平台
+const isPrototype = import.meta.env.VITE_PROTOTYPE_MODE === 'true'
 const router = createRouter({
-  history: createWebHistory(import.meta.env.BASE_URL),
+  history: isPrototype
+    ? createWebHashHistory(import.meta.env.BASE_URL)
+    : createWebHistory(import.meta.env.BASE_URL),
   routes: [...constantRoutes, ...systemRoutes],
   scrollBehavior: () => ({ left: 0, top: 0 }),
 })

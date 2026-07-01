@@ -140,6 +140,7 @@ export const systemRoutes: RouteRecordRaw[] = [
           { path: '/sanitation/peopleArchive', name: 'SanitationPeopleArchive', component: () => import('@/views/sanitation/prototype.vue'), props: { pageKey: 'peopleArchive' }, meta: { title: '人员档案（删除）', icon: 'file', hidden: false } },
           { path: '/sanitation/stationArchive', name: 'SanitationStationArchive', component: () => import('@/views/sanitation/prototype.vue'), props: { pageKey: 'stationArchive' }, meta: { title: '中转站档案', icon: 'file', hidden: false } },
           { path: '/sanitation/plantArchive', name: 'SanitationPlantArchive', component: () => import('@/views/sanitation/prototype.vue'), props: { pageKey: 'plantArchive' }, meta: { title: '焚烧厂档案', icon: 'file', hidden: false } },
+          { path: '/sanitation/deviceArchive', name: 'SanitationDeviceArchive', component: () => import('@/views/sanitation/prototype.vue'), props: { pageKey: 'deviceArchive' }, meta: { title: '设备档案', icon: 'file', hidden: false } },
           { path: '/sanitation/smallBoxArchive', name: 'SanitationSmallBoxArchive', component: () => import('@/views/sanitation/prototype.vue'), props: { pageKey: 'smallBoxArchive' }, meta: { title: '小勾臂箱档案', icon: 'file', hidden: false } },
           { path: '/sanitation/largeBoxArchive', name: 'SanitationLargeBoxArchive', component: () => import('@/views/sanitation/prototype.vue'), props: { pageKey: 'largeBoxArchive' }, meta: { title: '大勾臂箱档案', icon: 'file', hidden: false } },
         ],

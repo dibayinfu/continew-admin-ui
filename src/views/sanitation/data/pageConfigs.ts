@@ -186,6 +186,34 @@ function resolveStationName(row: Record<string, any>) {
   return '-'
 }
 
+/** 设备档案 mock 数据 */
+export const devices = [
+  { id: 'DEV001', deviceNo: 'DEV-XB-MTJ-001', deviceType: '小勾臂箱', deviceName: '小勾臂箱智能设备', manufacturer: '诚远', simCard: '8986012380010000001', status: '启用' },
+  { id: 'DEV002', deviceNo: 'DEV-XB-MTJ-002', deviceType: '小勾臂箱', deviceName: '小勾臂箱智能设备', manufacturer: '诚远', simCard: '8986012380010000002', status: '启用' },
+  { id: 'DEV003', deviceNo: 'DEV-XB-MTJ-003', deviceType: '小勾臂箱', deviceName: '小勾臂箱智能设备', manufacturer: '诚远', simCard: '8986012380010000003', status: '启用' },
+  { id: 'DEV004', deviceNo: 'DEV-XB-DF-001', deviceType: '小勾臂箱', deviceName: '小勾臂箱智能设备', manufacturer: '诚远', simCard: '8986012380010000004', status: '停用' },
+  { id: 'DEV005', deviceNo: 'DEV-XB-DF-002', deviceType: '小勾臂箱', deviceName: '小勾臂箱智能设备', manufacturer: '诚远', simCard: '8986012380010000005', status: '启用' },
+  { id: 'DEV006', deviceNo: 'DEV-XB-LQ-001', deviceType: '小勾臂箱', deviceName: '小勾臂箱智能设备', manufacturer: '诚远', simCard: '8986012380010000006', status: '停用' },
+  { id: 'DEV007', deviceNo: 'DEV-XB-LQ-002', deviceType: '小勾臂箱', deviceName: '小勾臂箱智能设备', manufacturer: '诚远', simCard: '8986012380010000007', status: '启用' },
+  { id: 'DEV008', deviceNo: 'DEV-XB-SY-001', deviceType: '小勾臂箱', deviceName: '小勾臂箱智能设备', manufacturer: '诚远', simCard: '8986012380010000008', status: '启用' },
+  { id: 'DEV009', deviceNo: 'DEV-XB-SY-002', deviceType: '小勾臂箱', deviceName: '小勾臂箱智能设备', manufacturer: '诚远', simCard: '8986012380010000009', status: '启用' },
+  { id: 'DEV010', deviceNo: 'DEV-XB-MJ-001', deviceType: '小勾臂箱', deviceName: '小勾臂箱智能设备', manufacturer: '诚远', simCard: '8986012380010000010', status: '停用' },
+  { id: 'DEV011', deviceNo: 'DEV-DB-SY-001', deviceType: '大勾臂箱', deviceName: '大勾臂箱智能设备', manufacturer: '中昱', simCard: '8986012380010000011', status: '启用' },
+  { id: 'DEV012', deviceNo: 'DEV-DB-LQ-001', deviceType: '大勾臂箱', deviceName: '大勾臂箱智能设备', manufacturer: '中昱', simCard: '8986012380010000012', status: '启用' },
+  { id: 'DEV013', deviceNo: 'DEV-DB-MTJ-001', deviceType: '大勾臂箱', deviceName: '大勾臂箱智能设备', manufacturer: '中昱', simCard: '8986012380010000013', status: '启用' },
+  { id: 'DEV014', deviceNo: 'DEV-DB-DF-001', deviceType: '大勾臂箱', deviceName: '大勾臂箱智能设备', manufacturer: '中昱', simCard: '8986012380010000014', status: '停用' },
+]
+
+/** 小勾臂箱可选的设备编号（仅小勾臂箱类型 + 启用状态） */
+const smallBoxDeviceOptions = devices
+  .filter((d) => d.deviceType === '小勾臂箱' && d.status === '启用')
+  .map((d) => d.deviceNo)
+
+/** 大勾臂箱可选的设备编号（仅大勾臂箱类型 + 启用状态） */
+const largeBoxDeviceOptions = devices
+  .filter((d) => d.deviceType === '大勾臂箱' && d.status === '启用')
+  .map((d) => d.deviceNo)
+
 const smallBoxArchiveRows = smallBoxRows.map((item) => {
   return {
     ...item,
@@ -774,7 +802,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
       { title: '启用状态', dataIndex: 'archiveStatus', width: 90 },
     ],
     rows: smallBoxArchiveRows,
-    fieldOptions: { deviceNo: smallBoxArchiveRows.map((b) => String(b.deviceNo)), archiveStatus: ['启用', '停用'] },
+    fieldOptions: { deviceNo: smallBoxDeviceOptions, archiveStatus: ['启用', '停用'] },
     multiFilters: [
       { key: 'archiveStatus', options: ['全部', '启用', '停用'] },
     ],
@@ -785,7 +813,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
           { label: '列表查询', value: '分页 20 条/页，仅展示箱体名称、编号、容量、绑定设备、启用状态等基础档案信息；不展示乡镇、村庄、收集点、当前位置和监控统计' },
           { label: '搜索', value: '按箱体名称、箱体编号、设备编号模糊匹配，与启用状态筛选叠加取交集' },
           { label: '状态筛选', value: '下拉选择「全部 / 启用 / 停用」' },
-          { label: '新增 / 编辑', value: '录入箱体名称、箱体编号、容量，并绑定满溢检测/定位等箱体设备' },
+          { label: '新增 / 编辑', value: '录入箱体名称、箱体编号、容量，并从设备档案下拉选择小勾臂箱类型的启用设备进行绑定' },
           { label: '删除', value: 'Popconfirm 二次确认' },
           { label: '详情', value: '右侧抽屉展示全部字段，只读' },
         ],
@@ -796,7 +824,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
           { label: '箱体名称 (name)', value: '必填' },
           { label: '箱体编号 (boxNo)', value: '非必填，若录入则在当前机构（租户）内唯一' },
           { label: '容量 (capacity)', value: '≥0，支持 1 位小数，单位吨' },
-          { label: '绑定设备 (deviceNo)', value: '必填，设备编号在当前机构内唯一；一个设备同一时间只能绑定一个箱体' },
+          { label: '绑定设备 (deviceNo)', value: '必填，从设备档案中下拉选择（仅可选类型为「小勾臂箱」且状态为「启用」的设备），一个设备同一时间只能绑定一个箱体' },
           { label: '启用状态 (archiveStatus)', value: '枚举值：启用 / 停用；停用后不再参与新增作业绑定' },
         ],
       },
@@ -832,7 +860,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
       { title: '启用状态', dataIndex: 'archiveStatus', width: 90 },
     ],
     rows: largeBoxArchiveRows,
-    fieldOptions: { deviceNo: largeBoxArchiveRows.map((b) => String(b.deviceNo)), archiveStatus: ['启用', '停用'] },
+    fieldOptions: { deviceNo: largeBoxDeviceOptions, archiveStatus: ['启用', '停用'] },
     multiFilters: [
       { key: 'archiveStatus', options: ['全部', '启用', '停用'] },
     ],
@@ -843,7 +871,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
           { label: '列表查询', value: '分页 20 条/页，仅展示箱体名称、编号、容量、绑定设备、启用状态等基础档案信息；不展示乡镇、中转站、当前位置和监控统计' },
           { label: '搜索', value: '按箱体名称、箱体编号、设备编号模糊匹配，与启用状态筛选叠加取交集' },
           { label: '状态筛选', value: '下拉选择「全部 / 启用 / 停用」' },
-          { label: '新增 / 编辑', value: '录入箱体名称、箱体编号、容量，并绑定满溢检测/定位等箱体设备' },
+          { label: '新增 / 编辑', value: '录入箱体名称、箱体编号、容量，并从设备档案下拉选择大勾臂箱类型的启用设备进行绑定' },
           { label: '删除', value: 'Popconfirm 二次确认' },
           { label: '详情', value: '右侧抽屉展示全部字段，只读' },
         ],
@@ -854,7 +882,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
           { label: '箱体名称 (name)', value: '必填' },
           { label: '箱体编号 (boxNo)', value: '非必填，若录入则在当前机构（租户）内唯一' },
           { label: '容量 (capacity)', value: '≥0，支持 1 位小数，单位吨' },
-          { label: '绑定设备 (deviceNo)', value: '必填，设备编号在当前机构内唯一；一个设备同一时间只能绑定一个箱体' },
+          { label: '绑定设备 (deviceNo)', value: '必填，从设备档案中下拉选择（仅可选类型为「大勾臂箱」且状态为「启用」的设备），一个设备同一时间只能绑定一个箱体' },
           { label: '启用状态 (archiveStatus)', value: '枚举值：启用 / 停用；停用后不再参与新增作业绑定' },
         ],
       },
@@ -866,6 +894,69 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
           { label: '设备绑定', value: '箱体需要绑定设备后才能产生监控数据；设备绑定关系变更需记录生效时间，便于追溯历史上报数据' },
           { label: '数据来源', value: '当前为本地 mock 数据，对接后端后 CRUD 需走 API' },
           { label: '多租户隔离', value: '箱体编号在同一机构（租户）内唯一' },
+          { label: '权限', value: '当前无权限控制，生产需接入 RBAC' },
+          { label: '操作审计', value: '增删改操作需记录操作人、时间、变更内容' },
+        ],
+      },
+    ],
+  }),
+  deviceArchive: makeConfig({
+    key: 'deviceArchive',
+    title: '设备档案',
+    subtitle: '管理小勾臂箱和大勾臂箱的满溢检测、定位等硬件设备档案，是箱体绑定设备的数据来源。',
+    phase: 'V1.0',
+    priority: 'P0',
+    module: '基础档案',
+    searchPlaceholder: '搜索设备编号/设备名称/厂家/SIM卡',
+    filters: ['全部', '启用', '停用'],
+    metrics: [],
+    columns: [
+      { title: '设备编号', dataIndex: 'deviceNo', width: 160 },
+      { title: '设备名称', dataIndex: 'deviceName', width: 180 },
+      { title: '类型', dataIndex: 'deviceType', width: 120 },
+      { title: '设备厂家', dataIndex: 'manufacturer', width: 120 },
+      { title: 'SIM卡', dataIndex: 'simCard', width: 180 },
+      { title: '启用状态', dataIndex: 'status', width: 90 },
+    ],
+    rows: devices,
+    fieldOptions: { deviceType: ['小勾臂箱', '大勾臂箱'], status: ['启用', '停用'] },
+    multiFilters: [
+      { key: 'deviceType', options: ['设备类型', '小勾臂箱', '大勾臂箱'] },
+      { key: 'status', options: ['启停状态', '启用', '停用'] },
+    ],
+    prd: [
+      {
+        title: '🎯 功能要点（开发 / 测试关注）',
+        items: [
+          { label: '列表查询', value: '分页 20 条/页，展示设备编号、设备名称、类型、设备厂家、SIM卡、启用状态' },
+          { label: '搜索', value: '按设备编号、设备名称、厂家、SIM卡号模糊匹配，与类型筛选、状态筛选叠加取交集' },
+          { label: '类型筛选', value: '下拉选择「全部 / 小勾臂箱 / 大勾臂箱」' },
+          { label: '状态筛选', value: '下拉选择「全部 / 启用 / 停用」' },
+          { label: '新增 / 编辑', value: '录入设备编号、设备名称、设备厂家、SIM卡号，选择设备类型（小勾臂箱 | 大勾臂箱）和启用状态（启用 | 停用）' },
+          { label: '删除', value: 'Popconfirm 二次确认；删除前需检查是否被小勾臂箱档案或大勾臂箱档案引用为绑定设备，禁止级联删除' },
+          { label: '详情', value: '右侧抽屉展示全部字段，只读' },
+        ],
+      },
+      {
+        title: '🔑 字段校验规则',
+        items: [
+          { label: '设备编号 (deviceNo)', value: '必填，在当前机构（租户）内唯一' },
+          { label: '设备名称 (deviceName)', value: '必填，不受勾臂箱流动影响，统一命名为「小勾臂箱智能设备」或「大勾臂箱智能设备」' },
+          { label: '类型 (deviceType)', value: '枚举值：小勾臂箱 / 大勾臂箱，必选' },
+          { label: '设备厂家 (manufacturer)', value: '必填，文本框自由输入' },
+          { label: 'SIM卡 (simCard)', value: '必填，19 位 ICCID 编号，用于物联网卡管理和流量监控' },
+          { label: '启用状态 (status)', value: '枚举值：启用 / 停用；停用后该设备不会出现在小勾臂箱档案和大勾臂箱档案的绑定设备下拉列表中' },
+        ],
+      },
+      {
+        title: '⚠️ 边界 & 约束',
+        items: [
+          { label: '定位说明', value: '设备档案是基础档案中"小勾臂箱档案"和"大勾臂箱档案"绑定设备字段的数据来源；小勾臂箱只能绑定类型为"小勾臂箱"且状态为"启用"的设备；大勾臂箱只能绑定类型为"大勾臂箱"且状态为"启用"的设备' },
+          { label: '勾臂箱流动性', value: '小勾臂箱和大勾臂箱是流动的，不固定在某个村庄或站点，因此设备名称不包含村庄/站点信息，统一使用"小勾臂箱智能设备"或"大勾臂箱智能设备"' },
+          { label: 'SIM卡管理', value: 'SIM卡号用于物联网平台流量监控和欠费预警，需与运营商对接；更换设备时SIM卡号需同步更新' },
+          { label: '删除约束', value: '删除前需检查是否被小勾臂箱档案或大勾臂箱档案引用为绑定设备，禁止级联删除' },
+          { label: '数据来源', value: '当前为本地 mock 数据，对接后端后 CRUD 需走 API' },
+          { label: '多租户隔离', value: '设备编号在同一机构（租户）内唯一' },
           { label: '权限', value: '当前无权限控制，生产需接入 RBAC' },
           { label: '操作审计', value: '增删改操作需记录操作人、时间、变更内容' },
         ],

@@ -571,7 +571,7 @@ const formFields = computed<FormField[]>(() => {
 // 表单校验规则
 const formRules = computed(() => {
   const rules: Record<string, any> = {}
-  const requiredFields = ['name', 'plateNo', 'boxNo', 'deviceNo', 'lockNo', 'cardNo', 'routeName', 'taskName', 'title', 'pointNo', 'personType', 'vehicleType', 'boxType', 'routeType', 'objectName', 'anomalyType', 'province', 'city', 'area', 'town', 'village']
+  const requiredFields = ['name', 'plateNo', 'boxNo', 'deviceNo', 'deviceName', 'deviceType', 'manufacturer', 'simCard', 'lockNo', 'cardNo', 'routeName', 'taskName', 'title', 'pointNo', 'personType', 'vehicleType', 'boxType', 'routeType', 'objectName', 'anomalyType', 'province', 'city', 'area', 'town', 'village']
   // 乡镇档案、村庄档案、焚烧厂档案、中转站档案页面：编码非必填
   if (props.pageKey !== 'townArchive' && props.pageKey !== 'villageArchive' && props.pageKey !== 'plantArchive' && props.pageKey !== 'stationArchive') {
     requiredFields.push('code', 'phone')
@@ -587,7 +587,7 @@ const formRules = computed(() => {
   }
   config.columns.forEach((col) => {
     if (requiredFields.includes(col.dataIndex)) {
-      const msg = ['province', 'city', 'area'].includes(col.dataIndex) ? '请选择' : '请输入'
+      const msg = ['province', 'city', 'area', 'deviceType'].includes(col.dataIndex) ? '请选择' : '请输入'
       rules[col.dataIndex] = [{ required: true, message: `${msg}${col.title}` }]
     }
   })

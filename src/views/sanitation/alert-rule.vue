@@ -185,6 +185,7 @@
                 placeholder="例：【告警通知】{boxName} 当前垃圾占比 {fillRate}%，已超过阈值，请及时处理。"
                 :max-length="200"
                 show-word-limit
+                :disabled="isEdit"
                 style="width: 100%;"
               />
             </a-form-item>

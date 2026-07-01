@@ -143,8 +143,8 @@
           <a-col :span="24">
             <a-form-item field="notifyMethods" label="通知方式" :rules="[{ required: true, message: '请至少选择一种通知方式' }]">
               <a-checkbox-group v-model="formData.notifyMethods">
-                <a-checkbox value="系统消息（PC/APP）">系统消息（PC/APP）</a-checkbox>
-                <a-checkbox value="小程序">小程序</a-checkbox>
+                <a-checkbox value="PC">PC</a-checkbox>
+                <a-checkbox value="APP">APP</a-checkbox>
                 <a-checkbox value="短信">短信</a-checkbox>
               </a-checkbox-group>
             </a-form-item>
@@ -358,7 +358,7 @@ function handleAdd() {
     status: '启用',
     thresholdValue: undefined,
     thresholdUnit: '',
-    notifyMethods: ['系统消息（PC/APP）'],
+    notifyMethods: ['PC'],
     notifyScope: '所有人',
     notifyUsers: [],
     notifyContent: '',
@@ -475,6 +475,59 @@ function handleModalCancel() {
   padding: 16px;
   background: var(--color-bg-2);
   border-radius: 4px;
+}
+
+/* 产品需求说明折叠面板 */
+.prd-panel {
+  background: var(--color-bg-2);
+  border-radius: 4px;
+
+  :deep(.arco-collapse-item-header) {
+    font-weight: 600;
+    font-size: 14px;
+  }
+}
+
+.prd-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 4px 0;
+}
+
+.prd-section-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-1);
+}
+
+.prd-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  tr:nth-child(2n) {
+    background: var(--color-fill-1);
+  }
+
+  td {
+    padding: 6px 12px;
+    border: 1px solid var(--color-border-2);
+    line-height: 1.6;
+    vertical-align: top;
+  }
+}
+
+.prd-label {
+  width: 200px;
+  font-weight: 500;
+  color: var(--color-text-2);
+  white-space: nowrap;
+}
+
+.prd-value {
+  color: var(--color-text-1);
 }
 
 .form-hint {

@@ -44,7 +44,7 @@
                   <tr class="prd-section-row"><td class="prd-section-title" colspan="2">📋 右侧：运单监控</td></tr>
                   <tr><td class="prd-label">双 Tab</td><td class="prd-value">顶部切换「运单监控」（今日未完成任务）和「全部运单」（全量查询）</td></tr>
                   <tr><td class="prd-label">运单监控 Tab</td><td class="prd-value">3 列统计卡（进行中 / 已完成 / 超时）；卡片列表展示未完成任务，含任务名称、状态、司机/车辆、优先级、始发→目的地路线、步骤进度圆点、截止时间和超时标记；每张卡片可快捷「强制完成」或「转单」</td></tr>
-                  <tr><td class="prd-label">全部运单 Tab</td><td class="prd-value">搜索框 + 状态下拉（全部/待接单/已接单/收运中/已完成）+ 超时下拉（全部/未超时/已超时）+ 自定义日期范围（起始日期 → 至 → 结束日期）+ 卡片列表；列表展示任务名称、状态、司机/车辆、创建时间、路线、截止时间和称重</td></tr>
+                  <tr><td class="prd-label">全部运单 Tab</td><td class="prd-value">驾驶员文本框（模糊查询）+ 车牌号文本框（模糊查询）+ 状态下拉（全部/待接单/已接单/收运中/已完成）+ 超时下拉（全部/未超时/已超时）+ 自定义日期范围（起始日期 → 至 → 结束日期）+ 卡片列表；列表展示任务名称、状态、司机/车辆、创建时间、路线、截止时间和称重</td></tr>
                   <tr><td class="prd-label">运单详情</td><td class="prd-value">点击列表条目 → 全屏浮层，监控视角展示：优先级+任务名称、收运点→目的地路线、地图轨迹（起/终视觉化）、四指标（SLA/称重/箱体/司机）、任务进度时间线、单据信息（任务单号/类型/创建/截止/超时状态）；未完成任务底部显示「强制完成」+「转单」按钮</td></tr>
                   <tr><td class="prd-label">强制完成</td><td class="prd-value">列表或详情中点击「强制完成」 → 运单状态变为已完成，所有步骤点亮，提示成功</td></tr>
                   <tr><td class="prd-label">转单</td><td class="prd-value">点击「转单」→ 底部弹出层：显示当前司机和车辆，下拉选择目标司机（自动排除当前司机），点击「确认转单」完成，driver 字段更新</td></tr>
@@ -356,7 +356,11 @@
             <!-- Tab: 全部运单 -->
             <template v-if="wbTab === 'all'">
               <div class="all-search">
-                <input v-model="wbKeyword" class="all-search-input" placeholder="搜索任务/驾驶员/车牌" />
+                <input v-model="wbDriverKeyword" class="all-search-input" placeholder="驾驶员" />
+                <input v-model="wbVehicleKeyword" class="all-search-input" placeholder="车牌号" style="margin-top: 6px;" list="vehicle-list" />
+                <datalist id="vehicle-list">
+                  <option v-for="v in vehiclePlateOptions" :key="v" :value="v" />
+                </datalist>
               </div>
               <div class="all-selects">
                 <select v-model="wbStatusFilter" class="all-sel">
@@ -460,7 +464,9 @@ function viewTask(a: AlertItem) {
 
 // ===== 运单监控 =====
 const wbTab = ref<'monitor' | 'all'>('monitor')
-const wbKeyword = ref('')
+const wbDriverKeyword = ref('')
+const wbVehicleKeyword = ref('')
+const vehiclePlateOptions = computed(() => [...new Set(waybillList.map(w => w.vehicle))].sort())
 const wbStatusFilter = ref('全部')
 const wbStatusFilters = ['全部', '待接单', '已接单', '收运中', '已完成']
 const wbOvertimeFilter = ref('全部')
@@ -484,9 +490,13 @@ const monitorStats = computed(() => [
 
 const filteredAllWaybills = computed(() => {
   let list = waybillList
-  if (wbKeyword.value) {
-    const kw = wbKeyword.value.toLowerCase()
-    list = list.filter(w => w.taskName.includes(kw) || w.driver.includes(kw) || w.vehicle.includes(kw))
+  if (wbDriverKeyword.value) {
+    const kw = wbDriverKeyword.value.toLowerCase()
+    list = list.filter(w => w.driver.toLowerCase().includes(kw))
+  }
+  if (wbVehicleKeyword.value) {
+    const kw = wbVehicleKeyword.value.toLowerCase()
+    list = list.filter(w => w.vehicle.toLowerCase().includes(kw))
   }
   if (wbStatusFilter.value !== '全部') {
     list = list.filter(w => w.status === wbStatusFilter.value)

@@ -47,8 +47,7 @@
                   <tr><td class="prd-label">待接单</td><td class="prd-value">创建任务单后的初始状态</td></tr>
                   <tr><td class="prd-label">已接单</td><td class="prd-value">驾驶员手动接单后变为已接单</td></tr>
                   <tr><td class="prd-label">收运中</td><td class="prd-value">驾驶员手动接单后，车辆进入任务单中的始发点电子围栏后变为收运中；必须手动接单，未接单时即使进入围栏也不会自动开始收运，防止路过车辆误触发状态变更</td></tr>
-                  <tr><td class="prd-label">已完成</td><td class="prd-value">卸货完成，根据目的地电子围栏 + 称重变化判断卸货</td></tr>
-                  <tr><td class="prd-label">超时状态</td><td class="prd-value">未超时（默认）/ 已超时，独立于收运状态展示</td></tr>
+                  <tr><td class="prd-label">强制完成</td><td class="prd-value">运营人员可通过后台强制完成未完成的任务单，强制完成的收运单在状态旁显示橙色「强制完成」标签，关键事件可能不完整</td></tr>
                   <tr><td class="prd-label">已超时</td><td class="prd-value">收运过程中，时长已超过任务时效要求，变为已超时</td></tr>
                   <tr><td class="prd-label">待接单 → 已接单</td><td class="prd-value">底部「接单」按钮 → Modal.confirm 二次确认 → 记录 acceptTime → 点亮「接单」步骤 → 状态变为已接单</td></tr>
                   <tr><td class="prd-label">已接单 → 收运中</td><td class="prd-value">底部"等待系统自动识别到达始发点"文字 + 原型「模拟系统识别」按钮。点击后点亮「到达始发地」「装车」「发车」三步，随机生成称重，状态变为收运中。真实 APP 由 GPS+电子围栏自动触发。必须先手动接单，未接单状态时即使车辆进入围栏也不会变为收运中，防止路过车辆误触发</td></tr>
@@ -110,6 +109,7 @@
               <span class="detail-id">{{ detailTask.id }}</span>
               <a-space size="mini">
                 <span class="dt-tag" :class="'dt-' + detailTask.status">{{ detailTask.status }}</span>
+                <span v-if="detailTask.forceCompleted" class="dt-tag dt-force-tag">强制完成</span>
                 <span v-if="detailTask.overtimeStatus === '已超时'" class="dt-tag dt-overtime-tag">超时</span>
               </a-space>
             </div>
@@ -201,7 +201,7 @@
             <div class="task-list">
               <div v-if="filteredDriverTasks.length === 0" class="empty-state"><span class="empty-icon">📋</span><span>暂无任务</span></div>
               <div v-for="task in filteredDriverTasks" :key="task.id" class="task-card" @click="detailTask = task">
-                <div class="tc-head"><b>{{ task.taskName }}</b><span class="tc-st" :class="'ts-' + task.status">{{ task.status }}</span></div>
+                <div class="tc-head"><b>{{ task.taskName }}</b><span class="tc-st" :class="'ts-' + task.status">{{ task.status }}<span v-if="task.forceCompleted" class="tc-force-label">·强制完成</span></span></div>
                 <div class="tc-addr">📍 {{ task.startAddress }} → {{ task.destination }}</div>
                 <div class="tc-row">
                   <span class="tc-pri" :class="'pri-' + task.priority">{{ task.priority }}</span>
@@ -465,6 +465,8 @@ function handleProofClick(t: DriverTask) { detailTask.value = t }
 .dt-tag { font-size: 11px; padding: 2px 8px; border-radius: 4px; font-weight: 600; }
 .dt-待接单 { background: #fff7e8; color: #ff7d00; } .dt-已接单, .dt-收运中 { background: #e8f3ff; color: #165dff; } .dt-已完成 { background: #e8ffea; color: #00b42a; }
 .dt-overtime-tag { background: #fff0f0; color: #f53f3f !important; }
+.dt-force-tag { background: #fff7e6; color: #fa8c16 !important; }
+.tc-force-label { color: #fa8c16; font-size: 11px; }
 .detail-body { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 14px; }
 
 // Hero

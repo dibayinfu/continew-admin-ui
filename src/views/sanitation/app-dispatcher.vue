@@ -46,7 +46,7 @@
                   <tr><td class="prd-label">运单监控 Tab</td><td class="prd-value">3 列统计卡（进行中 / 已完成 / 超时）；卡片列表展示未完成任务，含任务名称、状态、司机/车辆、优先级、始发→目的地路线、步骤进度圆点、截止时间和超时标记；每张卡片可快捷「强制完成」或「转单」</td></tr>
                   <tr><td class="prd-label">全部运单 Tab</td><td class="prd-value">驾驶员文本框（模糊查询）+ 车牌号文本框（模糊查询）+ 状态下拉（全部/待接单/已接单/收运中/已完成）+ 超时下拉（全部/未超时/已超时）+ 自定义日期范围（起始日期 → 至 → 结束日期）+ 卡片列表；列表展示任务名称、状态、司机/车辆、创建时间、路线、截止时间和称重</td></tr>
                   <tr><td class="prd-label">运单详情</td><td class="prd-value">点击列表条目 → 全屏浮层，监控视角展示：优先级+任务名称、收运点→目的地路线、地图轨迹（起/终视觉化）、四指标（SLA/称重/箱体/司机）、任务进度时间线、单据信息（任务单号/类型/创建/截止/超时状态）；未完成任务底部显示「强制完成」+「转单」按钮</td></tr>
-                  <tr><td class="prd-label">强制完成</td><td class="prd-value">列表或详情中点击「强制完成」 → 运单状态变为已完成，所有步骤点亮，提示成功</td></tr>
+                  <tr><td class="prd-label">强制完成</td><td class="prd-value">列表或详情中点击「强制完成」 → 运单状态变为已完成，所有步骤点亮，提示成功。强制完成的运单显示橙色「强制完成」标签，关键事件可能不完整</td></tr>
                   <tr><td class="prd-label">转单</td><td class="prd-value">点击「转单」→ 底部弹出层：显示当前司机和车辆，下拉选择目标司机（自动排除当前司机），点击「确认转单」完成，driver 字段更新</td></tr>
                   <tr><td class="prd-label">数据来源</td><td class="prd-value">运单列表来自 app-mock.ts 的 waybillList，状态仅包含待接单/已接单/收运中/已完成（无待派发）</td></tr>
                 </tbody>
@@ -324,6 +324,7 @@
                   <div class="wb-header">
                     <b>{{ wb.taskName }}</b>
                     <span class="wb-status" :class="'wb-' + wb.status">{{ wb.status }}</span>
+                    <span v-if="wb.forceCompleted" class="wb-force-tag">强制完成</span>
                   </div>
                   <div class="wb-info">
                     <span>{{ wb.driver }} · {{ wb.vehicle }}</span>
@@ -381,6 +382,7 @@
                   <div class="wb-header">
                     <b>{{ wb.taskName }}</b>
                     <span class="wb-status" :class="'wb-' + wb.status">{{ wb.status }}</span>
+                    <span v-if="wb.forceCompleted" class="wb-force-tag">强制完成</span>
                   </div>
                   <div class="wb-info"><span>{{ wb.driver }} · {{ wb.vehicle }}</span><span>{{ wb.createTime }}</span></div>
                   <div class="wb-route">
@@ -509,6 +511,7 @@ const filteredAllWaybills = computed(() => {
 
 function forceFinishWb(wb: WaybillItem) {
   wb.status = '已完成'
+  wb.forceCompleted = true
   wb.steps.forEach(s => { s.done = true; if (!s.time) s.time = '--' })
   ArcoMessage.success(`已强制完成：${wb.taskName}`)
 }
@@ -595,6 +598,7 @@ function doTransfer() {
 .wb-card { background: #fff; border-radius: 10px; padding: 12px; cursor: pointer; &:active { background: #f7f8fa; } }
 .wb-header { display: flex; justify-content: space-between; align-items: center; b { font-size: 13px; } }
 .wb-status { font-size: 10px; padding: 1px 6px; border-radius: 4px; }
+.wb-force-tag { font-size: 10px; padding: 1px 6px; border-radius: 4px; background: #fff7e6; color: #fa8c16; margin-left: 4px; }
 .wb-待接单 { background: #fff7e8; color: #ff7d00; }
 .wb-已接单, .wb-收运中 { background: #e8f3ff; color: #165dff; } .wb-已完成 { background: #e8ffea; color: #00b42a; }
 .wb-info { display: flex; justify-content: space-between; font-size: 11px; color: #86909c; margin: 4px 0; }

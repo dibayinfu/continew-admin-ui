@@ -69,6 +69,8 @@ export interface CollectionTask {
   weight?: number
   /** 箱体满溢百分比 */
   fillRate?: number
+  /** 强制完成标记：运营人员手动强制完成，关键事件可能不完整 */
+  forceCompleted?: boolean
   track: TrackPoint[]
 }
 
@@ -337,6 +339,43 @@ export const collectionTasks: CollectionTask[] = [
       return [p1, p2, ...waypoints2, p3, p4]
     })(),
   },
+  {
+    id: 'ST20260520004',
+    alarmId: 'AL20260520004',
+    taskName: '许吴村1号小勾臂箱离线清运',
+    taskType: '小勾臂箱离线处理',
+    boxType: '小勾臂箱',
+    boxNo: 'XB-DF-001',
+    boxName: '许吴村1号小勾臂箱',
+    town: '东风乡',
+    startAddress: '东风乡许吴村中心收集点',
+    destinationType: '中转站',
+    destinationName: '东风中转站',
+    destinationAddress: '东风乡政府路西侧中转站',
+    driver: '李师傅',
+    driverPhone: '13900010002',
+    vehicle: '豫E2M883',
+    vehicleType: '小勾臂车',
+    priority: '紧急',
+    slaMinutes: 60,
+    createTime: '2026-05-20 14:08:00',
+    acceptTime: '2026-05-20 14:15:00',
+    collectionStatus: '已完成',
+    overtimeStatus: '未超时',
+    durationText: '12分钟',
+    currentStep: '运营人员已强制完成',
+    proof: '强制完成，待补充凭证',
+    weight: 1.8,
+    fillRate: 0,
+    forceCompleted: true,
+    track: (() => {
+      const p1 = makeEventPoint('始发点', '东风乡许吴村中心收集点', '14:08', 114.358, 36.114, true, 'start', 500)
+      const p2 = makeEventPoint('装车', '东风乡许吴村中心收集点', '-', 114.358, 36.114, false, 'load')
+      const p3 = makeEventPoint('目的地', '东风中转站', '-', 114.366, 36.111, false, 'arrive', 500)
+      const p4 = makeEventPoint('卸车', '东风中转站卸料区', '-', 114.367, 36.112, false, 'unload')
+      return [p1, p2, p3, p4]
+    })(),
+  },
 ]
 
 // 各地点真实 GPS 坐标（龙安区）
@@ -491,6 +530,7 @@ export function autoCompleteCollectionTask(task: CollectionTask, mode: 'auto' | 
   task.overtimeStatus = elapsed > task.slaMinutes ? '已超时' : '未超时'
   task.collectionStatus = '已完成'
   task.currentStep = mode === 'force' ? '运营人员已强制完成' : '车辆到达目的地，系统自动完成'
+  if (mode === 'force') task.forceCompleted = true
   task.weight = task.weight || (task.boxType === '小勾臂箱' ? Number((1.5 + Math.random() * 1.5).toFixed(1)) : Number((8 + Math.random() * 10).toFixed(1)))
   // 标记所有点为已完成
   task.track.forEach((p) => {

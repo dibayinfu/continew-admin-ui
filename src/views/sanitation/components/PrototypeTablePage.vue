@@ -159,6 +159,7 @@
           </div>
           <a-space :size="6">
             <StatusTag :value="detailTask.collectionStatus" />
+            <StatusTag v-if="detailTask.forceCompleted" value="强制完成" />
             <StatusTag :value="detailTask.overtimeStatus" />
             <StatusTag :value="detailTask.priority" />
           </a-space>

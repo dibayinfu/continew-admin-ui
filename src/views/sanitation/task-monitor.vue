@@ -43,7 +43,7 @@
                   <tr><td class="prd-label">满溢率</td><td class="prd-value">箱体当前满溢百分比（来自满溢传感器），在运单重点区域展示，≥90% 红色高亮标记「满溢」</td></tr>
                   <tr><td class="prd-label">模拟推进</td><td class="prd-value">点击按状态机推进：待接单→（接单）→已接单→（车辆入栏）→收运中→已完成，实时计算耗时、超时和称重，同步点亮对应关键事件步骤。待接单状态时「模拟推进」执行接单操作，已接单状态时才可推进至收运中</td></tr>
                   <tr><td class="prd-label">完成凭证</td><td class="prd-value">已完成任务显示证明图片（SVG 占位图），可预览放大</td></tr>
-                  <tr><td class="prd-label">强制完成</td><td class="prd-value">中间面板底部按钮，未完成的任务可强制设为已完成，自动计算耗时/超时/称重，当前步骤标记「已强制完成」</td></tr>
+                  <tr><td class="prd-label">强制完成</td><td class="prd-value">中间面板底部按钮，未完成的任务可强制设为已完成，自动计算耗时/超时/称重，当前步骤标记「已强制完成」。强制完成的任务会打上「强制完成」标签，关键事件可能不完整</td></tr>
                   <tr><td class="prd-label">转单</td><td class="prd-value">中间面板底部按钮，未完成的任务可转给其他驾驶员，弹窗选目标驾驶员后更新 driver/phone/vehicle，当前步骤标记「已转单至 XXX」</td></tr>
                   <tr><td class="prd-label">状态拆分</td><td class="prd-value">收运状态（待接单/已接单/收运中/已完成）与超时状态（未超时/已超时）独立显示和筛选</td></tr>
                   <tr><td class="prd-label">统计卡</td><td class="prd-value">今日总任务 / 待接单 / 收运中 / 已完成 / 收运垃圾量(小勾臂完成总和) / 已超时，6 个指标卡片</td></tr>
@@ -127,6 +127,7 @@
               <b>{{ task.taskName }}</b>
               <a-space :size="2">
                 <StatusTag :value="task.collectionStatus" />
+                <StatusTag v-if="task.forceCompleted" value="强制完成" />
                 <StatusTag :value="task.overtimeStatus" />
               </a-space>
             </div>
@@ -160,6 +161,7 @@
           </div>
           <a-space>
             <StatusTag :value="selectedTask.collectionStatus" />
+            <StatusTag v-if="selectedTask.forceCompleted" value="强制完成" />
             <StatusTag :value="selectedTask.overtimeStatus" />
             <StatusTag :value="selectedTask.priority" />
           </a-space>

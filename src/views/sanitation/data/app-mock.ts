@@ -122,6 +122,8 @@ export interface WaybillItem {
   deadline: string
   slaMinutes: number
   weight?: number
+  /** 强制完成标记：运营人员手动强制完成，关键事件可能不完整 */
+  forceCompleted?: boolean
   steps: { label: string; done: boolean; time?: string }[]
 }
 
@@ -212,6 +214,23 @@ export const waybillList: WaybillItem[] = [
       { label: '完成', done: false },
     ],
   },
+  {
+    id: 'WB007', taskName: '许吴村小勾臂箱强制清运', taskType: '离线处理', boxNo: 'XB-DF-001',
+    driver: '李师傅', driverPhone: '13900010002', vehicle: '豫E2M883',
+    startAddress: '东风乡许吴村中心', destination: '东风中转站',
+    priority: '紧急', status: '已完成', overtimeStatus: '未超时',
+    createTime: '2026-06-11 14:08', deadline: '2026-06-11 15:08', slaMinutes: 60,
+    weight: 1.8,
+    forceCompleted: true,
+    steps: [
+      { label: '派单', done: true, time: '14:08' },
+      { label: '接单', done: true, time: '14:15' },
+      { label: '到达', done: false },
+      { label: '装车', done: false },
+      { label: '到达中转站', done: false },
+      { label: '完成', done: true, time: '14:27' },
+    ],
+  },
 ]
 
 // ==================== 驾驶员任务（与运单关联） ====================
@@ -237,6 +256,8 @@ export interface DriverTask {
   acceptTime?: string
   startTime?: string
   finishTime?: string
+  /** 强制完成标记：运营人员手动强制完成，关键事件可能不完整 */
+  forceCompleted?: boolean
   steps: { label: string; done: boolean; time?: string }[]
   track: { lng: number; lat: number; done: boolean; label?: string; time?: string }[]
 }
@@ -365,6 +386,29 @@ export const driverTaskList: DriverTask[] = [
       { lng: 114.136, lat: 36.038, done: true, label: '装车点', time: '14:30' },
       { lng: 114.132, lat: 36.036, done: true },
       { lng: 114.128, lat: 36.034, done: true, label: '陈家庄', time: '15:20' },
+    ],
+  },
+  {
+    id: 'DT006', waybillId: 'WB007', taskName: '许吴村小勾臂箱强制清运', taskType: '离线处理',
+    boxNo: 'XB-DF-001', driver: '李师傅', vehicle: '豫E2M883',
+    startAddress: '东风乡许吴村中心', destination: '东风中转站',
+    priority: '紧急', status: '已完成', overtimeStatus: '未超时',
+    createTime: '2026-06-11 14:08', deadline: '2026-06-11 15:08', slaMinutes: 60, proofUploaded: false,
+    acceptTime: '14:15', forceCompleted: true,
+    steps: [
+      { label: '派单', done: true, time: '14:08' },
+      { label: '接单', done: true, time: '14:15' },
+      { label: '到达始发地', done: false },
+      { label: '装车', done: false },
+      { label: '发车', done: false },
+      { label: '到达目的地', done: false },
+      { label: '卸车完成', done: false },
+      { label: '上传照片', done: false },
+    ],
+    track: [
+      { lng: 114.358, lat: 36.114, done: true, label: '许吴村', time: '14:08' },
+      { lng: 114.360, lat: 36.115, done: true, label: '接单位置', time: '14:15' },
+      { lng: 114.366, lat: 36.111, done: false, label: '东风中转站' },
     ],
   },
 ]

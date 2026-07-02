@@ -1576,7 +1576,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
       {
         title: '🔑 字段映射规则',
         items: [
-          { label: '收运状态', value: 'collectionStatus：待接单 / 已接单 / 收运中 / 已完成' },
+          { label: '收运状态', value: 'collectionStatus：待接单 →（驾驶员手动接单）→ 已接单 →（车辆进入始发点电子围栏）→ 收运中 → 已完成。接单是必须步骤，未接单时即使车辆进入围栏也不会变为收运中，防止路过车辆误触发' },
           { label: '超时状态', value: 'overtimeStatus：未超时 / 已超时' },
           { label: '称重', value: 'weight（吨），已完成小勾臂箱的垃圾称重数据' },
           { label: '完成时间', value: 'finishTime，取原始数据或 "-" 占位' },

@@ -457,7 +457,11 @@ export function acceptCollectionTask(task: CollectionTask) {
 
 export function startCollectionTask(task: CollectionTask) {
   if (!['待接单', '已接单'].includes(task.collectionStatus)) return false
-  if (task.collectionStatus === '待接单') acceptCollectionTask(task)
+  // 必须先手动接单，未接单时不允许开始收运，防止路过车辆误触发
+  if (task.collectionStatus === '待接单') {
+    console.warn(`[startCollectionTask] 任务 ${task.id} 尚未接单，无法开始收运`)
+    return false
+  }
   task.collectionStatus = '收运中'
   task.startTime = formatNow()
   task.currentStep = '勾臂箱已装车，正在转运'

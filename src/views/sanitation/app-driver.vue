@@ -46,12 +46,12 @@
                   <tr><td class="prd-label">收运状态</td><td class="prd-value">待接单 / 已接单 / 收运中 / 已完成，四状态互斥按序流转</td></tr>
                   <tr><td class="prd-label">待接单</td><td class="prd-value">创建任务单后的初始状态</td></tr>
                   <tr><td class="prd-label">已接单</td><td class="prd-value">驾驶员手动接单后变为已接单</td></tr>
-                  <tr><td class="prd-label">收运中</td><td class="prd-value">进入任务单中的始发点电子围栏后变为收运中；若未手动接单，系统也自动变为收运中</td></tr>
+                  <tr><td class="prd-label">收运中</td><td class="prd-value">驾驶员手动接单后，车辆进入任务单中的始发点电子围栏后变为收运中；必须手动接单，未接单时即使进入围栏也不会自动开始收运，防止路过车辆误触发状态变更</td></tr>
                   <tr><td class="prd-label">已完成</td><td class="prd-value">卸货完成，根据目的地电子围栏 + 称重变化判断卸货</td></tr>
                   <tr><td class="prd-label">超时状态</td><td class="prd-value">未超时（默认）/ 已超时，独立于收运状态展示</td></tr>
                   <tr><td class="prd-label">已超时</td><td class="prd-value">收运过程中，时长已超过任务时效要求，变为已超时</td></tr>
                   <tr><td class="prd-label">待接单 → 已接单</td><td class="prd-value">底部「接单」按钮 → Modal.confirm 二次确认 → 记录 acceptTime → 点亮「接单」步骤 → 状态变为已接单</td></tr>
-                  <tr><td class="prd-label">已接单 → 收运中</td><td class="prd-value">底部"等待系统自动识别到达始发点"文字 + 原型「模拟系统识别」按钮。点击后点亮「到达始发地」「装车」「发车」三步，随机生成称重，状态变为收运中。真实 APP 由 GPS+电子围栏自动触发。若未手动接单，系统识别进入始发点围栏后也自动变为收运中</td></tr>
+                  <tr><td class="prd-label">已接单 → 收运中</td><td class="prd-value">底部"等待系统自动识别到达始发点"文字 + 原型「模拟系统识别」按钮。点击后点亮「到达始发地」「装车」「发车」三步，随机生成称重，状态变为收运中。真实 APP 由 GPS+电子围栏自动触发。必须先手动接单，未接单状态时即使车辆进入围栏也不会变为收运中，防止路过车辆误触发</td></tr>
                   <tr><td class="prd-label">收运中 → 已完成</td><td class="prd-value">底部"等待系统自动识别到达目的地"文字 + 原型「模拟系统完成」按钮。点击后点亮「到达目的地」「卸车完成」两步，记录 finishTime，计算耗时并判定超时。真实 APP 由目的地电子围栏+称重变化自动触发</td></tr>
                   <tr><td class="prd-label">已完成 + 未上传</td><td class="prd-value">底部「补传凭证照片」按钮 → 进入上传页（水印相机/相册选择，1 张）→ 提交后点亮「上传照片」步骤，proofUploaded=true</td></tr>
                   <tr><td class="prd-label">已完成 + 已上传</td><td class="prd-value">底部绿色提示"任务已完成，凭证已上传"，不可再操作</td></tr>
@@ -63,7 +63,7 @@
                 <tbody>
                   <tr class="prd-section-row"><td class="prd-section-title" colspan="2">🔑 关键事件（过程步骤）</td></tr>
                   <tr><td class="prd-label">① 派单</td><td class="prd-value">任务单创建</td></tr>
-                  <tr><td class="prd-label">② 接单</td><td class="prd-value">驾驶员接单（如果没有手动接单，该步骤没有）</td></tr>
+                  <tr><td class="prd-label">② 接单</td><td class="prd-value">驾驶员接单（必须手动接单，不可跳过；未接单则无法进入收运中状态）</td></tr>
                   <tr><td class="prd-label">③ 到达始发地</td><td class="prd-value">进入始发电子围栏</td></tr>
                   <tr><td class="prd-label">④ 装车</td><td class="prd-value">通过始发地+称重变化判断</td></tr>
                   <tr><td class="prd-label">⑤ 发车</td><td class="prd-value">离开始发地</td></tr>
@@ -171,7 +171,7 @@
             </div>
             <div class="dt-actions">
               <a-button v-if="detailTask.status === '待接单'" type="primary" long size="large" @click="confirmAccept(detailTask)">接单</a-button>
-              <div v-if="detailTask.status === '已接单'" class="dt-auto-state"><b>等待系统自动识别到达始发点</b><span>进入收集点或中转站围栏后自动变为收运中。</span><button type="button" @click="simulateAutoStart(detailTask)">模拟系统识别</button></div>
+              <div v-if="detailTask.status === '待接单' || detailTask.status === '已接单'" class="dt-auto-state"><b>等待系统自动识别到达始发点</b><span>进入收集点或中转站围栏后自动变为收运中。</span><button type="button" @click="simulateAutoStart(detailTask)">模拟系统识别</button></div>
               <div v-if="detailTask.status === '收运中'" class="dt-auto-state"><b>等待系统自动识别到达目的地</b><span>进入中转站或焚烧厂围栏并卸车后自动完成。</span><button type="button" @click="simulateAutoFinish(detailTask)">模拟系统完成</button></div>
               <a-button v-if="detailTask.status === '已完成' && !detailTask.proofUploaded" type="primary" status="success" long size="large" @click="openProofUpload(detailTask)">补传凭证照片</a-button>
               <div v-if="detailTask.status === '已完成' && detailTask.proofUploaded" class="dt-done">任务已完成，凭证已上传</div>
@@ -365,6 +365,10 @@ function confirmAccept(t: DriverTask) {
   }})
 }
 function simulateAutoStart(t: DriverTask) {
+  if (t.status !== '已接单') {
+    ArcoMessage.warning('请先点击「接单」按钮接单，未接单状态无法开始收运')
+    return
+  }
   t.status = '收运中'; t.startTime = nowTime()
   t.steps.filter(s => s.label === '到达始发地' || s.label === '装车' || s.label === '发车').forEach(s => { s.done = true; if (!s.time) s.time = nowTime() })
   t.track.forEach(p => { if (!p.done && p.label === '装车点') p.done = true })

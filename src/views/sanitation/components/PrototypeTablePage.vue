@@ -464,17 +464,60 @@ const taskMetrics = computed(() => {
 })
 
 function getEventPoints(task: CollectionTask) {
-  return task.track.filter((point) => point.label)
+  const events: Array<{ label: string; time: string; done: boolean; address?: string; fenceRadius?: number }> = []
+
+  // 根据收运状态决定展示到第几个关键事件
+  let maxEvents = 2 // 待接单：派单、接单
+  if (task.collectionStatus === '已接单') maxEvents = 3
+  else if (task.collectionStatus === '收运中') maxEvents = 6
+  else if (task.collectionStatus === '已完成') maxEvents = 8
+
+  // ① 派单
+  events.push({ label: '派单', time: task.createTime?.slice(11, 16) || '-', done: true })
+
+  // ② 接单
+  events.push({ label: '接单', time: task.acceptTime?.slice(11, 16) || '-', done: !!task.acceptTime })
+
+  if (maxEvents >= 3) {
+    // ③ 到达始发地
+    const startPt = task.track.find((p) => p.eventType === 'start')
+    events.push({ label: '到达始发地', time: startPt?.time || '-', done: startPt?.done || false, address: startPt?.address, fenceRadius: startPt?.fenceRadius })
+
+    // ④ 装车
+    const loadPt = task.track.find((p) => p.eventType === 'load')
+    events.push({ label: '装车', time: loadPt?.time || '-', done: loadPt?.done || false, address: loadPt?.address })
+
+    // ⑤ 发车
+    events.push({ label: '发车', time: task.startTime?.slice(11, 16) || '-', done: !!task.startTime })
+  }
+
+  if (maxEvents >= 6) {
+    // ⑥ 到达目的地
+    const destPt = task.track.find((p) => p.eventType === 'arrive')
+    events.push({ label: '到达目的地', time: destPt?.time || '-', done: destPt?.done || false, address: destPt?.address, fenceRadius: destPt?.fenceRadius })
+
+    // ⑦ 卸车完成
+    const unloadPt = task.track.find((p) => p.eventType === 'unload')
+    events.push({ label: '卸车完成', time: unloadPt?.time || '-', done: unloadPt?.done || false, address: unloadPt?.address })
+  }
+
+  if (maxEvents >= 8) {
+    // ⑧ 上传照片
+    const proofDone = !!task.proofImages?.length
+    events.push({ label: '上传照片', time: proofDone ? '已上传' : '-', done: proofDone })
+  }
+
+  return events
 }
 
 function getStartFenceText(task: CollectionTask) {
-  const startEvent = getEventPoints(task).find((point) => point.label === '始发点')
+  const startEvent = task.track.find((point) => point.eventType === 'start')
   const startType = task.boxType === '小勾臂箱' ? '收集点' : '中转站'
   return `${startType}围栏 ${startEvent?.fenceRadius || 500}m`
 }
 
 function getDestFenceText(task: CollectionTask) {
-  const destEvent = getEventPoints(task).find((point) => point.label === '目的地')
+  const destEvent = task.track.find((point) => point.eventType === 'arrive')
   return `${task.destinationType}围栏 ${destEvent?.fenceRadius || 500}m`
 }
 

@@ -529,9 +529,58 @@ const boxAddress = computed(() => {
   return box.currentLocation
 })
 
-const eventPoints = computed(() => selectedTask.value.track.filter((point) => point.label))
-const startEvent = computed(() => eventPoints.value.find((point) => point.label === '始发点'))
-const destEvent = computed(() => eventPoints.value.find((point) => point.label === '目的地'))
+const eventPoints = computed(() => {
+  const t = selectedTask.value
+  const events: Array<{ label: string; time: string; done: boolean; address?: string; fenceRadius?: number }> = []
+
+  // 根据收运状态决定展示到第几个关键事件
+  let maxEvents = 2 // 待接单：派单、接单
+  if (t.collectionStatus === '已接单') maxEvents = 3
+  else if (t.collectionStatus === '收运中') maxEvents = 6
+  else if (t.collectionStatus === '已完成') maxEvents = 8
+
+  // ① 派单
+  const dispatchTime = t.createTime?.slice(11, 16) || '-'
+  events.push({ label: '派单', time: dispatchTime, done: true })
+
+  // ② 接单
+  const acceptTime = t.acceptTime?.slice(11, 16) || '-'
+  events.push({ label: '接单', time: acceptTime, done: !!t.acceptTime })
+
+  if (maxEvents >= 3) {
+    // ③ 到达始发地
+    const startPt = t.track.find((p) => p.eventType === 'start')
+    events.push({ label: '到达始发地', time: startPt?.time || '-', done: startPt?.done || false, address: startPt?.address, fenceRadius: startPt?.fenceRadius })
+
+    // ④ 装车
+    const loadPt = t.track.find((p) => p.eventType === 'load')
+    events.push({ label: '装车', time: loadPt?.time || '-', done: loadPt?.done || false, address: loadPt?.address })
+
+    // ⑤ 发车
+    const departTime = t.startTime?.slice(11, 16) || '-'
+    events.push({ label: '发车', time: departTime, done: !!t.startTime })
+  }
+
+  if (maxEvents >= 6) {
+    // ⑥ 到达目的地
+    const destPt = t.track.find((p) => p.eventType === 'arrive')
+    events.push({ label: '到达目的地', time: destPt?.time || '-', done: destPt?.done || false, address: destPt?.address, fenceRadius: destPt?.fenceRadius })
+
+    // ⑦ 卸车完成
+    const unloadPt = t.track.find((p) => p.eventType === 'unload')
+    events.push({ label: '卸车完成', time: unloadPt?.time || '-', done: unloadPt?.done || false, address: unloadPt?.address })
+  }
+
+  if (maxEvents >= 8) {
+    // ⑧ 上传照片
+    const proofDone = !!t.proofImages?.length
+    events.push({ label: '上传照片', time: proofDone ? '已上传' : '-', done: proofDone })
+  }
+
+  return events
+})
+const startEvent = computed(() => selectedTask.value.track.find((point) => point.eventType === 'start'))
+const destEvent = computed(() => selectedTask.value.track.find((point) => point.eventType === 'arrive'))
 const startFenceText = computed(() => `${selectedTask.value.boxType === '小勾臂箱' ? '收集点' : '中转站'}围栏 ${startEvent.value?.fenceRadius || 500}m`)
 const destFenceText = computed(() => `${selectedTask.value.destinationType}围栏 ${destEvent.value?.fenceRadius || 500}m`)
 const routeRuleText = computed(() => {

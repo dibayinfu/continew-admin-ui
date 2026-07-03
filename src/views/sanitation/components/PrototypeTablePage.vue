@@ -263,6 +263,7 @@
                 v-model="formData[field.key]"
                 :placeholder="'请选择' + field.label"
                 :options="field.options"
+                :disabled="field.readonly"
               />
               <a-input-number
                 v-else-if="field.type === 'number'"
@@ -575,6 +576,26 @@ const formFields = computed<FormField[]>(() => {
   if (hasCity) fields.push({ key: 'city', label: '城市', type: 'areaCascade', span: 8 })
   if (hasArea) fields.push({ key: 'area', label: '区/县', type: 'areaCascade', span: 8 })
 
+  // 编辑时不可修改的字段（按 pageKey 区分）
+  const readonlyKeys: Record<string, string[]> = {
+    vehicleArchive: ['driverType', 'driverPhone'],
+    stationArchive: ['contactPhone'],
+    collectionPoint: ['contactPhone'],
+    plantArchive: ['contactPhone'],
+    deviceArchive: ['deviceNo', 'deviceType'],
+  }
+  /** 编辑时只读的字段（仅在 isEdit 时生效） */
+  const editOnlyReadonlyKeys: string[] = ['deviceNo', 'deviceType']
+  const isPageReadonly = (key: string) => {
+    const keys = readonlyKeys[props.pageKey] || []
+    if (keys.includes(key)) {
+      // 如果是 edit-only 字段，仅在编辑模式下只读
+      if (editOnlyReadonlyKeys.includes(key)) return isEdit.value
+      return true
+    }
+    return false
+  }
+
   for (const col of config.columns) {
     const key = col.dataIndex
     const label = col.title
@@ -582,7 +603,7 @@ const formFields = computed<FormField[]>(() => {
     if (['longitude', 'latitude', 'province', 'city', 'area', 'atPoint', 'onVehicle', 'currentLocation', 'locationType', 'locationName', 'locationMatchLabel', 'overflowStatus', 'onlineStatus', 'batteryStatus', 'temperatureStatus', 'doorStatus', 'fillRate', 'temperature', 'battery'].includes(key)) continue
 
     if (fieldOptions[key]) {
-      fields.push({ key, label, type: 'select', options: fieldOptions[key], span: 12 })
+      fields.push({ key, label, type: 'select', options: fieldOptions[key], span: 12, readonly: isPageReadonly(key) })
     } else if (['status', 'level', 'type', 'personType', 'vehicleType', 'boxType', 'routeType', 'objectType', 'alarmType', 'scaleStatus', 'openStatus', 'online', 'result', 'deviceStatus', 'source', 'progress'].includes(key)) {
       fields.push({ key, label, type: 'select', options: inferFallbackOptions(key), span: 12 })
     } else if (['population', 'households', 'containers', 'points', 'slots', 'alarms', 'workOrders', 'score', 'coverage', 'timely', 'safety', 'dataQuality', 'mileage', 'speed', 'fillRate', 'battery', 'temperature', 'confidence', 'villages', 'radius'].includes(key)) {
@@ -592,15 +613,7 @@ const formFields = computed<FormField[]>(() => {
     } else if (['content', 'desc', 'description', 'remark', 'anomalyDesc', 'evidence', 'suggestAction'].includes(key)) {
       fields.push({ key, label, type: 'textarea', span: 24 })
     } else {
-      // 从人员档案带出的字段，只读
-      const readonlyKeys: Record<string, string[]> = {
-        vehicleArchive: ['driverType', 'driverPhone'],
-        stationArchive: ['contactPhone'],
-        collectionPoint: ['contactPhone'],
-        plantArchive: ['contactPhone'],
-      }
-      const isReadonly = (readonlyKeys[props.pageKey] || []).includes(key)
-      fields.push({ key, label, type: 'input', span: 12, readonly: isReadonly })
+      fields.push({ key, label, type: 'input', span: 12, readonly: isPageReadonly(key) })
     }
   }
 

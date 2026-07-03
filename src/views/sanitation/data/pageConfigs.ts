@@ -667,7 +667,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
     module: '基础档案',
     searchPlaceholder: '搜索站点名称/编号',
     filters: ['全部状态', '正常', '预警', '满溢', '停用'],
-    metrics: [{ label: '中转站', value: 6, unit: '座' }, { label: '机位数量', value: 14, unit: '个' }],
+    metrics: [],
     columns: [
       { title: '站点名称', dataIndex: 'name', width: 160 },
       { title: '站点编号', dataIndex: 'code', width: 120 },
@@ -730,7 +730,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
     module: '基础档案',
     searchPlaceholder: '搜索焚烧厂名称/编号',
     filters: ['全部状态', '未对接', '已对接'],
-    metrics: [{ label: '今日垃圾量', value: 848, unit: 't' }, { label: '今日进厂', value: 42, unit: '车次' }],
+    metrics: [],
     columns: [
       { title: '焚烧厂名称', dataIndex: 'name', width: 180 },
       { title: '所属乡镇', dataIndex: 'town', width: 120 },

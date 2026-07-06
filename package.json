@@ -5,9 +5,9 @@
   "private": "true",
   "scripts": {
     "bootstrap": "pnpm install --registry=https://registry.npmmirror.com",
-    "dev": "vite --mode prototype --host 0.0.0.0 --port 5173",
+    "dev": "vite --mode prototype --host 0.0.0.0 --port 1173",
     "dev:backend": "vite --host",
-    "dev:prototype": "vite --mode prototype --host 0.0.0.0 --port 5173",
+    "dev:prototype": "vite --mode prototype --host 0.0.0.0 --port 1173",
     "build": "vue-tsc --noEmit && vite build",
     "build:prototype": "vue-tsc --noEmit && vite build --mode prototype",
     "build:test": "vue-tsc --noEmit && vite build --mode test",

@@ -199,6 +199,7 @@ export const systemRoutes: RouteRecordRaw[] = [
           { path: '/sanitation/map', name: 'SanitationMap', component: () => import('@/views/sanitation/map.vue'), meta: { title: '全域地图监管', icon: 'location', hidden: false } },
           { path: '/sanitation/command-center-july', name: 'SanitationCommandCenterJuly', component: () => import('@/views/sanitation/command-center-july.vue'), meta: { title: '数字大屏指挥中心', icon: 'dashboard', hidden: false } },
           { path: '/sanitation/location-monitor-weighing', name: 'SanitationLocationMonitorWeighing', component: () => import('@/views/sanitation/location-monitor-weighing.vue'), meta: { title: '位置监控增加称重', icon: 'location', hidden: false } },
+          { path: '/sanitation/history-track-weighing', name: 'SanitationHistoryTrackWeighing', component: () => import('@/views/sanitation/history-track-weighing.vue'), meta: { title: '历史轨迹增加称重', icon: 'history', hidden: false } },
         ],
       },
 

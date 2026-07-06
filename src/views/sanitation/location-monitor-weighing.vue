@@ -6,14 +6,17 @@
         <a-collapse-item key="prd" header="📋 产品需求说明">
           <div class="prd-body">
             <div class="prd-section">
-              <p class="prd-intro">在现有位置监控页面基础上，增加以下两项需求：</p>
+              <h4 class="prd-section-title">🎯 功能要点（开发 / 测试关注）</h4>
               <table class="prd-table">
-                <thead>
-                  <tr><th>序号</th><th>需求描述</th></tr>
-                </thead>
                 <tbody>
-                  <tr><td class="prd-label">1</td><td>若车辆安装了称重设备，点击车辆后在详情弹层中显示<b>重量</b>字段。</td></tr>
-                  <tr><td class="prd-label">2</td><td>若车辆已配置驾驶员，点击车辆后在详情弹层中显示驾驶员的<b>姓名及联系方式</b>。</td></tr>
+                  <tr>
+                    <td class="prd-label">重量字段</td>
+                    <td class="prd-value">若车辆安装了称重设备，点击车辆后在详情弹层中显示重量字段。</td>
+                  </tr>
+                  <tr>
+                    <td class="prd-label">驾驶员信息</td>
+                    <td class="prd-value">若车辆已配置驾驶员，点击车辆后在详情弹层中显示驾驶员姓名及联系方式。</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
@@ -444,6 +447,7 @@ function handleDispatch() {
 
 // ===== PRD Panel =====
 .prd-panel {
+  margin-bottom: 12px;
   background: var(--color-bg-2);
   border-radius: 4px;
   flex-shrink: 0;
@@ -465,10 +469,11 @@ function handleDispatch() {
   width: 100%;
 }
 
-.prd-intro {
-  margin: 0 0 12px;
-  font-size: 13px;
-  color: var(--color-text-2);
+.prd-section-title {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-1);
 }
 
 .prd-table {
@@ -488,20 +493,15 @@ function handleDispatch() {
   }
 
   .prd-label {
-    width: 100px;
-    min-width: 100px;
+    width: 140px;
+    min-width: 140px;
     font-weight: 500;
     color: var(--color-text-2);
     white-space: nowrap;
-    text-align: center;
   }
 
-  th {
-    padding: 6px 12px;
-    border: 1px solid var(--color-border-2);
-    background: var(--color-fill-2);
-    font-weight: 600;
-    text-align: left;
+  .prd-value {
+    color: var(--color-text-1);
   }
 }
 

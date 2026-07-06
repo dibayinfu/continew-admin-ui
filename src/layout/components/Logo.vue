@@ -42,9 +42,11 @@ const toHome = () => {
   display: flex;
   align-items: center;
   flex-shrink: 0;
+  flex-wrap: nowrap;
   cursor: pointer;
   user-select: none;
   box-sizing: border-box;
+  min-width: fit-content;
 
   &.collapsed {
     padding: 0;
@@ -70,8 +72,7 @@ const toHome = () => {
     white-space: nowrap;
     transition: color 0.3s;
     line-height: 1.5;
-    display: inline-flex;
-    align-items: center;
+    flex-shrink: 0;
 
     &:hover {
       color: $color-theme !important;

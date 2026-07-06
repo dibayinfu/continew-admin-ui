@@ -23,14 +23,14 @@
       <header class="header">
         <MenuFoldBtn />
         <a-menu
-          v-if="isDesktop" mode="horizontal" :selected-keys="activeMenu" :auto-open-selected="false"
+          v-if="isDesktop" class="layout-mix-top-menu" mode="horizontal" :selected-keys="activeMenu" :auto-open-selected="false"
           :trigger-props="menuTriggerProps" @menu-item-click="handleMenuItemClickByPath"
         >
           <a-menu-item v-for="item in oneLevelMenus" :key="item.path">
             <template #icon>
               <GiSvgIcon :name="getMenuIcon(item) || ''" :size="24" />
             </template>
-            <span>{{ item.meta?.title || item.children?.[0]?.meta?.title || '' }}</span>
+            <span class="layout-mix-top-menu__title">{{ item.meta?.title || item.children?.[0]?.meta?.title || '' }}</span>
           </a-menu-item>
         </a-menu>
         <HeaderRightBar />
@@ -135,6 +135,47 @@ onMounted(() => {
       white-space: nowrap;
     }
   }
+}
+
+:deep(.layout-mix-top-menu) {
+  min-width: 0;
+
+  .arco-menu-overflow-wrap {
+    display: flex;
+    align-items: center;
+  }
+
+  .arco-menu-item {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    min-width: max-content;
+    white-space: nowrap;
+  }
+
+  .arco-menu-icon {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    margin-right: 8px;
+  }
+
+  .arco-menu-item-inner {
+    display: inline-flex;
+    align-items: center;
+    min-width: 0;
+    white-space: nowrap;
+  }
+}
+
+.layout-mix-top-menu__title {
+  display: inline-block;
+  overflow: hidden;
+  line-height: 1;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  vertical-align: middle;
 }
 
 .layout-mix {

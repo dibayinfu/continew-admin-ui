@@ -134,7 +134,7 @@
             <div class="task-item-meta">
               <span>{{ task.vehicle }}</span>
               <span>{{ task.driver }}</span>
-              <span class="task-sla">SLA {{ task.slaMinutes }}min</span>
+              <span class="task-sla">{{ task.slaMinutes }}分钟</span>
               <StatusTag :value="task.priority" />
             </div>
             <div class="task-route">
@@ -174,13 +174,13 @@
         <div class="ops-summary">
           <div>
             <span>始发点</span>
-            <b>{{ selectedTask.startAddress }}</b>
-            <em>{{ startFenceText }}</em>
+            <b>{{ startPointName }}</b>
+            <em>{{ selectedTask.startAddress }}</em>
           </div>
           <div>
             <span>目的地</span>
             <b>{{ selectedTask.destinationName }}</b>
-            <em>{{ destFenceText }}</em>
+            <em>{{ selectedTask.destinationAddress }}</em>
           </div>
           <div>
             <span>时效</span>
@@ -221,7 +221,7 @@
         <div class="focus-card">
           <div>
             <span>当前状态</span>
-            <b>{{ selectedTask.currentStep }}</b>
+            <b>{{ collectionStatusLabel }}</b>
           </div>
           <div>
             <span>满溢率</span>
@@ -231,10 +231,7 @@
             <span>时效要求</span>
             <b :class="{ overtime: selectedTask.overtimeStatus === '已超时' }">{{ selectedTask.slaMinutes }} 分钟 / {{ selectedTask.durationText || '待开始' }}</b>
           </div>
-          <div>
-            <span>作业规则</span>
-            <b>{{ routeRuleText }}</b>
-          </div>
+
         </div>
 
         <div class="panel-title timeline-title">关键事件</div>
@@ -517,6 +514,7 @@ function submitTask() {
     triggerTime: new Date().toLocaleString('zh-CN', { hour12: false }),
     readStatus: '已读',
     handleStatus: '不需处理',
+    starred: false,
     content: `${box.name} — 手动创建收运任务单。`,
   }
   const task = createCollectionTaskFromAlarm(alarmStub, createForm.driver, createForm.destination)
@@ -581,13 +579,18 @@ const eventPoints = computed(() => {
 
   return events
 })
-const startEvent = computed(() => selectedTask.value.track.find((point) => point.eventType === 'start'))
-const destEvent = computed(() => selectedTask.value.track.find((point) => point.eventType === 'arrive'))
-const startFenceText = computed(() => `${selectedTask.value.boxType === '小勾臂箱' ? '收集点' : '中转站'}围栏 ${startEvent.value?.fenceRadius || 500}m`)
-const destFenceText = computed(() => `${selectedTask.value.destinationType}围栏 ${destEvent.value?.fenceRadius || 500}m`)
-const routeRuleText = computed(() => {
-  if (selectedTask.value.boxType === '小勾臂箱') return '收集点 500m 内装车，中转站 500m 内卸车'
-  return '中转站 500m 内装车，焚烧厂 1000m 内卸车'
+const startPointName = computed(() => {
+  const startPt = selectedTask.value.track.find((p) => p.eventType === 'start')
+  return startPt?.address || selectedTask.value.startAddress
+})
+const collectionStatusLabel = computed(() => {
+  const map: Record<string, string> = {
+    '待接单': '待接单',
+    '已接单': '已接单',
+    '收运中': '收运中',
+    '已完成': '已完成',
+  }
+  return map[selectedTask.value.collectionStatus] || selectedTask.value.collectionStatus
 })
 
 const filteredTasks = computed(() => {
@@ -886,6 +889,7 @@ function doTransfer() {
     line-height: 1.35;
     -webkit-box-orient: vertical;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 }
 

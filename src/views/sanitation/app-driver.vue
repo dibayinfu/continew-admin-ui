@@ -120,12 +120,12 @@
                 <div class="dt-next"><span class="dt-next-label">下一步</span><b>{{ getNextActionText(detailTask) }}</b></div>
               </div>
               <div class="dt-route-card">
-                <div class="route-point"><span class="route-dot start"></span><div><span>收运点</span><b>{{ detailTask.startAddress }}</b></div></div>
+                <div class="route-point"><span class="route-dot start"></span><div><span>收运点</span><b>{{ detailTask.startAddress }}</b><em>{{ detailTask.startAddress }}</em></div></div>
                 <div class="route-line"></div>
-                <div class="route-point"><span class="route-dot end"></span><div><span>目的地</span><b>{{ detailTask.destination }}</b></div></div>
+                <div class="route-point"><span class="route-dot end"></span><div><span>目的地</span><b>{{ detailTask.destination }}</b><em>{{ detailTask.destinationAddress }}</em></div></div>
               </div>
               <div class="dt-metric-grid">
-                <div class="dm-item" :class="{ danger: detailTask.overtimeStatus === '已超时' }"><span>截止</span><b>{{ getShortDeadline(detailTask.deadline) }}</b><em>SLA {{ detailTask.slaMinutes }}min</em></div>
+                <div class="dm-item" :class="{ danger: detailTask.overtimeStatus === '已超时' }"><span>截止</span><b>{{ getShortDeadline(detailTask.deadline) }}</b><em>时效{{ detailTask.slaMinutes }}分钟</em></div>
                 <div class="dm-item" :class="{ danger: (detailTask.fillRate ?? 0) >= 90 }"><span>满溢率</span><b>{{ detailTask.fillRate != null ? detailTask.fillRate + '%' : '-' }}</b><em>{{ (detailTask.fillRate ?? 0) >= 90 ? '需优先处理' : '正常' }}</em></div>
                 <div class="dm-item"><span>称重</span><b>{{ detailTask.weight != null ? detailTask.weight + 't' : '待采集' }}</b><em>{{ detailTask.status === '收运中' ? '卸车后确认' : '系统记录' }}</em></div>
                 <div class="dm-item"><span>箱体</span><b>{{ detailTask.boxNo }}</b><em>{{ detailTask.vehicle }}</em></div>
@@ -485,7 +485,7 @@ function handleProofClick(t: DriverTask) { detailTask.value = t }
 .route-point { display: flex; gap: 10px; align-items: flex-start;
   .route-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
   .route-dot.start { background: #00b42a; } .route-dot.end { background: #f53f3f; }
-  div { span { font-size: 10px; color: #86909c; display: block; } b { font-size: 13px; color: #1d2129; } }
+  div { span { font-size: 10px; color: #86909c; display: block; } b { font-size: 13px; color: #1d2129; } em { display: block; font-style: normal; font-size: 10px; color: #86909c; margin-top: 2px; } }
 }
 .route-line { width: 2px; height: 28px; background: #e5e6eb; margin-left: 5px; }
 

@@ -117,6 +117,8 @@ export interface WaybillItem {
   vehicle: string
   startAddress: string
   destination: string
+  /** 目的地详细地址 */
+  destinationAddress: string
   priority: '紧急' | '普通'
   status: '待接单' | '已接单' | '收运中' | '已完成'
   overtimeStatus: '未超时' | '已超时'
@@ -148,7 +150,7 @@ export const waybillList: WaybillItem[] = reactive([
   {
     id: 'WB002', taskName: '牛家窑2号满溢清运', taskType: '满溢清运', boxNo: 'XB-MTJ-002',
     driver: '张师傅', driverPhone: '13900010001', vehicle: '豫E3G516',
-    startAddress: '马投涧镇牛家窑村文化广场', destination: '马投涧中转站',
+    startAddress: '马投涧镇牛家窑村文化广场', destination: '马投涧中转站', destinationAddress: '马投涧镇工业路1号',
     priority: '紧急', status: '收运中', overtimeStatus: '未超时',
     createTime: '2026-06-11 08:22', deadline: '2026-06-11 11:00', slaMinutes: 158,
     steps: [
@@ -163,7 +165,7 @@ export const waybillList: WaybillItem[] = reactive([
   {
     id: 'WB003', taskName: '马投涧压缩箱C清运', taskType: '满溢清运', boxNo: 'DB-MTJ-003',
     driver: '孙师傅', driverPhone: '13900010005', vehicle: '豫E6N109',
-    startAddress: '马投涧中转站压缩箱区', destination: '龙安生活垃圾焚烧厂',
+    startAddress: '马投涧中转站压缩箱区', destination: '龙安生活垃圾焚烧厂', destinationAddress: '龙安区静脉产业园焚烧厂',
     priority: '紧急', status: '已接单', overtimeStatus: '未超时',
     createTime: '2026-06-11 07:45', deadline: '2026-06-11 10:30', slaMinutes: 165,
     steps: [
@@ -177,7 +179,7 @@ export const waybillList: WaybillItem[] = reactive([
   {
     id: 'WB004', taskName: '善应北村日常收集', taskType: '日常清运', boxNo: '-',
     driver: '李师傅', driverPhone: '13900010002', vehicle: '豫E2M883',
-    startAddress: '善应镇北片收集点', destination: '善应中转站',
+    startAddress: '善应镇北片收集点', destination: '善应中转站', destinationAddress: '善应镇东环路南段',
     priority: '普通', status: '已完成', overtimeStatus: '未超时',
     createTime: '2026-06-10 18:00', deadline: '2026-06-11 15:30', slaMinutes: 0,
     steps: [
@@ -192,7 +194,7 @@ export const waybillList: WaybillItem[] = reactive([
   {
     id: 'WB005', taskName: '南坡村日常收集', taskType: '日常清运', boxNo: 'XB-MTJ-001',
     driver: '张师傅', driverPhone: '13900010001', vehicle: '豫E3G516',
-    startAddress: '马投涧镇南坡村东口', destination: '马投涧中转站',
+    startAddress: '马投涧镇南坡村东口', destination: '马投涧中转站', destinationAddress: '马投涧镇工业路1号',
     priority: '普通', status: '待派发', overtimeStatus: '未超时',
     createTime: '2026-06-10 18:00', deadline: '2026-06-11 16:00', slaMinutes: 0,
     steps: [
@@ -206,7 +208,7 @@ export const waybillList: WaybillItem[] = reactive([
   {
     id: 'WB006', taskName: '石岩村箱体维修后复位', taskType: '箱体复位', boxNo: 'XB-LQ-003',
     driver: '王师傅', driverPhone: '13900010023', vehicle: '豫E8K270',
-    startAddress: '龙泉镇石岩村南', destination: '石岩村南收集点',
+    startAddress: '龙泉镇石岩村南', destination: '石岩村南收集点', destinationAddress: '龙泉镇石岩村南侧入口',
     priority: '普通', status: '待接单', overtimeStatus: '未超时',
     createTime: '2026-06-11 09:30', deadline: '2026-06-11 14:00', slaMinutes: 270,
     steps: [
@@ -219,7 +221,7 @@ export const waybillList: WaybillItem[] = reactive([
   {
     id: 'WB007', taskName: '许吴村小勾臂箱强制清运', taskType: '离线处理', boxNo: 'XB-DF-001',
     driver: '李师傅', driverPhone: '13900010002', vehicle: '豫E2M883',
-    startAddress: '东风乡许吴村中心', destination: '东风中转站',
+    startAddress: '东风乡许吴村中心', destination: '东风中转站', destinationAddress: '东风乡政府路西侧中转站',
     priority: '紧急', status: '已完成', overtimeStatus: '未超时',
     createTime: '2026-06-11 14:08', deadline: '2026-06-11 15:08', slaMinutes: 60,
     weight: 1.8,
@@ -246,6 +248,8 @@ export interface DriverTask {
   vehicle: string
   startAddress: string
   destination: string
+  /** 目的地详细地址 */
+  destinationAddress: string
   priority: '紧急' | '普通'
   status: '待接单' | '已接单' | '收运中' | '已完成'
   overtimeStatus: '未超时' | '已超时'
@@ -268,7 +272,7 @@ export const driverTaskList: DriverTask[] = [
   {
     id: 'DT001', waybillId: 'WB001', taskName: '西上庄村1号紧急清运', taskType: '满溢清运',
     boxNo: 'XB-LQ-004', driver: '张师傅', vehicle: '豫E3G516',
-    startAddress: '龙泉镇西上庄村村委会西侧', destination: '龙泉中转站',
+    startAddress: '龙泉镇西上庄村村委会西侧', destination: '龙泉中转站', destinationAddress: '龙泉镇南街12号',
     priority: '紧急', status: '待接单', overtimeStatus: '已超时',
     createTime: '2026-06-15 06:50', deadline: '2026-06-15 10:00', slaMinutes: 190, proofUploaded: false,
     fillRate: 95,
@@ -294,7 +298,7 @@ export const driverTaskList: DriverTask[] = [
   {
     id: 'DT002', waybillId: 'WB002', taskName: '牛家窑2号满溢清运', taskType: '满溢清运',
     boxNo: 'XB-MTJ-002', driver: '张师傅', vehicle: '豫E3G516',
-    startAddress: '马投涧镇牛家窑村文化广场', destination: '马投涧中转站',
+    startAddress: '马投涧镇牛家窑村文化广场', destination: '马投涧中转站', destinationAddress: '马投涧镇工业路1号',
     priority: '紧急', status: '已接单', overtimeStatus: '未超时',
     createTime: '2026-06-15 08:22', deadline: '2026-06-15 11:00', slaMinutes: 158, proofUploaded: false,
     acceptTime: '08:28', fillRate: 91,
@@ -319,7 +323,7 @@ export const driverTaskList: DriverTask[] = [
   {
     id: 'DT003', waybillId: 'WB006', taskName: '南坡村日常收集', taskType: '日常清运',
     boxNo: 'XB-MTJ-001', driver: '张师傅', vehicle: '豫E3G516',
-    startAddress: '马投涧镇南坡村东口', destination: '马投涧中转站',
+    startAddress: '马投涧镇南坡村东口', destination: '马投涧中转站', destinationAddress: '马投涧镇工业路1号',
     priority: '普通', status: '收运中', overtimeStatus: '未超时',
     createTime: '2026-06-15 06:00', deadline: '2026-06-15 11:30', slaMinutes: 330, proofUploaded: false,
     acceptTime: '06:10', startTime: '06:35', weight: 2.8, fillRate: 72,
@@ -344,7 +348,7 @@ export const driverTaskList: DriverTask[] = [
   {
     id: 'DT004', waybillId: 'WB004', taskName: '盘龙寺村日常收集', taskType: '日常清运',
     boxNo: 'XB-MTJ-005', driver: '张师傅', vehicle: '豫E3G516',
-    startAddress: '马投涧镇盘龙寺村口', destination: '马投涧中转站',
+    startAddress: '马投涧镇盘龙寺村口', destination: '马投涧中转站', destinationAddress: '马投涧镇工业路1号',
     priority: '普通', status: '已完成', overtimeStatus: '未超时',
     createTime: '2026-06-15 05:30', deadline: '2026-06-15 09:00', slaMinutes: 210, proofUploaded: false,
     acceptTime: '05:40', startTime: '06:00', finishTime: '08:45', weight: 3.6, fillRate: 88,
@@ -369,7 +373,7 @@ export const driverTaskList: DriverTask[] = [
   {
     id: 'DT005', waybillId: 'WB007', taskName: '陈家庄2号箱体复位', taskType: '箱体复位',
     boxNo: 'XB-LQ-002', driver: '张师傅', vehicle: '豫E3G516',
-    startAddress: '龙泉镇维修站', destination: '龙泉镇陈家庄村东口',
+    startAddress: '龙泉镇维修站', destination: '龙泉镇陈家庄村东口', destinationAddress: '龙泉镇陈家庄村东口收集点',
     priority: '普通', status: '已完成', overtimeStatus: '未超时',
     createTime: '2026-06-11 14:00', deadline: '2026-06-11 16:00', slaMinutes: 120, proofUploaded: true,
     acceptTime: '14:10', startTime: '14:30', finishTime: '15:20', weight: 0,
@@ -393,7 +397,7 @@ export const driverTaskList: DriverTask[] = [
   {
     id: 'DT006', waybillId: 'WB007', taskName: '许吴村小勾臂箱强制清运', taskType: '离线处理',
     boxNo: 'XB-DF-001', driver: '李师傅', vehicle: '豫E2M883',
-    startAddress: '东风乡许吴村中心', destination: '东风中转站',
+    startAddress: '东风乡许吴村中心', destination: '东风中转站', destinationAddress: '东风乡政府路西侧中转站',
     priority: '紧急', status: '已完成', overtimeStatus: '未超时',
     createTime: '2026-06-11 14:08', deadline: '2026-06-11 15:08', slaMinutes: 60, proofUploaded: false,
     acceptTime: '14:15', forceCompleted: true,

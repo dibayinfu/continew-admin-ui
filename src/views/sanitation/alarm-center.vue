@@ -2,7 +2,7 @@
   <div class="gi_page alarm-center-page">
     <ModuleHeader
       :title="isCreateMode ? '告警建任务单' : '告警中心'"
-      :subtitle="isCreateMode ? '从告警消息或手动选择箱体快速创建收运任务单，支持自动补全箱体、驾驶员、目的地等信息。' : '实时查看箱体满溢、低电量和设备异常消息，支持手动标记待处理和已处理。'"
+      :subtitle="isCreateMode ? '从告警消息或手动选择箱体快速创建收运任务单，支持自动补全箱体、驾驶员、目的地等信息。' : '实时查看箱体满溢、低电量和设备异常消息，支持对重要消息添加星标。'"
       phase="试运营"
       priority="P0"
       module="告警与消息"
@@ -32,7 +32,7 @@
                   <tr><td class="prd-label">弹窗布局</td><td class="prd-value">上半：告警消息详情（只读）| 下半：任务配置表单（可操作）</td></tr>
                   <tr><td class="prd-label">表单字段</td><td class="prd-value">驾驶员（Select 联动车辆只读）、目的地（按箱体类型过滤）、起点（只读）、时效、优先级、备注</td></tr>
                   <tr><td class="prd-label">默认值</td><td class="prd-value">驾驶员按箱体类型匹配（小勾臂→张师傅/豫E3G516，大勾臂→孙师傅/豫E6N109），目的地对应过滤，时效60min，优先级紧急</td></tr>
-                  <tr><td class="prd-label">提交映射</td><td class="prd-value">→ CollectionTask，状态初始「待接单」，轨迹4个占位点，不修改告警 handleStatus</td></tr>
+                  <tr><td class="prd-label">提交映射</td><td class="prd-value">→ CollectionTask，状态初始「待接单」，轨迹4个占位点，不修改告警星标状态</td></tr>
                   <tr><td class="prd-label">模拟新告警</td><td class="prd-value">列表最前插入一条满溢告警，整行闪烁3次，不打开详情面板</td></tr>
                 </tbody>
               </table>
@@ -55,7 +55,7 @@
                   <tr class="prd-section-row"><td class="prd-section-title" colspan="2">⚠️ 边界 & 验收要点</td></tr>
                   <tr><td class="prd-label">✓ 驾驶员切换</td><td class="prd-value">车辆联动更新</td></tr>
                   <tr><td class="prd-label">✓ 箱体类型 → 目的地</td><td class="prd-value">小勾臂只选中转站，大勾臂只选焚烧厂</td></tr>
-                  <tr><td class="prd-label">✓ 提交后告警状态</td><td class="prd-value">handleStatus 不变</td></tr>
+                  <tr><td class="prd-label">✓ 提交后告警状态</td><td class="prd-value">星标状态不变</td></tr>
                   <tr><td class="prd-label">✓ 关联任务</td><td class="prd-value">「看任务」跳转收运单监控页</td></tr>
                   <tr><td class="prd-label">✓ 模拟新告警</td><td class="prd-value">列表新增行闪烁，不打开详情面板</td></tr>
                   <tr><td class="prd-label">✓ 数据来源</td><td class="prd-value">当前为 mock 数据，对接后端后需走 API</td></tr>
@@ -78,8 +78,8 @@
             <a-select v-model="readStatusFilter" placeholder="阅读状态" class="filter-select">
               <a-option v-for="item in readStatusFilters" :key="item" :value="item">{{ item }}</a-option>
             </a-select>
-            <a-select v-model="handleStatusFilter" placeholder="处理状态" class="filter-select">
-              <a-option v-for="item in handleStatusFilters" :key="item" :value="item">{{ item }}</a-option>
+            <a-select v-model="starredFilter" placeholder="星标" class="filter-select" style="width: 120px;">
+              <a-option v-for="item in starredFilters" :key="item" :value="item">{{ item }}</a-option>
             </a-select>
           </a-space>
           <a-tag v-if="flashNotice" color="red" class="flash-tag">新告警接入</a-tag>
@@ -99,7 +99,11 @@
             <StatusTag :value="record.readStatus" />
           </template>
           <template #cell="{ column, record }">
-            <StatusTag v-if="['handleStatus', 'level', 'type'].includes(String(column.dataIndex))" :value="record[column.dataIndex]" />
+            <StatusTag v-if="['level', 'type'].includes(String(column.dataIndex))" :value="record[column.dataIndex]" />
+            <span v-else-if="column.dataIndex === 'starred'">
+              <icon-star-fill v-if="record.starred" style="color: #f7ba1e; font-size: 16px;" />
+              <icon-star v-else style="color: #c9cdd4; font-size: 16px;" />
+            </span>
             <span v-else-if="column.dataIndex === 'fillRate'">{{ record.fillRate ? `${record.fillRate}%` : '-' }}</span>
             <span v-else-if="column.dataIndex === 'battery'">{{ record.battery ? `${record.battery}%` : '-' }}</span>
             <span v-else>{{ record[column.dataIndex] ?? '-' }}</span>
@@ -113,17 +117,13 @@
                   </a-button>
                 </a-tooltip>
               </span>
-              <span class="action-cell">
-                <a-tooltip v-if="record.handleStatus !== '待处理'" content="标记待处理">
-                  <a-button size="small" type="text" status="warning" @click="markPending(record)">
-                    <template #icon><icon-clock-circle /></template>
-                  </a-button>
-                </a-tooltip>
-              </span>
-              <span class="action-cell">
-                <a-tooltip v-if="record.handleStatus !== '已处理'" content="标记已处理">
-                  <a-button size="small" type="text" status="success" @click="markProcessed(record)">
-                    <template #icon><icon-check-circle /></template>
+              <span class="action-cell star-cell">
+                <a-tooltip :content="record.starred ? '取消星标' : '添加星标'">
+                  <a-button size="small" type="text" :class="{ 'star-active': record.starred }" @click="toggleStar(record)">
+                    <template #icon>
+                      <icon-star-fill v-if="record.starred" />
+                      <icon-star v-else />
+                    </template>
                   </a-button>
                 </a-tooltip>
               </span>
@@ -137,7 +137,7 @@
           <span>告警详情</span>
           <a-space>
             <StatusTag :value="selectedAlarm?.readStatus" />
-            <StatusTag :value="selectedAlarm?.handleStatus" />
+            <span v-if="selectedAlarm?.starred" class="detail-star"><icon-star-fill style="color: #f7ba1e;" /> 星标</span>
             <a-button size="mini" status="secondary" class="close-btn" @click="closeDetail">
               <template #icon><icon-close /></template>
             </a-button>
@@ -163,8 +163,13 @@
             <a-button v-if="selectedAlarm.type === '满溢告警'" type="primary" long @click="openCreate(selectedAlarm)">
               基于此消息快速创建收运任务单
             </a-button>
-            <a-button status="warning" long @click="markPending(selectedAlarm)">标记待处理</a-button>
-            <a-button type="primary" status="success" long @click="markProcessed(selectedAlarm)">标记已处理</a-button>
+            <a-button :status="selectedAlarm?.starred ? undefined : 'warning'" long @click="toggleStar(selectedAlarm!)">
+              <template #icon>
+                <icon-star-fill v-if="selectedAlarm?.starred" />
+                <icon-star v-else />
+              </template>
+              {{ selectedAlarm?.starred ? '取消星标' : '添加星标' }}
+            </a-button>
             <a-button v-if="selectedAlarm.linkedTaskId" long @click="goTask(selectedAlarm.linkedTaskId)">查看关联任务单</a-button>
           </div>
         </template>
@@ -307,7 +312,7 @@ const router = useRouter()
 const keyword = ref('')
 const typeFilter = ref('全部类型')
 const readStatusFilter = ref('全部')
-const handleStatusFilter = ref('全部')
+const starredFilter = ref('全部')
 const detailVisible = ref(false)
 const flashNotice = ref(false)
 const flashingRowId = ref<string | null>(null)
@@ -366,7 +371,7 @@ const createForm = reactive({
 const isCreateMode = computed(() => route.path.includes('workOrderCreate'))
 const typeFilters = ['全部类型', '满溢告警', '低电量告警', '设备离线', '称重异常']
 const readStatusFilters = ['全部', '未读', '已读']
-const handleStatusFilters = ['全部', '不需处理', '待处理', '已处理']
+const starredFilters = ['全部', '星标消息']
 const driverOptions = computed(() => drivers.map((item) => item.name))
 const driverOptionList = computed(() => drivers)
 
@@ -382,8 +387,7 @@ const destinationOptions = computed(() => {
 const metrics = computed(() => [
   { label: '今日告警', value: sanitationAlarms.length, unit: '条', tone: 'danger' },
   { label: '未读', value: sanitationAlarms.filter((item) => item.readStatus === '未读').length, unit: '条', tone: 'danger' },
-  { label: '待处理', value: sanitationAlarms.filter((item) => item.handleStatus === '待处理').length, unit: '条', tone: 'warning' },
-  { label: '已处理', value: sanitationAlarms.filter((item) => item.handleStatus === '已处理').length, unit: '条', tone: 'success' },
+  { label: '星标', value: sanitationAlarms.filter((item) => item.starred).length, unit: '条', tone: 'warning' },
 ])
 
 const columns = [
@@ -398,8 +402,8 @@ const columns = [
   { title: '满溢率', dataIndex: 'fillRate', width: 90 },
   { title: '电量', dataIndex: 'battery', width: 90 },
   { title: '触发时间', dataIndex: 'triggerTime', width: 180 },
-  { title: '处理状态', dataIndex: 'handleStatus', width: 100 },
-  { title: '操作', slotName: 'action', width: 130, align: 'center' as const, fixed: 'right' as const },
+  { title: '星标', dataIndex: 'starred', slotName: 'starred', width: 80, align: 'center' as const },
+  { title: '操作', slotName: 'action', width: 110, align: 'center' as const, fixed: 'right' as const },
 ]
 
 const filteredAlarms = computed(() => {
@@ -409,7 +413,7 @@ const filteredAlarms = computed(() => {
   }
   if (typeFilter.value !== '全部类型') result = result.filter((item) => item.type === typeFilter.value)
   if (readStatusFilter.value !== '全部') result = result.filter((item) => item.readStatus === readStatusFilter.value)
-  if (handleStatusFilter.value !== '全部') result = result.filter((item) => item.handleStatus === handleStatusFilter.value)
+  if (starredFilter.value !== '全部') result = result.filter((item) => item.starred)
   // 默认未读排在前面
   result = [...result].sort((a, b) => {
     if (a.readStatus === '未读' && b.readStatus !== '未读') return -1
@@ -473,6 +477,7 @@ function submitTask() {
       triggerTime: new Date().toLocaleString('zh-CN', { hour12: false }),
       readStatus: '已读',
       handleStatus: '不需处理',
+      starred: false,
       content: `${selectedBox.value.name} — 手动创建收运任务单。`,
     }
     const task = createCollectionTaskFromAlarm(alarmStub, createForm.driver, createForm.destination)
@@ -485,20 +490,12 @@ function submitTask() {
   selectedBox.value = null
 }
 
-function markPending(record: SanitationAlarm) {
-  record.handleStatus = '待处理'
+function toggleStar(record: SanitationAlarm) {
+  record.starred = !record.starred
   if (record.readStatus === '未读') record.readStatus = '已读'
-  record.offlineRemark = '已手动标记为待处理。'
+  record.offlineRemark = record.starred ? '已添加星标。' : '已取消星标。'
   selectedAlarm.value = record
-  ArcoMessage.success('已标记为待处理')
-}
-
-function markProcessed(record: SanitationAlarm) {
-  record.handleStatus = '已处理'
-  if (record.readStatus === '未读') record.readStatus = '已读'
-  record.offlineRemark = record.type === '满溢告警' ? '已手动标记为已处理。' : '已线下处理并手动标记为已处理。'
-  selectedAlarm.value = record
-  ArcoMessage.success('已标记为已处理')
+  ArcoMessage.success(record.starred ? '已添加星标' : '已取消星标')
 }
 
 function goTask(taskId?: string) {
@@ -526,6 +523,7 @@ function refreshFlash() {
     triggerTime: new Date().toLocaleString('zh-CN', { hour12: false }),
     readStatus: '未读',
     handleStatus: '不需处理',
+    starred: false,
     content: '模拟新增告警 — 箱体满溢 92%，请及时处理。',
   }
   sanitationAlarms.unshift(newAlarm)
@@ -583,6 +581,27 @@ function refreshFlash() {
 
 .flash-tag {
   animation: alarmPulse 1s ease-in-out infinite;
+}
+
+/* 星标操作样式 */
+.star-cell {
+  :deep(.arco-btn) {
+    color: #c9cdd4;
+    transition: color .2s;
+    &:hover { color: #f7ba1e; }
+  }
+  :deep(.arco-btn.star-active) {
+    color: #f7ba1e;
+  }
+}
+
+.detail-star {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: #f7ba1e;
+  font-weight: 500;
 }
 
 .panel-title {

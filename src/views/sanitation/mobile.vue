@@ -71,20 +71,13 @@ const phase = computed(() => isMini.value ? 'V2.0' : 'V1.5 / V2.0')
 const priority = computed(() => isMini.value ? 'P2' : 'P1')
 const module = computed(() => isMini.value ? '小程序端' : 'APP 端')
 const firstPendingTask = computed(() => collectionTasks.find((item) => item.collectionStatus === '待接单') || collectionTasks[0])
-const firstAlarm = computed(() => sanitationAlarms.find((item) => item.readStatus === '未读' || item.handleStatus === '待处理') || sanitationAlarms[0])
+const firstAlarm = computed(() => sanitationAlarms.find((item) => item.readStatus === '未读' || item.starred) || sanitationAlarms[0])
 
-function markAlarmPending() {
-  firstAlarm.value.handleStatus = '待处理'
+function toggleAlarmStar() {
+  firstAlarm.value.starred = !firstAlarm.value.starred
   if (firstAlarm.value.readStatus === '未读') firstAlarm.value.readStatus = '已读'
-  firstAlarm.value.offlineRemark = '移动端已手动标记为待处理。'
-  ArcoMessage.success('已标记待处理')
-}
-
-function markAlarmProcessed() {
-  firstAlarm.value.handleStatus = '已处理'
-  if (firstAlarm.value.readStatus === '未读') firstAlarm.value.readStatus = '已读'
-  firstAlarm.value.offlineRemark = '移动端已手动标记为已处理。'
-  ArcoMessage.success('已标记已处理')
+  firstAlarm.value.offlineRemark = firstAlarm.value.starred ? '移动端已添加星标。' : '移动端已取消星标。'
+  ArcoMessage.success(firstAlarm.value.starred ? '已添加星标' : '已取消星标')
 }
 
 function dispatchAlarm() {
@@ -151,10 +144,10 @@ const phones = computed(() => isMini.value ? [
   {
     title: '告警消息',
     role: '运营人员',
-    metrics: [{ label: '未读', value: sanitationAlarms.filter((item) => item.readStatus === '未读').length }, { label: '待处理', value: sanitationAlarms.filter((item) => item.handleStatus === '待处理').length }],
+    metrics: [{ label: '未读', value: sanitationAlarms.filter((item) => item.readStatus === '未读').length }, { label: '星标', value: sanitationAlarms.filter((item) => item.starred).length }],
     items: [
-      { title: firstAlarm.value.boxName, desc: `${firstAlarm.value.type}，${firstAlarm.value.content}`, status: firstAlarm.value.handleStatus, action: firstAlarm.value.type === '满溢告警' ? { label: '派单', handler: dispatchAlarm } : { label: '标待处理', handler: markAlarmPending } },
-      { title: '陈家庄2号低电量', desc: '电量 8%，线下换电池后手动标已处理', status: '待处理', action: { label: '标已处理', handler: markAlarmProcessed } },
+      { title: firstAlarm.value.boxName, desc: `${firstAlarm.value.type}，${firstAlarm.value.content}`, status: firstAlarm.value.starred ? '已星标' : '未星标', action: firstAlarm.value.type === '满溢告警' ? { label: '派单', handler: dispatchAlarm } : { label: firstAlarm.value.starred ? '取消星标' : '添加星标', handler: toggleAlarmStar } },
+      { title: '陈家庄2号低电量', desc: '电量 8%，线下换电池后可添加星标关注', status: '未星标', action: { label: '添加星标', handler: toggleAlarmStar } },
       { title: '任务管控', desc: `${firstPendingTask.value.driver} · ${firstPendingTask.value.vehicle}`, status: firstPendingTask.value.collectionStatus, action: { label: '强制完成', handler: forceTask } },
     ],
     navs: ['消息', '告警', '处理', '我的'],

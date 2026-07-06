@@ -27,12 +27,12 @@
               <table class="prd-table">
                 <tbody>
                   <tr class="prd-section-row"><td class="prd-section-title" colspan="2">📱 左侧：告警派单</td></tr>
-                  <tr><td class="prd-label">头部汇总</td><td class="prd-value">4 列统计卡：今日告警（红）/ 未读（红）/ 待处理（橙）/ 已处理（绿），每项可点击筛选</td></tr>
-                  <tr><td class="prd-label">告警列表</td><td class="prd-value">卡片展示告警标题、类型标签、处理状态标签、内容摘要、来源和时间。「不需处理」状态不显示标签</td></tr>
-                  <tr><td class="prd-label">处理状态</td><td class="prd-value">三种：不需处理 / 待处理 / 已处理。「不需处理」时额外显示「标待处理」入口；可标记为待处理或已处理</td></tr>
+                  <tr><td class="prd-label">头部汇总</td><td class="prd-value">3 列统计卡：今日告警（红）/ 未读（红）/ 星标消息（橙），每项可点击筛选</td></tr>
+                  <tr><td class="prd-label">告警列表</td><td class="prd-value">卡片展示告警标题、类型标签、星标图标、内容摘要、来源和时间。</td></tr>
+                  <tr><td class="prd-label">星标</td><td class="prd-value">可对告警消息添加/取消星标，便于标记需要关注的消息。星标消息在列表中以黄色五角星标识。</td></tr>
                   <tr><td class="prd-label">展开详情</td><td class="prd-value">点击卡片本条下拉展开详情（告警编号、等级、来源、阅读状态、处理状态、关联任务），不跳新页；再次点击收起</td></tr>
                   <tr><td class="prd-label">派单入口</td><td class="prd-value">仅「满溢告警」且尚未关联任务时显示「派单」按钮</td></tr>
-                  <tr><td class="prd-label">派单流程</td><td class="prd-value">点击派单 → 底部弹出层（遮罩+圆角面板从下往上滑入）。上半展示告警消息详情（只读），下半任务配置表单：驾驶员 Select、目的地 Select、时效 Select（30/60/90/120min）、优先级 Select（紧急/普通）→ 点击「创建任务单」提交，自动生成 linkedTaskId 并标记已处理</td></tr>
+                  <tr><td class="prd-label">派单流程</td><td class="prd-value">点击派单 → 底部弹出层（遮罩+圆角面板从下往上滑入）。上半展示告警消息详情（只读），下半任务配置表单：驾驶员 Select、目的地 Select、时效 Select（30/60/90/120min）、优先级 Select（紧急/普通）→ 点击「创建任务单」提交，自动生成 linkedTaskId 并添加星标</td></tr>
                   <tr><td class="prd-label">查看任务</td><td class="prd-value">已关联任务时显示「查看任务」按钮，点击提示跳转至具体收运任务单信息</td></tr>
                   <tr><td class="prd-label">数据来源</td><td class="prd-value">告警列表来自 app-mock.ts 的 alertList，含满溢告警、低电量告警、设备离线等类型</td></tr>
                 </tbody>
@@ -56,10 +56,10 @@
               <table class="prd-table">
                 <tbody>
                   <tr class="prd-section-row"><td class="prd-section-title" colspan="2">⚠️ 边界 & 验收要点</td></tr>
-                  <tr><td class="prd-label">✓ 告警统计筛选</td><td class="prd-value">点击统计卡切换筛选，计数准确；今日告警=总数，未读/待处理/已处理各自准确</td></tr>
-                  <tr><td class="prd-label">✓ 不需处理</td><td class="prd-value">状态标签隐藏，但仍可标记为待处理或已处理</td></tr>
+                  <tr><td class="prd-label">✓ 告警统计筛选</td><td class="prd-value">点击统计卡切换筛选，计数准确；今日告警=总数，未读/星标消息各自准确</td></tr>
+                  <tr><td class="prd-label">✓ 星标切换</td><td class="prd-value">点击星标按钮可添加/取消星标，按钮文字和图标即时切换</td></tr>
                   <tr><td class="prd-label">✓ 展开/收起</td><td class="prd-value">点击卡片展开详情，再次点击收起；展开时标记已读</td></tr>
-                  <tr><td class="prd-label">✓ 派单弹层</td><td class="prd-value">底部弹出层 slideUp 动画；遮罩点击关闭；表单字段完整；提交后 linkedTaskId 生成，状态变已处理</td></tr>
+                  <tr><td class="prd-label">✓ 派单弹层</td><td class="prd-value">底部弹出层 slideUp 动画；遮罩点击关闭；表单字段完整；提交后 linkedTaskId 生成，自动添加星标</td></tr>
                   <tr><td class="prd-label">✓ 双 Tab 切换</td><td class="prd-value">运单监控/全部运单切换流畅，列表独立过滤</td></tr>
                   <tr><td class="prd-label">✓ 全部运单筛选</td><td class="prd-value">搜索 + 状态 + 超时 + 日期范围，联合过滤正确</td></tr>
                   <tr><td class="prd-label">✓ 运单详情</td><td class="prd-value">全屏浮层展示完整信息；地图轨迹可视化；未完成显示操作按钮</td></tr>
@@ -156,13 +156,9 @@
                 <span class="as-val danger">{{ unreadCount }}</span>
                 <span class="as-label">未读</span>
               </div>
-              <div class="astat" @click="alertTabFilter = 'pending'">
-                <span class="as-val warning">{{ pendingCount }}</span>
-                <span class="as-label">待处理</span>
-              </div>
-              <div class="astat" @click="alertTabFilter = 'processed'">
-                <span class="as-val success">{{ processedCount }}</span>
-                <span class="as-label">已处理</span>
+              <div class="astat" @click="alertTabFilter = 'starred'">
+                <span class="as-val warning">{{ starredCount }}</span>
+                <span class="as-label">星标消息</span>
               </div>
             </div>
 
@@ -173,7 +169,7 @@
                   <b>{{ a.title }}</b>
                   <a-space size="mini">
                     <span class="ac-tag" :class="'lvl-' + a.level">{{ a.type }}</span>
-                    <span v-if="a.handleStatus !== '不需处理'" class="ac-tag" :class="{ 'tag-pending': a.handleStatus === '待处理', 'tag-done': a.handleStatus === '已处理' }">{{ a.handleStatus }}</span>
+                    <icon-star-fill v-if="a.starred" style="color: #f7ba1e; font-size: 14px;" />
                   </a-space>
                 </div>
                 <p class="ac-content">{{ a.content }}</p>
@@ -188,14 +184,18 @@
                   <div class="ace-row"><span>告警等级</span><b :class="'lvl-' + a.level">{{ a.level }}</b></div>
                   <div class="ace-row"><span>来源</span><b>{{ a.source }}</b></div>
                   <div class="ace-row"><span>阅读状态</span><b>{{ a.readStatus }}</b></div>
-                  <div class="ace-row"><span>处理状态</span><b>{{ a.handleStatus }}</b></div>
+                  <div class="ace-row"><span>星标</span><b>{{ a.starred ? '已星标' : '未星标' }}</b></div>
                   <div class="ace-row" v-if="a.linkedTaskId"><span>关联任务</span><b>{{ a.linkedTaskId }}</b></div>
                 </div>
 
                 <div class="ac-actions" @click.stop>
-                  <a-button v-if="a.handleStatus === '不需处理'" size="mini" @click="markPending(a)">标待处理</a-button>
-                  <a-button v-if="a.handleStatus !== '已处理'" size="mini" @click="markPending(a)">待处理</a-button>
-                  <a-button v-if="a.handleStatus !== '已处理'" size="mini" status="success" @click="markProcessed(a)">已处理</a-button>
+                  <a-button size="mini" :class="{ 'star-btn-active': a.starred }" @click="toggleStar(a)">
+                    <template #icon>
+                      <icon-star-fill v-if="a.starred" />
+                      <icon-star v-else />
+                    </template>
+                    {{ a.starred ? '取消星标' : '添加星标' }}
+                  </a-button>
                   <a-button v-if="a.type === '满溢告警' && !a.linkedTaskId" size="mini" type="primary" @click="openDispatch(a)">派单</a-button>
                   <a-button v-if="a.linkedTaskId" size="mini" type="text" @click="viewTask(a)">查看任务</a-button>
                 </div>
@@ -419,7 +419,7 @@ import {
 defineOptions({ name: 'SanitationAppDispatcher' })
 
 // ===== 告警派单 =====
-const alertTabFilter = ref<'all' | 'unread' | 'pending' | 'processed'>('all')
+const alertTabFilter = ref<'all' | 'unread' | 'starred'>('all')
 const expandedAlertId = ref<string | null>(null)
 const dispatchAlarm = ref<AlertItem | null>(null)
 
@@ -434,13 +434,11 @@ const driverList = ['张师傅', '李师傅', '孙师傅', '王师傅']
 const destList = ['龙泉镇中转站', '马投涧中转站', '城北焚烧厂', '城南焚烧厂']
 
 const unreadCount = computed(() => alertList.filter(a => a.readStatus === '未读').length)
-const pendingCount = computed(() => alertList.filter(a => a.handleStatus === '待处理').length)
-const processedCount = computed(() => alertList.filter(a => a.handleStatus === '已处理').length)
+const starredCount = computed(() => alertList.filter(a => a.starred).length)
 
 const filteredAlerts = computed(() => {
   if (alertTabFilter.value === 'unread') return alertList.filter(a => a.readStatus === '未读')
-  if (alertTabFilter.value === 'pending') return alertList.filter(a => a.handleStatus === '待处理')
-  if (alertTabFilter.value === 'processed') return alertList.filter(a => a.handleStatus === '已处理')
+  if (alertTabFilter.value === 'starred') return alertList.filter(a => a.starred)
   return alertList
 })
 
@@ -448,14 +446,13 @@ function toggleExpand(a: AlertItem) {
   a.readStatus = '已读'
   expandedAlertId.value = expandedAlertId.value === a.id ? null : a.id
 }
-function markPending(a: AlertItem) { a.readStatus = '已读'; a.handleStatus = '待处理'; ArcoMessage.success('已标记待处理') }
-function markProcessed(a: AlertItem) { a.readStatus = '已读'; a.handleStatus = '已处理'; ArcoMessage.success('已标记已处理') }
+function toggleStar(a: AlertItem) { a.readStatus = '已读'; a.starred = !a.starred; ArcoMessage.success(a.starred ? '已添加星标' : '已取消星标') }
 function openDispatch(a: AlertItem) { dispatchAlarm.value = a }
 function closeDispatch() { dispatchAlarm.value = null }
 function submitDispatch() {
   const a = dispatchAlarm.value!
   a.linkedTaskId = 'WB_DISP_' + Date.now()
-  a.handleStatus = '已处理'
+  a.starred = true
   a.readStatus = '已读'
   ArcoMessage.success(`已派单：${a.title} → ${createForm.driver}，目的地：${createForm.destination}`)
   closeDispatch()
@@ -557,7 +554,7 @@ function doTransfer() {
 .top-user { font-size: 13px; color: rgb(var(--arcoblue-6)); font-weight: 600; }
 .top-actions { display: flex; gap: 6px; }
 .filter-btn { padding: 3px 10px; font-size: 12px; color: #86909c; background: #fff; border-radius: 12px; cursor: pointer; &.active { background: rgb(var(--arcoblue-6)); color: #fff; } }
-.alert-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 12px; }
+.alert-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 12px; }
 .astat { display: flex; flex-direction: column; align-items: center; padding: 12px 8px; background: #fff; border-radius: 10px; cursor: pointer; &:active { transform: scale(.97); } }
 .as-val { font-size: 24px; font-weight: 700; } .as-label { font-size: 11px; color: #86909c; margin-top: 2px; }
 .danger { color: #f53f3f; } .warning { color: #ff7d00; } .success { color: #00b42a; }

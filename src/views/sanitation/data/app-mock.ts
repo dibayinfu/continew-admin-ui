@@ -93,16 +93,18 @@ export interface AlertItem {
   time: string
   readStatus: '未读' | '已读'
   handleStatus: '待处理' | '已处理' | '不需处理'
+  /** 是否已星标 */
+  starred: boolean
   linkedTaskId?: string
 }
 
-export const alertList: AlertItem[] = [
-  { id: 'AL001', type: '满溢告警', level: '严重', title: '西上庄村1号箱体满溢', content: '箱体满溢 95%，已持续 3h50min，需紧急派单清运。', source: '西上庄村1号小勾臂箱', time: '2026-06-11 06:50', readStatus: '未读', handleStatus: '待处理' },
-  { id: 'AL002', type: '满溢告警', level: '严重', title: '牛家窑2号箱体满溢', content: '箱体满溢 91%，需 1 小时内转运至中转站。', source: '牛家窑2号小勾臂箱', time: '2026-06-11 08:22', readStatus: '已读', handleStatus: '已处理', linkedTaskId: 'ST001' },
-  { id: 'AL003', type: '满溢告警', level: '严重', title: '马投涧压缩箱C满溢', content: '移动压缩箱满溢 94%，需转运至焚烧厂。', source: '马投涧压缩箱C', time: '2026-06-11 07:45', readStatus: '已读', handleStatus: '已处理', linkedTaskId: 'ST002' },
-  { id: 'AL004', type: '低电量告警', level: '重要', title: '陈家庄2号箱低电量', content: '电量仅 8%，建议运维人员线下更换电池。', source: '陈家庄2号小勾臂箱', time: '2026-06-11 09:38', readStatus: '未读', handleStatus: '待处理' },
-  { id: 'AL005', type: '设备离线', level: '一般', title: '石岩村南箱体离线', content: '满溢传感器超过 2 小时未上报。', source: '石岩村南收集点箱体', time: '2026-06-11 08:11', readStatus: '未读', handleStatus: '待处理' },
-]
+export const alertList: AlertItem[] = reactive([
+  { id: 'AL001', type: '满溢告警', level: '严重', title: '西上庄村1号箱体满溢', content: '箱体满溢 95%，已持续 3h50min，需紧急派单清运。', source: '西上庄村1号小勾臂箱', time: '2026-06-11 06:50', readStatus: '未读', handleStatus: '待处理', starred: false },
+  { id: 'AL002', type: '满溢告警', level: '严重', title: '牛家窑2号箱体满溢', content: '箱体满溢 91%，需 1 小时内转运至中转站。', source: '牛家窑2号小勾臂箱', time: '2026-06-11 08:22', readStatus: '已读', handleStatus: '已处理', starred: true, linkedTaskId: 'ST001' },
+  { id: 'AL003', type: '满溢告警', level: '严重', title: '马投涧压缩箱C满溢', content: '移动压缩箱满溢 94%，需转运至焚烧厂。', source: '马投涧压缩箱C', time: '2026-06-11 07:45', readStatus: '已读', handleStatus: '已处理', starred: false, linkedTaskId: 'ST002' },
+  { id: 'AL004', type: '低电量告警', level: '重要', title: '陈家庄2号箱低电量', content: '电量仅 8%，建议运维人员线下更换电池。', source: '陈家庄2号小勾臂箱', time: '2026-06-11 09:38', readStatus: '未读', handleStatus: '待处理', starred: false },
+  { id: 'AL005', type: '设备离线', level: '一般', title: '石岩村南箱体离线', content: '满溢传感器超过 2 小时未上报。', source: '石岩村南收集点箱体', time: '2026-06-11 08:11', readStatus: '未读', handleStatus: '待处理', starred: false },
+])
 
 // ==================== 运单列表 ====================
 export interface WaybillItem {
@@ -127,7 +129,7 @@ export interface WaybillItem {
   steps: { label: string; done: boolean; time?: string }[]
 }
 
-export const waybillList: WaybillItem[] = [
+export const waybillList: WaybillItem[] = reactive([
   {
     id: 'WB001', taskName: '西上庄村1号紧急清运', taskType: '满溢清运', boxNo: 'XB-LQ-004',
     driver: '张师傅', driverPhone: '13900010001', vehicle: '豫E3G516',
@@ -231,7 +233,7 @@ export const waybillList: WaybillItem[] = [
       { label: '完成', done: true, time: '14:27' },
     ],
   },
-]
+])
 
 // ==================== 驾驶员任务（与运单关联） ====================
 export interface DriverTask {

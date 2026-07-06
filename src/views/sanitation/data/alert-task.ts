@@ -5,6 +5,8 @@ export type OvertimeStatus = '未超时' | '已超时'
 export type AlarmType = '满溢告警' | '低电量告警' | '设备离线' | '称重异常'
 export type BoxType = '小勾臂箱' | '大勾臂箱'
 
+import { reactive } from 'vue'
+
 export interface TrackPoint {
   label: string
   address: string
@@ -31,6 +33,8 @@ export interface SanitationAlarm {
   triggerTime: string
   readStatus: ReadStatus
   handleStatus: HandleStatus
+  /** 是否已星标 */
+  starred: boolean
   content: string
   linkedTaskId?: string
   offlineRemark?: string
@@ -88,7 +92,7 @@ export const destinations = [
   { type: '焚烧厂', name: '龙安生活垃圾焚烧厂', address: '龙安区静脉产业园焚烧厂' },
 ]
 
-export const sanitationAlarms: SanitationAlarm[] = [
+export const sanitationAlarms: SanitationAlarm[] = reactive([
   {
     id: 'AL20260520001',
     type: '满溢告警',
@@ -104,6 +108,7 @@ export const sanitationAlarms: SanitationAlarm[] = [
     triggerTime: '2026-05-20 08:22:00',
     readStatus: '已读',
     handleStatus: '已处理',
+    starred: false,
     content: '箱体满溢 91%，需 1 小时内转运至中转站。',
     linkedTaskId: 'ST20260520001',
   },
@@ -122,6 +127,7 @@ export const sanitationAlarms: SanitationAlarm[] = [
     triggerTime: '2026-05-20 07:45:00',
     readStatus: '已读',
     handleStatus: '不需处理',
+    starred: false,
     content: '移动压缩箱满溢 94%，需转运至焚烧厂。',
     linkedTaskId: 'ST20260520002',
   },
@@ -140,6 +146,7 @@ export const sanitationAlarms: SanitationAlarm[] = [
     triggerTime: '2026-05-20 09:38:00',
     readStatus: '未读',
     handleStatus: '待处理',
+    starred: false,
     content: '电量仅 8%，建议运维人员线下更换电池。',
     offlineRemark: '已通知设备运维人员，预计 11:30 前到场。',
   },
@@ -158,6 +165,7 @@ export const sanitationAlarms: SanitationAlarm[] = [
     triggerTime: '2026-05-20 06:50:00',
     readStatus: '未读',
     handleStatus: '待处理',
+    starred: false,
     content: '箱体满溢 95%，已持续 3 小时以上。',
   },
   {
@@ -175,9 +183,10 @@ export const sanitationAlarms: SanitationAlarm[] = [
     triggerTime: '2026-05-20 10:05:00',
     readStatus: '未读',
     handleStatus: '不需处理',
+    starred: false,
     content: '满溢传感器超过 30 分钟未上报。',
   },
-]
+])
 
 /**
  * 生成两点之间的平滑插值点。使用确定性偏移模拟车辆实际行驶轨迹，避免地图刷新时路线抖动。
@@ -221,7 +230,7 @@ function makeRoutePoint(point: { lng: number; lat: number }, done: boolean): Tra
   return { label: '', address: '', time: '', lng: point.lng, lat: point.lat, done }
 }
 
-export const collectionTasks: CollectionTask[] = [
+export const collectionTasks: CollectionTask[] = reactive([
   {
     id: 'ST20260520001',
     alarmId: 'AL20260520001',
@@ -376,7 +385,7 @@ export const collectionTasks: CollectionTask[] = [
       return [p1, p2, p3, p4]
     })(),
   },
-]
+])
 
 // 各地点真实 GPS 坐标（龙安区）
 const locationCoords: Record<string, { lng: number; lat: number }> = {

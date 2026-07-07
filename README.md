@@ -11,6 +11,6 @@ npm install -g pnpm
 pnpm i
 
 # 5.启动程序
-# 5.1 启动成功：访问 http://localhost:1173/
+# 5.1 启动成功：访问 http://localhost:5173/
 pnpm dev
 ```

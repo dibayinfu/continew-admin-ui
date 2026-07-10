@@ -53,21 +53,21 @@
 
           <section class="analysis-column">
             <PanelCard title="昨日垃圾量乡镇排行（吨）" class="chart-card">
-              <AppChart class="analysis-chart" :option="townWasteChartOption" />
+              <VChart class="analysis-chart" :option="townWasteChartOption" :autoresize="false" :init-options="chartInitOptions" />
             </PanelCard>
             <PanelCard title="近7日清运走势（吨）" class="chart-card">
-              <AppChart class="analysis-chart" :option="wasteTrendChartOption" />
+              <VChart class="analysis-chart" :option="wasteTrendChartOption" :autoresize="false" :init-options="chartInitOptions" />
             </PanelCard>
             <PanelCard title="昨日司机排行（按任务量）" class="chart-card">
-              <AppChart class="analysis-chart" :option="driverRankChartOption" />
+              <VChart class="analysis-chart" :option="driverRankChartOption" :autoresize="false" :init-options="chartInitOptions" />
             </PanelCard>
             <PanelCard title="任务准点率（单/日）" class="chart-card">
-              <AppChart class="analysis-chart" :option="ontimeTaskChartOption" />
+              <VChart class="analysis-chart" :option="ontimeTaskChartOption" :autoresize="false" :init-options="chartInitOptions" />
             </PanelCard>
           </section>
 
           <main class="map-panel">
-            <div class="map-stage" @wheel.prevent="onMapWheel">
+            <div class="map-stage" :class="`map-theme-${activeMapTheme}`" @wheel.prevent="onMapWheel">
               <div ref="v2MapBaseRef" class="v2-map-base" />
 
               <div class="map-kpis">
@@ -84,6 +84,20 @@
                 <button @click="resetMapZoom">1:1</button>
                 <span>{{ Math.round(mapZoom * 100) }}%</span>
               </div>
+
+              <div class="map-theme-switcher" aria-label="地图主题切换">
+                <span>底图主题</span>
+                <button
+                  v-for="theme in mapThemes"
+                  :key="theme.key"
+                  :class="{ active: activeMapTheme === theme.key }"
+                  :title="`切换为${theme.label}`"
+                  @click.stop="activeMapTheme = theme.key"
+                >
+                  <i :style="{ background: theme.color }" />
+                  {{ theme.label }}
+                </button>
+              </div>
               <div class="map-zoom-layer" :style="{ transform: `scale(${mapZoom})` }">
                 <div class="region-shape">
                   <span class="town-label town-a">安阳县</span>
@@ -98,20 +112,22 @@
                   v-for="point in visibleMapEntities"
                   :key="point.id"
                   class="map-entity"
-                  :class="[point.kind, point.status]"
+                  :class="[point.kind, point.status, { pulse: point.pulse }]"
                   :style="mapEntityStyle(point)"
                   @click="selectMapEntity(point)"
                 >
-                  <span class="entity-icon" />
-                  <i v-if="point.alarm && activeLayers.includes('alarm')" class="alarm-dot">!</i>
+                  <span class="entity-icon">
+                    <img :src="mapEntityIcon(point)" :alt="`${point.type}图标`" />
+                  </span>
+                  <i v-if="point.alarm && activeLayers.includes('alarm')" class="alarm-dot" :class="{ pulse: point.pulse }">!</i>
                   <em>{{ point.name }}</em>
                 </button>
               </div>
 
               <div class="map-layer-bar">
-                <span>图层</span>
+                <span>图层 · {{ visibleMapEntities.length }}/{{ mapEntities.length }}</span>
                 <button v-for="layer in mapLayers" :key="layer.key" :class="{ active: activeLayers.includes(layer.key) }" @click="toggleLayer(layer.key)">
-                  <i :style="{ color: layer.color }">{{ layer.icon }}</i>{{ layer.label }}
+                  <img class="layer-icon" :src="layer.icon" :alt="`${layer.label}图标`" />{{ layer.label }}
                 </button>
               </div>
             </div>
@@ -261,9 +277,9 @@
 import { type EChartsOption, graphic } from 'echarts'
 import L from 'leaflet'
 import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import VChart from 'vue-echarts'
 import 'leaflet/dist/leaflet.css'
 import { longanVillageArchives, wgs84ToGcj02 } from './data/longan-archive'
-import AppChart from '@/components/Chart/index.vue'
 
 defineOptions({ name: 'SanitationCommandCenterJulyV2' })
 
@@ -278,6 +294,7 @@ interface MapEntity {
   lng: number
   lat: number
   alarm?: boolean
+  pulse?: boolean
   onlineText: string
   image?: string
   details: Array<{ label: string, value: string }>
@@ -298,6 +315,8 @@ const stageViewportStyle = computed(() => ({
 let resizeObserver: ResizeObserver | undefined
 const v2MapBaseRef = ref<HTMLDivElement>()
 let v2BaseMap: L.Map | null = null
+let wheelZoomTimer: number | undefined
+let pendingWheelZoom = 0
 
 function initV2BaseMap() {
   if (!v2MapBaseRef.value) return
@@ -314,6 +333,10 @@ function initV2BaseMap() {
     dragging: true,
     scrollWheelZoom: false,
     doubleClickZoom: false,
+    zoomAnimation: false,
+    fadeAnimation: false,
+    markerZoomAnimation: false,
+    inertia: false,
     minZoom: 11,
     maxZoom: 18,
   })
@@ -349,6 +372,9 @@ onMounted(() => {
 onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   window.removeEventListener('resize', updateTestScale)
+  if (wheelZoomTimer !== undefined) {
+    window.clearTimeout(wheelZoomTimer)
+  }
   if (v2BaseMap) {
     v2BaseMap.remove()
     v2BaseMap = null
@@ -480,10 +506,8 @@ const townWasteChartOption = computed<EChartsOption>(() => ({
       fontSize: chartFontSize(11, 22),
       formatter: '{c} 吨',
     },
-    animationDelay: (index: number) => index * 80,
   }],
-  animationDuration: 900,
-  animationEasing: 'cubicOut',
+  animation: false,
 }))
 
 const wasteTrendChartOption = computed<EChartsOption>(() => ({
@@ -536,8 +560,7 @@ const wasteTrendChartOption = computed<EChartsOption>(() => ({
       formatter: '{c}',
     },
   }],
-  animationDuration: 1100,
-  animationEasing: 'quarticOut',
+  animation: false,
 }))
 
 const driverRankChartOption = computed<EChartsOption>(() => ({
@@ -586,7 +609,6 @@ const driverRankChartOption = computed<EChartsOption>(() => ({
         fontSize: chartFontSize(11, 22),
         formatter: '{c} 单',
       },
-      animationDelay: (index: number) => index * 70,
     },
     {
       name: '准点率',
@@ -603,8 +625,7 @@ const driverRankChartOption = computed<EChartsOption>(() => ({
       tooltip: { show: false },
     },
   ],
-  animationDuration: 900,
-  animationEasing: 'cubicOut',
+  animation: false,
 }))
 
 const ontimeTaskChartOption = computed<EChartsOption>(() => ({
@@ -685,8 +706,7 @@ const ontimeTaskChartOption = computed<EChartsOption>(() => ({
       },
     },
   ],
-  animationDuration: 1100,
-  animationEasing: 'quarticOut',
+  animation: false,
 }))
 
 const mapKpis = [
@@ -697,6 +717,33 @@ const mapKpis = [
   { label: '已完成', value: '108', unit: '单' },
   { label: '已超时', value: '20', unit: '单' },
 ]
+
+const MAP_ICON_BASE = '/static/images/command-center-v2/map-icons'
+const mapLayerIconMap: Record<string, string> = {
+  smallTruck: `${MAP_ICON_BASE}/tricycle.png`,
+  hookTruck: `${MAP_ICON_BASE}/hook-truck.png`,
+  largeTruck: `${MAP_ICON_BASE}/large-hook-truck.png`,
+  smallBox: `${MAP_ICON_BASE}/small-box.png`,
+  largeBox: `${MAP_ICON_BASE}/large-box.png`,
+  collectionPoint: `${MAP_ICON_BASE}/collection-point.png`,
+  station: `${MAP_ICON_BASE}/transfer-station.png`,
+  plant: `${MAP_ICON_BASE}/incineration-plant.png`,
+  alarm: `${MAP_ICON_BASE}/alarm-beacon.png`,
+}
+
+type MapThemeKey = 'darkblue' | 'dark' | 'blue'
+const activeMapTheme = ref<MapThemeKey>('blue')
+const mapThemes: Array<{ key: MapThemeKey, label: string, color: string }> = [
+  { key: 'darkblue', label: '极夜蓝', color: 'linear-gradient(135deg, #031525, #075b91)' },
+  { key: 'dark', label: '幻影黑', color: 'linear-gradient(135deg, #02050a, #293543)' },
+  { key: 'blue', label: '靛青蓝', color: 'linear-gradient(135deg, #062849, #1686c7)' },
+]
+
+const chartInitOptions = computed(() => ({
+  renderer: 'canvas' as const,
+  // 测试模式会整体缩放 4784px 画布，降低像素比可显著减少四张图表的绘制面积。
+  devicePixelRatio: resolutionMode.value === 'test' ? 1 : Math.min(window.devicePixelRatio || 1, 1.5),
+}))
 
 const LONGAN_BOUNDS = {
   west: 113.985,
@@ -842,7 +889,7 @@ function createGeneratedMapEntities(): MapEntity[] {
     }, i, 30, 1.6))
   }
 
-  for (let i = 1; i <= 100; i += 1) {
+  for (let i = 1; i <= 30; i += 1) {
     const village = pickVillage(i, 60)
     const town = village.town
     list.push(createMapEntity({
@@ -898,7 +945,7 @@ function createGeneratedMapEntities(): MapEntity[] {
     }, i, 110, 0.45))
   }
 
-  for (let i = 1; i <= 50; i += 1) {
+  for (let i = 1; i <= 24; i += 1) {
     const village = pickVillage(i, 150)
     const town = village.town
     const alarm = i <= 10
@@ -927,7 +974,7 @@ function createGeneratedMapEntities(): MapEntity[] {
     }, i, 150, 0.4))
   }
 
-  for (let i = 1; i <= 60; i += 1) {
+  for (let i = 1; i <= 18; i += 1) {
     const village = pickVillage(i, 210)
     const town = village.town
     list.push(createMapEntity({
@@ -977,6 +1024,33 @@ function createGeneratedMapEntities(): MapEntity[] {
     }, i, 280, 0.85))
   }
 
+  for (let i = 1; i <= 8; i += 1) {
+    const village = pickVillage(i, 340)
+    const tone = i <= 3 ? 'danger' : 'warning'
+    list.push(createMapEntity({
+      id: `alarm-${i}`,
+      type: '告警',
+      layer: 'alarm',
+      kind: 'alarm',
+      status: tone,
+      icon: '!',
+      name: i <= 3 ? '严重告警' : '重要告警',
+      alarm: true,
+      pulse: i <= 3,
+      onlineText: i <= 3 ? '严重  未处理' : '重要  处理中',
+      details: [
+        { label: '告警类型', value: i % 2 === 0 ? '车辆主动安全告警' : '箱体满溢告警' },
+        { label: '所属乡镇', value: village.town },
+        { label: '所在村庄', value: village.name },
+        { label: '触发时间', value: `10:${String(10 + i * 2).padStart(2, '0')}` },
+      ],
+      relations: [
+        { label: '处置状态', value: i <= 3 ? '待派单' : '处置中' },
+        { label: '附近车辆', value: `${1 + (i % 4)} 辆` },
+      ],
+    }, i, 340, 0.55))
+  }
+
   list.push({
     id: 'plant-1',
     type: '焚烧厂',
@@ -1011,15 +1085,15 @@ const currentEntityType = computed(() => selectedEntity.value.type)
 const entityTabs = ['车辆', '箱体', '告警', '任务']
 
 const mapLayers = [
-  { key: 'largeTruck', label: '大勾臂车', icon: '▣', color: '#f8c842' },
-  { key: 'hookTruck', label: '小勾臂车', icon: '▣', color: '#39e778' },
-  { key: 'smallTruck', label: '小三轮车', icon: '▣', color: '#1fa9ff' },
-  { key: 'largeBox', label: '大勾臂箱', icon: '▤', color: '#ffcb34' },
-  { key: 'smallBox', label: '小勾臂箱', icon: '▥', color: '#38e176' },
-  { key: 'collectionPoint', label: '收集点', icon: '●', color: '#a678ff' },
-  { key: 'station', label: '中转站', icon: '⌂', color: '#12d4d0' },
-  { key: 'plant', label: '焚烧厂', icon: '▰', color: '#ff623f' },
-  { key: 'alarm', label: '告警', icon: '!', color: '#ff4a36' },
+  { key: 'largeTruck', label: '大勾臂车', icon: mapLayerIconMap.largeTruck },
+  { key: 'hookTruck', label: '小勾臂车', icon: mapLayerIconMap.hookTruck },
+  { key: 'smallTruck', label: '小三轮车', icon: mapLayerIconMap.smallTruck },
+  { key: 'largeBox', label: '大勾臂箱', icon: mapLayerIconMap.largeBox },
+  { key: 'smallBox', label: '小勾臂箱', icon: mapLayerIconMap.smallBox },
+  { key: 'collectionPoint', label: '收集点', icon: mapLayerIconMap.collectionPoint },
+  { key: 'station', label: '中转站', icon: mapLayerIconMap.station },
+  { key: 'plant', label: '焚烧厂', icon: mapLayerIconMap.plant },
+  { key: 'alarm', label: '告警', icon: mapLayerIconMap.alarm },
 ]
 const activeLayers = ref(mapLayers.map((layer) => layer.key))
 const mapZoom = ref(1)
@@ -1031,7 +1105,10 @@ function clamp(value: number, min: number, max: number) {
 function zoomMap(delta: number) {
   mapZoom.value = +clamp(mapZoom.value + delta, 0.7, 2.4).toFixed(2)
   if (v2BaseMap) {
-    v2BaseMap.setZoom(Math.round(clamp(13 + (mapZoom.value - 1) * 3, 11, 18)))
+    const nextZoom = Math.round(clamp(13 + (mapZoom.value - 1) * 3, 11, 18))
+    if (v2BaseMap.getZoom() !== nextZoom) {
+      v2BaseMap.setZoom(nextZoom, { animate: false })
+    }
   }
 }
 
@@ -1040,10 +1117,27 @@ function resetMapZoom() {
 }
 
 function onMapWheel(event: WheelEvent) {
-  zoomMap(event.deltaY > 0 ? -0.1 : 0.1)
+  pendingWheelZoom += event.deltaY > 0 ? -1 : 1
+  if (wheelZoomTimer !== undefined) return
+
+  wheelZoomTimer = window.setTimeout(() => {
+    const direction = pendingWheelZoom >= 0 ? 1 : -1
+    pendingWheelZoom = 0
+    wheelZoomTimer = undefined
+    zoomMap(direction * 0.2)
+  }, 110)
 }
 
-const visibleMapEntities = computed(() => mapEntities.value.filter((item) => activeLayers.value.includes(item.layer)))
+const visibleMapEntities = computed(() => {
+  const densityStep = mapZoom.value >= 1.55 ? 1 : mapZoom.value >= 1.2 ? 2 : 3
+  const alwaysVisibleLayers = new Set(['alarm', 'plant', 'station', 'hookTruck', 'largeTruck', 'largeBox'])
+
+  return mapEntities.value.filter((item, index) => {
+    if (!activeLayers.value.includes(item.layer)) return false
+    if (alwaysVisibleLayers.has(item.layer)) return true
+    return index % densityStep === 0
+  })
+})
 
 function lngLatToPercent(entity: Pick<MapEntity, 'lng' | 'lat'>) {
   const x = ((entity.lng - LONGAN_BOUNDS.west) / (LONGAN_BOUNDS.east - LONGAN_BOUNDS.west)) * 100
@@ -1057,6 +1151,10 @@ function lngLatToPercent(entity: Pick<MapEntity, 'lng' | 'lat'>) {
 function mapEntityStyle(entity: MapEntity) {
   const point = lngLatToPercent(entity)
   return { left: `${point.x}%`, top: `${point.y}%` }
+}
+
+function mapEntityIcon(entity: MapEntity) {
+  return mapLayerIconMap[entity.layer] || mapLayerIconMap.alarm
 }
 
 function selectMapEntity(entity: MapEntity) {
@@ -1239,7 +1337,6 @@ const PanelCard = {
     content: "";
     background: linear-gradient(180deg, transparent 0, rgba(67, 214, 255, 0.08) 48%, transparent 100%);
     opacity: 0.48;
-    animation: screenScan 8s linear infinite;
   }
 }
 
@@ -1644,6 +1741,9 @@ const PanelCard = {
 }
 
 .map-stage {
+  --map-tile-opacity: 0.78;
+  --map-theme-tint: rgba(0, 55, 105, 0.52);
+
   position: relative;
   flex: 1;
   min-height: 0;
@@ -1662,11 +1762,36 @@ const PanelCard = {
   }
 }
 
+.map-stage.map-theme-darkblue {
+  --map-tile-opacity: 0.66;
+  --map-theme-tint: rgba(0, 23, 48, 0.66);
+}
+
+.map-stage.map-theme-dark {
+  --map-tile-opacity: 0.58;
+  --map-theme-tint: rgba(1, 5, 12, 0.68);
+}
+
+.map-stage.map-theme-blue {
+  --map-tile-opacity: 0.78;
+  --map-theme-tint: rgba(0, 55, 105, 0.52);
+}
+
 .v2-map-base {
   position: absolute;
   inset: 0;
   z-index: 0;
   background: radial-gradient(circle at 50% 42%, #0b2d42, #040c17 68%);
+
+  &::after {
+    position: absolute;
+    inset: 0;
+    z-index: 400;
+    pointer-events: none;
+    content: "";
+    background: var(--map-theme-tint);
+    transition: background 0.28s ease;
+  }
 
   :deep(.leaflet-container) {
     width: 100%;
@@ -1675,7 +1800,8 @@ const PanelCard = {
   }
 
   :deep(.leaflet-tile-pane) {
-    filter: saturate(1.22) contrast(1.08) brightness(0.86);
+    opacity: var(--map-tile-opacity);
+    transition: opacity 0.22s ease;
   }
 
   :deep(.leaflet-control-attribution) {
@@ -1712,7 +1838,6 @@ const PanelCard = {
     background:
       radial-gradient(circle at 28% 32%, rgba(51, 230, 255, 0.16), transparent 12%),
       radial-gradient(circle at 68% 58%, rgba(65, 255, 169, 0.12), transparent 14%);
-    mix-blend-mode: screen;
   }
 
   > * {
@@ -1734,7 +1859,6 @@ const PanelCard = {
   background: rgba(4, 18, 31, 0.72);
   border: 1px solid rgba(86, 170, 230, 0.28);
   border-radius: 4px;
-  backdrop-filter: blur(6px);
 
   button {
     min-width: 28px;
@@ -1750,6 +1874,64 @@ const PanelCard = {
   span {
     min-width: 38px;
     text-align: center;
+  }
+}
+
+.map-theme-switcher {
+  position: absolute;
+  z-index: 12;
+  top: 96px;
+  right: 34px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 12px;
+  color: rgba(172, 210, 236, 0.78);
+  font-size: 22px;
+  background: rgba(3, 15, 27, 0.82);
+  border: 1px solid rgba(78, 169, 232, 0.3);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.32);
+
+  > span {
+    margin: 0 4px;
+    white-space: nowrap;
+  }
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    height: 44px;
+    padding: 0 14px;
+    color: rgba(182, 211, 232, 0.72);
+    font-size: 21px;
+    white-space: nowrap;
+    cursor: pointer;
+    background: rgba(14, 43, 67, 0.66);
+    border: 1px solid rgba(81, 157, 211, 0.24);
+    border-radius: 6px;
+    transition: color 0.2s, background 0.2s, border-color 0.2s, box-shadow 0.2s;
+
+    i {
+      width: 24px;
+      height: 24px;
+      border: 1px solid rgba(181, 226, 255, 0.44);
+      border-radius: 50%;
+      box-shadow: 0 0 8px rgba(48, 186, 255, 0.34);
+    }
+
+    &:hover {
+      color: #e3f7ff;
+      border-color: rgba(73, 197, 255, 0.55);
+    }
+
+    &.active {
+      color: #e9fbff;
+      background: rgba(15, 102, 157, 0.58);
+      border-color: rgba(74, 213, 255, 0.7);
+      box-shadow: 0 0 14px rgba(37, 191, 255, 0.22) inset, 0 0 12px rgba(37, 191, 255, 0.16);
+    }
   }
 }
 
@@ -1977,6 +2159,56 @@ const PanelCard = {
   &.danger { filter: drop-shadow(0 0 13px rgba(255, 76, 65, 0.68)); }
 }
 
+/* ImageGen 生成的业务对象直接作为地图点位，保留真实轮廓而非抽象几何标记。 */
+.map-entity {
+  width: 52px;
+  height: 52px;
+  overflow: visible;
+
+  .entity-icon,
+  &.collection .entity-icon,
+  &.station .entity-icon,
+  &.plant .entity-icon {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 48px;
+    height: 48px;
+    background: none;
+    border-radius: 0;
+    box-shadow: none;
+
+    &::before,
+    &::after {
+      display: none;
+    }
+
+    img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      pointer-events: none;
+      filter: drop-shadow(0 3px 4px rgba(0, 5, 12, 0.82)) drop-shadow(0 0 5px currentColor);
+      transform: translateZ(0);
+    }
+  }
+
+  &.truck-small .entity-icon { transform: scale(1.02); }
+  &.truck-hook .entity-icon { transform: scale(1.08); }
+  &.truck-large .entity-icon { transform: scale(1.2); }
+  &.small-box .entity-icon { transform: scale(0.92); }
+  &.large-box .entity-icon { transform: scale(1.08); }
+  &.collection .entity-icon { transform: scale(1.02); }
+  &.station .entity-icon { transform: scale(1.12); }
+  &.plant .entity-icon { transform: scale(1.28); }
+  &.alarm .entity-icon { transform: scale(0.84); }
+
+  em {
+    top: 54px;
+  }
+}
+
 .alarm-dot {
   position: absolute;
   top: -7px;
@@ -1991,7 +2223,10 @@ const PanelCard = {
   background: #ff4a36;
   border-radius: 50%;
   box-shadow: 0 0 12px rgba(255, 74, 54, 0.8);
-  animation: alarmPulse 1.2s ease-in-out infinite;
+
+  &.pulse {
+    animation: alarmPulse 1.2s ease-in-out infinite;
+  }
 }
 
 .map-kpis {
@@ -2009,7 +2244,6 @@ const PanelCard = {
   border-radius: 6px;
   transform: translateX(-50%);
   box-shadow: 0 4px 28px rgba(0, 0, 0, 0.5), 0 0 24px rgba(16, 149, 255, 0.2);
-  backdrop-filter: blur(8px);
 }
 
 .map-kpi {
@@ -2061,7 +2295,6 @@ const PanelCard = {
   border: 1px solid rgba(84, 165, 229, 0.32);
   border-radius: 8px;
   transform: translateX(-50%);
-  backdrop-filter: blur(8px);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 
   > span {
@@ -2099,6 +2332,26 @@ const PanelCard = {
     font-size: 16px;
     font-style: normal;
   }
+
+  .layer-icon {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+    filter: drop-shadow(0 0 5px rgba(80, 210, 255, 0.42));
+    opacity: 0.46;
+    transition: opacity 0.2s, filter 0.2s, transform 0.2s;
+  }
+
+  button:hover .layer-icon,
+  button.active .layer-icon {
+    opacity: 1;
+    filter: drop-shadow(0 0 7px rgba(95, 221, 255, 0.72));
+  }
+
+  button:hover .layer-icon {
+    transform: translateY(-1px) scale(1.08);
+  }
 }
 
 .detail-panel {
@@ -2115,7 +2368,6 @@ const PanelCard = {
   border-right: 0;
   box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5), 0 0 28px rgba(0, 149, 255, 0.1);
   animation: slideInDetail 0.24s ease both;
-  backdrop-filter: blur(6px);
 
   &::before {
     position: absolute;
@@ -2131,6 +2383,13 @@ const PanelCard = {
   grid-column: 5;
   min-width: 0;
   animation: panelEnterRight 0.78s ease 0.08s both;
+}
+
+.left-rail,
+.analysis-column,
+.map-panel,
+.right-rail {
+  contain: layout style;
 }
 
 .detail-close {
@@ -2795,6 +3054,56 @@ const PanelCard = {
 .trend-dot,
 .ontime-dot {
   animation: mapPointBreath 2s ease-in-out infinite;
+}
+
+/* 4784×1560 设计画布在测试模式会整体缩放，ICON 需保留足够的物理像素才能识别车型。 */
+.screen-shell .map-entity {
+  width: 72px;
+  height: 72px;
+  filter: none;
+  animation: mapPointIn 0.5s ease both;
+
+  .entity-icon,
+  &.collection .entity-icon,
+  &.station .entity-icon,
+  &.plant .entity-icon {
+    width: 64px;
+    height: 64px;
+  }
+
+  .entity-icon img {
+    filter: none;
+  }
+
+  em {
+    top: 70px;
+  }
+}
+
+.screen-shell .map-entity.collection { z-index: 3; }
+.screen-shell .map-entity.small-box,
+.screen-shell .map-entity.large-box { z-index: 4; }
+.screen-shell .map-entity.station,
+.screen-shell .map-entity.plant { z-index: 5; }
+.screen-shell .map-entity.truck-small,
+.screen-shell .map-entity.truck-hook,
+.screen-shell .map-entity.truck-large { z-index: 6; }
+.screen-shell .map-entity.alarm { z-index: 7; }
+
+.screen-shell .map-entity.warning,
+.screen-shell .map-entity.danger,
+.screen-shell .map-entity.alarm {
+  filter: none;
+  animation: none;
+}
+
+.screen-shell .map-entity.pulse {
+  animation: mapPointIn 0.5s ease both, mapPointBreath 2.2s ease-in-out infinite;
+}
+
+.screen-shell .map-layer-bar .layer-icon {
+  width: 42px;
+  height: 42px;
 }
 
 @keyframes chartGrow {

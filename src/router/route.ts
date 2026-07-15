@@ -201,7 +201,6 @@ export const systemRoutes: RouteRecordRaw[] = [
           { path: '/sanitation/command-center-july-v2', name: 'SanitationCommandCenterJulyV2', component: () => import('@/views/sanitation/command-center-july-v2.vue'), meta: { title: '数字大屏指挥中心V2', icon: 'dashboard', hidden: false } },
           { path: '/sanitation/location-monitor-weighing', name: 'SanitationLocationMonitorWeighing', component: () => import('@/views/sanitation/location-monitor-weighing.vue'), meta: { title: '位置监控增加称重', icon: 'location', hidden: false } },
           { path: '/sanitation/history-track-weighing', name: 'SanitationHistoryTrackWeighing', component: () => import('@/views/sanitation/history-track-weighing.vue'), meta: { title: '历史轨迹增加称重', icon: 'history', hidden: false } },
-          { path: '/sanitation/pc-message-notification', name: 'SanitationPcMessageNotification', component: () => import('@/views/sanitation/pc-message-notification.vue'), meta: { title: 'PC端消息通知', icon: 'notification', hidden: false } },
         ],
       },
 

@@ -14,6 +14,7 @@
 
       <!-- 消息通知 -->
       <a-popover
+        v-if="showSanitationNotification"
         position="bottom"
         trigger="click"
         :content-style="{ marginTop: '-5px', padding: 0, border: 'none' }"
@@ -91,6 +92,8 @@ defineOptions({ name: 'HeaderRight' })
 
 const { isDesktop } = useDevice()
 const { breakpoint } = useBreakpoint()
+const router = useRouter()
+const userStore = useUserStore()
 let socket: WebSocket
 onBeforeUnmount(() => {
   if (socket) {
@@ -99,6 +102,9 @@ onBeforeUnmount(() => {
 })
 
 const unreadMessageCount = ref(0)
+const sanitationNotificationOrg = '河南龙淼钧泽环卫有限公司'
+// 当前线上按机构灰度展示；原型环境始终保留入口，便于演示和验收。
+const showSanitationNotification = computed(() => isPrototypeMode || userStore.userInfo.deptName === sanitationNotificationOrg)
 const sanitationUnreadCount = computed(() => sanitationAlarms.filter((item) => item.readStatus === '未读').length)
 const displayUnreadCount = computed(() => unreadMessageCount.value + sanitationUnreadCount.value)
 // 初始化 WebSocket
@@ -133,8 +139,6 @@ const getMessageCount = async () => {
 
 const { isFullscreen, toggle } = useFullscreen()
 
-const router = useRouter()
-const userStore = useUserStore()
 const SettingDrawerRef = ref<InstanceType<typeof SettingDrawer>>()
 
 // 退出登录

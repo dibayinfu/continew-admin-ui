@@ -2,14 +2,14 @@
   <div class="gi_page notification-page">
     <ModuleHeader
       title="PC端消息通知"
-      subtitle="用于展示智慧环卫运营平台顶部通栏的小铃铛消息中心，集中承接环卫告警与业务通知。"
+      subtitle="重构智慧环卫运营平台原有消息铃铛，在一个入口中集中展示垃圾收运与车辆告警。"
       phase="7月份阶段"
       priority="P0"
       module="消息通知"
     />
 
     <div class="prd-panel">
-      <a-collapse :default-active-key="['prd']" :bordered="false">
+      <a-collapse :default-active-key="[]" :bordered="false">
         <a-collapse-item key="prd" header="📋 产品需求说明">
           <div class="prd-body">
             <section v-for="section in prdSections" :key="section.title" class="prd-section">
@@ -42,11 +42,8 @@
           <div class="mock-brand">智慧环卫运营平台</div>
           <div class="header-actions">
             <span class="header-action"><icon-settings /> </span>
-            <button class="bell-button legacy-bell" aria-label="旧版消息通知">
-              <icon-notification />
-            </button>
             <button class="bell-button active" aria-label="消息通知" @click="panelVisible = !panelVisible">
-              <icon-bulb />
+              <icon-notification />
               <span v-if="unreadCount" class="unread-dot"></span>
             </button>
             <span class="header-action"><icon-fullscreen /> </span>
@@ -66,16 +63,30 @@
           </div>
 
           <div class="message-scroll">
-            <div class="group-title">环卫告警</div>
-            <article v-for="alarm in displayedAlarms" :key="alarm.id" class="alarm-card" :class="{ unread: !alarm.read }" @click="openAlarm">
-              <div class="alarm-top"><strong>{{ alarm.title }}</strong><time>{{ alarm.time }}</time></div>
-              <p>{{ alarm.content }}</p>
-            </article>
-            <a-empty v-if="!alarms.length" description="暂无告警" />
+            <section class="message-group">
+              <div class="group-title"><span>垃圾收运</span><a-tag color="red">{{ displayedCollectionAlarms.length }} 条</a-tag></div>
+              <article v-for="alarm in displayedCollectionAlarms" :key="alarm.id" class="alarm-card" :class="{ unread: !alarm.read }" @click="openCollectionAlarm(alarm)">
+                <div class="alarm-top"><strong>{{ alarm.title }}</strong><time>{{ alarm.time }}</time></div>
+                <p>{{ alarm.content }}</p>
+              </article>
+              <footer class="group-foot">
+                <a-link @click="viewMoreCollection">查看更多 <icon-right /></a-link>
+                <a-link @click="markAllCollectionRead">全部已读</a-link>
+              </footer>
+            </section>
+
+            <section class="message-group vehicle-group">
+              <div class="group-title"><span>车辆告警</span><a-tag color="orangered">{{ displayedVehicleAlarms.length }} 条</a-tag></div>
+              <article v-for="alarm in displayedVehicleAlarms" :key="alarm.id" class="alarm-card vehicle-card" :class="{ unread: !alarm.read }" @click="openVehicleAlarm(alarm)">
+                <div class="alarm-top"><strong>{{ alarm.title }}</strong><time>{{ alarm.time }}</time></div>
+                <p>{{ alarm.content }}</p>
+              </article>
+              <footer class="group-foot">
+                <a-link @click="viewMoreVehicle">查看更多 <icon-right /></a-link>
+                <a-link @click="markAllVehicleRead">全部已读</a-link>
+              </footer>
+            </section>
           </div>
-          <footer class="popover-foot">
-            <a-link @click="viewMore">查看更多 <icon-right /></a-link>
-          </footer>
         </aside>
       </div>
     </div>
@@ -84,49 +95,82 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { Message } from '@arco-design/web-vue'
 import ModuleHeader from './components/ModuleHeader.vue'
 
 type Alarm = { id: string; title: string; content: string; time: string; read: boolean }
 
 const panelVisible = ref(true)
 const router = useRouter()
-const initialAlarms: Alarm[] = [
-  { id: 'a1', title: '低电量告警', content: '陈家庄2号小勾臂箱：电量仅 8%，建议运维人员线下更换电池。', time: '2026-05-20 09:38:00', read: false },
-  { id: 'a2', title: '满溢告警', content: '西上庄村1号小勾臂箱：箱体满溢 95%，已持续 3 小时以上。', time: '2026-05-20 06:50:00', read: false },
-  { id: 'a3', title: '设备离线', content: '善应压缩箱A：满溢传感器超过 30 分钟未上报。', time: '2026-05-20 10:05:00', read: false },
+const initialCollectionAlarms: Alarm[] = [
+  { id: 'AL20260520003', title: '低电量告警', content: '陈家庄2号小勾臂箱：电量仅 8%，建议运维人员线下更换电池。', time: '2026-05-20 09:38:00', read: false },
+  { id: 'AL20260520004', title: '满溢告警', content: '西上庄村1号小勾臂箱：箱体满溢 95%，已持续 3 小时以上。', time: '2026-05-20 06:50:00', read: false },
+  { id: 'AL20260520005', title: '设备离线', content: '善应压缩箱A：满溢传感器超过 30 分钟未上报。', time: '2026-05-20 10:05:00', read: false },
 ]
-const alarms = ref<Alarm[]>(structuredClone(initialAlarms))
-const unreadCount = computed(() => alarms.value.filter((item) => !item.read).length)
-const displayedAlarms = computed(() => [...alarms.value]
+const initialVehicleAlarms: Alarm[] = [
+  { id: 'v1', title: '超速告警', content: '豫E3G516：车辆速度 72km/h，超过当前道路限速 60km/h。', time: '2026-05-20 10:18:00', read: false },
+  { id: 'v2', title: '疲劳驾驶', content: '豫E8K270：驾驶员连续驾驶时间超过 4 小时，请及时休息。', time: '2026-05-20 09:56:00', read: false },
+  { id: 'v3', title: '分神驾驶', content: '豫E2M883：主动安全设备检测到驾驶员持续分神驾驶。', time: '2026-05-20 09:14:22', read: false },
+]
+const collectionAlarms = ref<Alarm[]>(structuredClone(initialCollectionAlarms))
+const vehicleAlarms = ref<Alarm[]>(structuredClone(initialVehicleAlarms))
+const unreadCount = computed(() => [...collectionAlarms.value, ...vehicleAlarms.value].filter((item) => !item.read).length)
+const displayedCollectionAlarms = computed(() => [...collectionAlarms.value]
   .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
-  .slice(0, 5))
+  .slice(0, 3))
+const displayedVehicleAlarms = computed(() => [...vehicleAlarms.value]
+  .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
+  .slice(0, 3))
 
-function openAlarm() { router.push('/sanitation/alarmCenter') }
-function viewMore() { router.push('/sanitation/workOrderCreate') }
-function resetDemo() { alarms.value = structuredClone(initialAlarms); panelVisible.value = true }
+function openCollectionAlarm(alarm: Alarm) {
+  alarm.read = true
+  if (alarm.title !== '满溢告警') return
+  router.push({ path: '/sanitation/workOrderCreate', query: { focusAlarmId: alarm.id, source: 'notification' } })
+}
+function openVehicleAlarm(alarm: Alarm) {
+  alarm.read = true
+  Message.info('车辆告警相关功能沿用系统现有功能，不在本次开发范围内')
+}
+function markAllCollectionRead() {
+  collectionAlarms.value.forEach((item) => { item.read = true })
+  Message.success('垃圾收运告警已全部标记为已读')
+}
+function markAllVehicleRead() {
+  vehicleAlarms.value.forEach((item) => { item.read = true })
+  Message.success('车辆告警已全部标记为已读')
+}
+function viewMoreCollection() { router.push('/sanitation/workOrderCreate') }
+function viewMoreVehicle() { router.push('/sanitation/safetyAlarm') }
+function resetDemo() {
+  collectionAlarms.value = structuredClone(initialCollectionAlarms)
+  vehicleAlarms.value = structuredClone(initialVehicleAlarms)
+  panelVisible.value = true
+}
 
 const prdSections = [
   { title: '一、功能定位', items: [
-    { label: '功能入口', value: '顶部通栏保留两个独立的铃铛入口：左侧为既有消息功能，本期不改造；右侧为本期新增的环卫告警入口，有未读告警时展示红点。' },
-    { label: '服务目标', value: '让管理员、调度员无需离开当前页面，即可快速感知需要处理的设备告警；新旧消息功能暂时相互独立。' },
-    { label: '消息范围', value: '新铃铛仅承接环卫告警：满溢、低电量、设备离线等；既有通知和系统公告仍由旧铃铛功能承接。' },
-    { label: '展示范围', value: '当前线上环境按机构配置：仅“河南龙淼钧泽环卫有限公司”所属用户展示新铃铛；其他机构不展示。后续应升级为按业务线配置，当前暂以机构作为配置维度。' },
+    { label: '功能入口', value: '不新增第二个铃铛，直接重构顶部通栏原有消息铃铛；存在任一类型未读告警时，原铃铛展示未读红点。' },
+    { label: '服务目标', value: '在统一入口中集中展示垃圾收运和车辆告警，让管理员、调度员无需离开当前页面即可快速感知两类风险。' },
+    { label: '消息范围', value: '垃圾收运包含满溢、低电量、箱体离线等当前业务告警；车辆告警包含超速、疲劳驾驶、分神驾驶、接打电话等主动安全告警。' },
+    { label: '展示范围', value: '系统原有铃铛对所有机构开放展示，不再按机构限制；铃铛沿用系统原有入口，不新增图标。' },
   ] },
   { title: '二、界面呈现', items: [
-    { label: '铃铛状态', value: '左侧旧铃铛保持既有图标和功能，不在本期范围；右侧新铃铛采用灯泡图标，存在未读告警展示红点，点击后进入高亮状态并展开浮层。' },
-    { label: '浮层结构', value: '新铃铛浮层仅包含标题、未读数量、环卫告警列表和底部操作区；不展示 Tab 与普通通知，宽度建议 600px，超出区域纵向滚动。' },
-    { label: '告警卡片', value: '浅红背景突出风险，展示告警标题、发生时间、对象与详情；按发生时间倒序最多展示最新 5 条，点击卡片进入告警详情或处置页面。' },
+    { label: '铃铛状态', value: '沿用系统原铃铛图标与位置；存在未读告警时展示红点，点击后进入高亮状态并展开统一告警浮层。' },
+    { label: '浮层结构', value: '浮层依次展示“垃圾收运”和“车辆告警”两个区块，不展示 Tab；每个区块包含标题、3 条最新告警及独立的“查看更多、全部已读”。' },
+    { label: '告警卡片', value: '每类告警均按发生时间倒序最多展示最新 3 条；卡片展示告警类型、发生时间、对象与详情，未读消息使用醒目标识。' },
   ] },
   { title: '三、交互规则', items: [
-    { label: '阅读状态', value: '点击告警仅跳转告警详情或处置页面，不改变已读状态；弹层不提供单条或批量标记已读功能。' },
-    { label: '告警处置', value: '弹层不提供“标待处理”和“标已处理”快捷动作；用户点击告警卡片后进入告警详情或处置页面完成业务闭环。' },
-    { label: '消息边界', value: '新功能不提供“全部/通知”Tab，也不混入普通通知；旧铃铛与新铃铛的未读状态、列表和处理逻辑互不影响。' },
-    { label: '查看更多', value: '点击后跳转“收运任务单 - 告警建任务单”页面，由调度员基于告警进行任务创建和后续处置。' },
+    { label: '阅读状态', value: '点击单条告警后，该条由未读变为已读；点击某区块“全部已读”，仅将该类型全部未读告警置为已读，并展示成功提示。铃铛红点按两类未读总数同步更新。' },
+    { label: '垃圾收运联动', value: '仅“满溢告警”点击后携带 focusAlarmId 跳转“告警建任务单”并定位高亮。未建任务单时自动打开预填告警信息的创建弹窗；已建任务单时只打开告警详情并显示“查看关联任务单”。低电量、设备离线等其他告警仅变为已读，不跳转。' },
+    { label: '车辆告警点击', value: '点击车辆告警不打开新页面，仅提示“车辆告警相关功能沿用系统现有功能，不在本次开发范围内”；本次不改造车辆告警详情与处置功能。' },
+    { label: '告警处置', value: '弹层不提供“标待处理”和“标已处理”快捷动作；只有满溢告警通过“告警建任务单”完成收运闭环，其他垃圾收运告警仅处理阅读状态，车辆告警沿用系统现有功能。' },
+    { label: '消息边界', value: '原铃铛重构为统一告警入口，不新增铃铛；弹层不提供“全部/通知”Tab，也不混入普通通知消息。' },
+    { label: '查看更多', value: '垃圾收运“查看更多”跳转“收运任务单 - 告警建任务单”；车辆告警“查看更多”跳转“主动安全 - 告警列表”。' },
   ] },
   { title: '四、业务与验收', items: [
-    { label: '权限与数据', value: '仅展示当前登录用户权限范围内的消息；新铃铛当前以用户所属机构为开关，仅“河南龙淼钧泽环卫有限公司”展示。消息需包含唯一 ID、类型、标题/内容、产生时间、已读状态及关联业务对象。' },
+    { label: '权限与数据', value: '所有机构均展示铃铛，但仅展示当前登录用户数据权限范围内的告警。告警需包含唯一 ID、业务类型、标题/内容、产生时间、已读状态及关联业务对象。' },
     { label: '实时性', value: '新消息到达后实时刷新未读数和列表；用户打开浮层后新到消息置顶，不打断正在进行的告警处置操作。' },
-    { label: '验收标准', value: '未读红点、分类筛选、单条已读、全部已读、待处理/已处理、查看更多均可用；长消息和多条消息不遮挡顶部通栏且可滚动查看。' },
+    { label: '验收标准', value: '顶部仅一个系统原铃铛；弹层同时展示垃圾收运、车辆告警且各最多 3 条；两类的单条已读、全部已读、查看更多均可用，长消息可正常滚动查看。' },
   ] },
 ]
 </script>
@@ -151,13 +195,14 @@ const prdSections = [
 .header-actions { display: flex; align-items: center; gap: 20px; color: #1d2433; font-size: 22px; }
 .header-action { display: inline-flex; align-items: center; }
 .bell-button { position: relative; display: grid; width: 54px; height: 54px; place-items: center; border: 0; border-radius: 4px; background: transparent; color: #232a37; font-size: 27px; cursor: pointer; }
-.bell-button.active { background: #eef0f5; color: #505866; }.legacy-bell { color: #535b68; }
+.bell-button.active { background: #eef0f5; color: #505866; }
 .unread-dot { position: absolute; top: 10px; right: 9px; width: 11px; height: 11px; border: 2px solid #fff; border-radius: 50%; background: #f53f3f; }
 .avatar { display: grid; width: 44px; height: 44px; place-items: center; border-radius: 50%; color: #fff; background: #6cc80f; font-size: 22px; }.user-name { font-size: 17px; }
 .mock-content { padding: 50px; }.content-line { height: 22px; width: 42%; margin-bottom: 18px; border-radius: 4px; background: #e4e9f1; }.content-line.wide { width: 75%; }.content-cards { display: flex; gap: 20px; margin-top: 38px; }.content-cards i { width: 220px; height: 160px; border-radius: 8px; background: #e7edf5; }
 .notification-popover { position: absolute; z-index: 2; top: 74px; right: 34px; width: 600px; max-height: 610px; overflow: hidden; border-radius: 8px; background: #fff; box-shadow: 0 10px 28px rgb(17 32 57 / 20%); }
 .popover-head { display: flex; align-items: center; justify-content: space-between; padding: 22px 24px 6px; color: #202939; font-size: 23px; }.count-badge :deep(.arco-badge-number) { height: 30px; min-width: 66px; padding: 0 14px; border-radius: 5px; line-height: 30px; font-size: 16px; }
-.message-scroll { max-height: 460px; overflow-y: auto; padding: 6px 20px 0; }.group-title { padding: 9px 2px; color: #253044; font-size: 17px; font-weight: 600; }
-.alarm-card { margin-bottom: 16px; padding: 20px; border-radius: 7px; background: #fff4f3; cursor: pointer; }.alarm-card.unread { box-shadow: inset 3px 0 #f53f3f; }.alarm-top { display: flex; justify-content: space-between; gap: 12px; color: #f53f3f; font-size: 18px; }.alarm-top time { color: #788397; font-weight: 400; white-space: nowrap; }.alarm-card p { margin: 14px 0 0; color: #4c5668; font-size: 16px; line-height: 1.55; }.popover-foot { display: flex; justify-content: space-between; padding: 19px 26px; border-top: 1px solid #e5e8ef; font-size: 16px; }
+.message-scroll { max-height: 525px; overflow-y: auto; }.message-group { padding: 6px 20px 0; }.vehicle-group { border-top: 8px solid #f2f4f7; }.group-title { display: flex; align-items: center; justify-content: space-between; padding: 9px 2px; color: #253044; font-size: 17px; font-weight: 600; }
+.alarm-card { margin-bottom: 16px; padding: 20px; border-radius: 7px; background: #fff4f3; cursor: pointer; }.alarm-card.unread { box-shadow: inset 3px 0 #f53f3f; }.alarm-top { display: flex; justify-content: space-between; gap: 12px; color: #f53f3f; font-size: 18px; }.alarm-top time { color: #788397; font-weight: 400; white-space: nowrap; }.alarm-card p { margin: 14px 0 0; color: #4c5668; font-size: 16px; line-height: 1.55; }
+.vehicle-card { background: #fff8ed; }.vehicle-card .alarm-top { color: #f77234; }.group-foot { display: flex; justify-content: space-between; padding: 13px 6px 16px; border-top: 1px solid #e5e8ef; font-size: 16px; }
 @media (max-width: 1280px) { .notification-popover { right: 18px; } }
 </style>

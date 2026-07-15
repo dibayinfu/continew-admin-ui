@@ -29,6 +29,9 @@
                   <tr><td class="prd-label">业务流</td><td class="prd-value">满溢告警 → 创建收运任务单 → 任务单监控 → 驾驶员接单 → 收运 → 完成</td></tr>
                   <tr><td class="prd-label">数据关联</td><td class="prd-value">人员档案（drivers）→ 驾驶员/车辆；中转站/焚烧厂（destinations）→ 目的地；箱体档案（boxes）→ 箱体信息/位置</td></tr>
                   <tr><td class="prd-label">入口</td><td class="prd-value">① 右侧详情「基于此消息创建」② 表格行「快速创建」图标（满溢告警行可见）</td></tr>
+                  <tr><td class="prd-label">任务单状态筛选</td><td class="prd-value">支持“全部、未建任务单、已建任务单”；以告警是否存在 linkedTaskId 为判断依据。</td></tr>
+                  <tr><td class="prd-label">详情操作</td><td class="prd-value">未建任务单的满溢告警显示“基于此消息快速创建”；仅已建任务单的告警显示“查看关联任务单”，避免重复建单。</td></tr>
+                  <tr><td class="prd-label">星标操作</td><td class="prd-value">列表星标列仅用五角星展示状态（已星标高亮、未星标置灰）；操作列仅保留查看，添加/取消星标统一在告警详情中操作。</td></tr>
                   <tr><td class="prd-label">弹窗布局</td><td class="prd-value">上半：告警消息详情（只读）| 下半：任务配置表单（可操作）</td></tr>
                   <tr><td class="prd-label">表单字段</td><td class="prd-value">驾驶员（Select 联动车辆只读）、目的地（按箱体类型过滤）、起点（只读）、时效、优先级、备注</td></tr>
                   <tr><td class="prd-label">默认值</td><td class="prd-value">驾驶员按箱体类型匹配（小勾臂→张师傅/豫E3G516，大勾臂→孙师傅/豫E6N109），目的地对应过滤，时效60min，优先级紧急</td></tr>
@@ -78,6 +81,15 @@
             <a-select v-model="readStatusFilter" placeholder="阅读状态" class="filter-select">
               <a-option v-for="item in readStatusFilters" :key="item" :value="item">{{ item }}</a-option>
             </a-select>
+            <a-select
+              v-if="isCreateMode"
+              v-model="taskStatusFilter"
+              placeholder="任务单状态"
+              class="filter-select task-status-select"
+              :trigger-props="{ autoFitPopupWidth: false, popupStyle: { width: '180px' } }"
+            >
+              <a-option v-for="item in taskStatusFilters" :key="item" :value="item">{{ item }}</a-option>
+            </a-select>
             <a-select v-model="starredFilter" placeholder="星标" class="filter-select" style="width: 120px;">
               <a-option v-for="item in starredFilters" :key="item" :value="item">{{ item }}</a-option>
             </a-select>
@@ -89,21 +101,22 @@
           row-key="id"
           :data="filteredAlarms"
           :columns="columns"
-          :pagination="{ pageSize: 7, showTotal: true }"
+          :pagination="pagination"
           :scroll="{ x: 1500 }"
           stripe
           :row-class="getRowClass"
+          @page-change="pagination.current = $event"
           @row-click="(record: any) => selectAlarm(record)"
         >
           <template #readStatus="{ record }">
             <StatusTag :value="record.readStatus" />
           </template>
+          <template #starred="{ record }">
+            <icon-star-fill v-if="record.starred" class="table-star table-star--active" />
+            <icon-star v-else class="table-star" />
+          </template>
           <template #cell="{ column, record }">
             <StatusTag v-if="['level', 'type'].includes(String(column.dataIndex))" :value="record[column.dataIndex]" />
-            <span v-else-if="column.dataIndex === 'starred'">
-              <icon-star-fill v-if="record.starred" style="color: #f7ba1e; font-size: 16px;" />
-              <icon-star v-else style="color: #c9cdd4; font-size: 16px;" />
-            </span>
             <span v-else-if="column.dataIndex === 'fillRate'">{{ record.fillRate ? `${record.fillRate}%` : '-' }}</span>
             <span v-else-if="column.dataIndex === 'battery'">{{ record.battery ? `${record.battery}%` : '-' }}</span>
             <span v-else>{{ record[column.dataIndex] ?? '-' }}</span>
@@ -114,16 +127,6 @@
                 <a-tooltip content="查看详情">
                   <a-button size="small" type="text" @click="selectAlarm(record)">
                     <template #icon><icon-eye /></template>
-                  </a-button>
-                </a-tooltip>
-              </span>
-              <span class="action-cell star-cell">
-                <a-tooltip :content="record.starred ? '取消星标' : '添加星标'">
-                  <a-button size="small" type="text" :class="{ 'star-active': record.starred }" @click="toggleStar(record)">
-                    <template #icon>
-                      <icon-star-fill v-if="record.starred" />
-                      <icon-star v-else />
-                    </template>
                   </a-button>
                 </a-tooltip>
               </span>
@@ -160,7 +163,7 @@
             </a-descriptions>
           </div>
           <div class="detail-actions">
-            <a-button v-if="selectedAlarm.type === '满溢告警'" type="primary" long @click="openCreate(selectedAlarm)">
+            <a-button v-if="selectedAlarm.type === '满溢告警' && !selectedAlarm.linkedTaskId" type="primary" long @click="openCreate(selectedAlarm)">
               基于此消息快速创建收运任务单
             </a-button>
             <a-button :status="selectedAlarm?.starred ? undefined : 'warning'" long @click="toggleStar(selectedAlarm!)">
@@ -291,7 +294,7 @@
 
 <script setup lang="ts">
 import { Message as ArcoMessage } from '@arco-design/web-vue'
-import { computed, reactive, ref } from 'vue'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import ModuleHeader from './components/ModuleHeader.vue'
 import MetricGrid from './components/MetricGrid.vue'
@@ -312,10 +315,13 @@ const router = useRouter()
 const keyword = ref('')
 const typeFilter = ref('全部类型')
 const readStatusFilter = ref('全部')
+const taskStatusFilter = ref('全部')
 const starredFilter = ref('全部')
 const detailVisible = ref(false)
 const flashNotice = ref(false)
 const flashingRowId = ref<string | null>(null)
+const focusedAlarmId = ref<string | null>(null)
+const pagination = reactive({ current: 1, pageSize: 7, showTotal: true })
 const selectedAlarm = ref<SanitationAlarm>(sanitationAlarms[0])
 const createVisible = ref(false)
 const creatingAlarm = ref<SanitationAlarm>()
@@ -371,6 +377,7 @@ const createForm = reactive({
 const isCreateMode = computed(() => route.path.includes('workOrderCreate'))
 const typeFilters = ['全部类型', '满溢告警', '低电量告警', '设备离线', '称重异常']
 const readStatusFilters = ['全部', '未读', '已读']
+const taskStatusFilters = ['全部', '未建任务单', '已建任务单']
 const starredFilters = ['全部', '星标消息']
 const driverOptions = computed(() => drivers.map((item) => item.name))
 const driverOptionList = computed(() => drivers)
@@ -403,7 +410,7 @@ const columns = [
   { title: '电量', dataIndex: 'battery', width: 90 },
   { title: '触发时间', dataIndex: 'triggerTime', width: 180 },
   { title: '星标', dataIndex: 'starred', slotName: 'starred', width: 80, align: 'center' as const },
-  { title: '操作', slotName: 'action', width: 110, align: 'center' as const, fixed: 'right' as const },
+  { title: '操作', slotName: 'action', width: 80, align: 'center' as const, fixed: 'right' as const },
 ]
 
 const filteredAlarms = computed(() => {
@@ -413,7 +420,12 @@ const filteredAlarms = computed(() => {
   }
   if (typeFilter.value !== '全部类型') result = result.filter((item) => item.type === typeFilter.value)
   if (readStatusFilter.value !== '全部') result = result.filter((item) => item.readStatus === readStatusFilter.value)
+  if (taskStatusFilter.value === '未建任务单') result = result.filter((item) => !item.linkedTaskId)
+  if (taskStatusFilter.value === '已建任务单') result = result.filter((item) => Boolean(item.linkedTaskId))
   if (starredFilter.value !== '全部') result = result.filter((item) => item.starred)
+  // 保留用户已有筛选条件；若定位目标被筛选隐藏，则仅临时补入目标行用于定位。
+  const focusedAlarm = sanitationAlarms.find((item) => item.id === focusedAlarmId.value)
+  if (focusedAlarm && !result.some((item) => item.id === focusedAlarm.id)) result = [focusedAlarm, ...result]
   // 默认未读排在前面
   result = [...result].sort((a, b) => {
     if (a.readStatus === '未读' && b.readStatus !== '未读') return -1
@@ -424,6 +436,7 @@ const filteredAlarms = computed(() => {
 })
 
 function selectAlarm(record: SanitationAlarm) {
+  if (focusedAlarmId.value !== record.id) focusedAlarmId.value = null
   selectedAlarm.value = record
   detailVisible.value = true
   if (record.readStatus === '未读') record.readStatus = '已读'
@@ -503,8 +516,48 @@ function goTask(taskId?: string) {
 }
 
 function getRowClass(record: SanitationAlarm) {
-  return record.id === flashingRowId.value ? 'row-flash' : ''
+  return [
+    record.id === flashingRowId.value ? 'row-flash' : '',
+    record.id === focusedAlarmId.value ? 'row-focus' : '',
+  ].filter(Boolean).join(' ')
 }
+
+async function focusAlarmFromNotification(alarmId: string) {
+  const alarm = sanitationAlarms.find((item) => item.id === alarmId)
+  if (!alarm) {
+    ArcoMessage.warning('该告警不存在或无查看权限')
+    return
+  }
+
+  focusedAlarmId.value = alarm.id
+  selectedAlarm.value = alarm
+  detailVisible.value = true
+
+  // 定位参数不作为筛选条件：完整列表保持不变，只切换至目标所在分页并高亮。
+  const targetIndex = filteredAlarms.value.findIndex((item) => item.id === alarm.id)
+  if (targetIndex >= 0) pagination.current = Math.floor(targetIndex / pagination.pageSize) + 1
+
+  // 未建任务单的满溢告警自动打开创建弹窗；已建任务单只展示详情和关联任务入口。
+  if (alarm.type === '满溢告警' && !alarm.linkedTaskId) openCreate(alarm)
+  await nextTick()
+  document.querySelector('.row-focus')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+}
+
+watch(
+  () => route.query.focusAlarmId,
+  async (value) => {
+    const alarmId = Array.isArray(value) ? value[0] : value
+    if (!alarmId) return
+    await focusAlarmFromNotification(alarmId)
+
+    // 定位完成即清理一次性参数，避免刷新或返回页面时重复打开弹窗。
+    const query = { ...route.query }
+    delete query.focusAlarmId
+    delete query.source
+    await router.replace({ path: route.path, query })
+  },
+  { immediate: true },
+)
 
 function refreshFlash() {
   const newId = `AL${Date.now()}`
@@ -579,20 +632,21 @@ function refreshFlash() {
   width: 140px;
 }
 
+.task-status-select {
+  width: 180px;
+}
+
 .flash-tag {
   animation: alarmPulse 1s ease-in-out infinite;
 }
 
-/* 星标操作样式 */
-.star-cell {
-  :deep(.arco-btn) {
-    color: #c9cdd4;
-    transition: color .2s;
-    &:hover { color: #f7ba1e; }
-  }
-  :deep(.arco-btn.star-active) {
-    color: #f7ba1e;
-  }
+.table-star {
+  color: #c9cdd4;
+  font-size: 18px;
+}
+
+.table-star--active {
+  color: #f7ba1e;
 }
 
 .detail-star {
@@ -683,6 +737,16 @@ function refreshFlash() {
 
 :deep(.row-flash) {
   animation: rowFlash 1s ease-in-out 3;
+}
+
+:deep(.row-focus) {
+  td {
+    background: rgba(var(--arcoblue-2), 0.75) !important;
+  }
+
+  td:first-child {
+    box-shadow: inset 4px 0 rgb(var(--arcoblue-6));
+  }
 }
 
 @keyframes rowFlash {

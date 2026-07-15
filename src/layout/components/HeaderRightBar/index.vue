@@ -14,21 +14,20 @@
 
       <!-- 消息通知 -->
       <a-popover
-        v-if="showSanitationNotification"
         position="bottom"
         trigger="click"
         :content-style="{ marginTop: '-5px', padding: 0, border: 'none' }"
         :arrow-style="{ width: 0, height: 0 }"
       >
         <a-badge :count="displayUnreadCount" dot>
-          <a-button size="mini" class="gi_hover_btn" :class="{ 'alarm-blink': sanitationUnreadCount > 0 }">
+          <a-button size="mini" class="gi_hover_btn" :class="{ 'alarm-blink': displayUnreadCount > 0 }">
             <template #icon>
               <icon-notification :size="18" />
             </template>
           </a-button>
         </a-badge>
         <template #content>
-          <Message @readall-success="getMessageCount" />
+          <Message />
         </template>
       </a-popover>
 
@@ -77,15 +76,13 @@
 <script setup lang="ts">
 import { Modal } from '@arco-design/web-vue'
 import { useFullscreen } from '@vueuse/core'
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import Message from './Message.vue'
 import SettingDrawer from './SettingDrawer.vue'
 import Search from './Search.vue'
-import { getUnreadMessageCount } from '@/apis'
 import { sanitationAlarms } from '@/views/sanitation/data/alert-task'
+import { vehicleAlarms } from '@/views/sanitation/data/vehicle-alert'
 import { useUserStore } from '@/stores'
-import { getToken } from '@/utils/auth'
-import { isPrototypeMode } from '@/utils/prototype'
 import { useBreakpoint, useDevice } from '@/hooks'
 
 defineOptions({ name: 'HeaderRight' })
@@ -94,48 +91,9 @@ const { isDesktop } = useDevice()
 const { breakpoint } = useBreakpoint()
 const router = useRouter()
 const userStore = useUserStore()
-let socket: WebSocket
-onBeforeUnmount(() => {
-  if (socket) {
-    socket.close()
-  }
-})
-
-const unreadMessageCount = ref(0)
-const sanitationNotificationOrg = '河南龙淼钧泽环卫有限公司'
-// 当前线上按机构灰度展示；原型环境始终保留入口，便于演示和验收。
-const showSanitationNotification = computed(() => isPrototypeMode || userStore.userInfo.deptName === sanitationNotificationOrg)
 const sanitationUnreadCount = computed(() => sanitationAlarms.filter((item) => item.readStatus === '未读').length)
-const displayUnreadCount = computed(() => unreadMessageCount.value + sanitationUnreadCount.value)
-// 初始化 WebSocket
-const initWebSocket = (token: string) => {
-  socket = new WebSocket(`${import.meta.env.VITE_API_WS_URL}/websocket?token=${token}`)
-  socket.onopen = () => {
-    // console.log('WebSocket connection opened')
-  }
-
-  socket.onmessage = (event) => {
-    unreadMessageCount.value = Number.parseInt(event.data)
-  }
-
-  socket.onerror = () => {
-    // console.error('WebSocket error:', error)
-  }
-
-  socket.onclose = () => {
-    // console.log('WebSocket connection closed')
-  }
-}
-
-// 查询未读消息数量
-const getMessageCount = async () => {
-  const { data } = await getUnreadMessageCount()
-  unreadMessageCount.value = data.total
-  const token = getToken()
-  if (token && !isPrototypeMode) {
-    initWebSocket(token)
-  }
-}
+const vehicleUnreadCount = computed(() => vehicleAlarms.filter((item) => item.readStatus === '未读').length)
+const displayUnreadCount = computed(() => sanitationUnreadCount.value + vehicleUnreadCount.value)
 
 const { isFullscreen, toggle } = useFullscreen()
 
@@ -160,9 +118,6 @@ const logout = () => {
   })
 }
 
-onMounted(() => {
-  getMessageCount()
-})
 </script>
 
 <style scoped lang="scss">

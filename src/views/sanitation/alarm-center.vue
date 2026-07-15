@@ -30,6 +30,7 @@
                   <tr><td class="prd-label">数据关联</td><td class="prd-value">人员档案（drivers）→ 驾驶员/车辆；中转站/焚烧厂（destinations）→ 目的地；箱体档案（boxes）→ 箱体信息/位置</td></tr>
                   <tr><td class="prd-label">入口</td><td class="prd-value">① 右侧详情「基于此消息创建」② 表格行「快速创建」图标（满溢告警行可见）</td></tr>
                   <tr><td class="prd-label">任务单状态筛选</td><td class="prd-value">支持“全部、未建任务单、已建任务单”；以告警是否存在 linkedTaskId 为判断依据。</td></tr>
+                  <tr><td class="prd-label">顶部铃铛联动</td><td class="prd-value">点击未建任务单的满溢告警时携带告警 ID 进入本页，自动填入“告警编号”，列表仅显示该条数据并打开快速创建任务单弹窗；清空告警编号后恢复完整列表。</td></tr>
                   <tr><td class="prd-label">详情操作</td><td class="prd-value">未建任务单的满溢告警显示“基于此消息快速创建”；仅已建任务单的告警显示“查看关联任务单”，避免重复建单。</td></tr>
                   <tr><td class="prd-label">星标操作</td><td class="prd-value">列表星标列仅用五角星展示状态（已星标高亮、未星标置灰）；操作列仅保留查看，添加/取消星标统一在告警详情中操作。</td></tr>
                   <tr><td class="prd-label">弹窗布局</td><td class="prd-value">上半：告警消息详情（只读）| 下半：任务配置表单（可操作）</td></tr>
@@ -75,6 +76,14 @@
         <div class="toolbar">
           <a-space wrap>
             <a-input-search v-model="keyword" placeholder="搜索箱体/地址/告警内容" allow-clear class="search-input" />
+            <a-input
+              v-if="isCreateMode"
+              v-model="alarmIdKeyword"
+              placeholder="告警编号"
+              allow-clear
+              class="alarm-id-input"
+              @clear="focusedAlarmId = null"
+            />
             <a-select v-model="typeFilter" class="filter-select">
               <a-option v-for="item in typeFilters" :key="item" :value="item">{{ item }}</a-option>
             </a-select>
@@ -313,6 +322,7 @@ defineOptions({ name: 'SanitationAlarmCenter' })
 const route = useRoute()
 const router = useRouter()
 const keyword = ref('')
+const alarmIdKeyword = ref('')
 const typeFilter = ref('全部类型')
 const readStatusFilter = ref('全部')
 const taskStatusFilter = ref('全部')
@@ -397,7 +407,7 @@ const metrics = computed(() => [
   { label: '星标', value: sanitationAlarms.filter((item) => item.starred).length, unit: '条', tone: 'warning' },
 ])
 
-const columns = [
+const baseColumns = [
   { title: '序号', width: 70, align: 'center' as const, render: ({ rowIndex }: any) => rowIndex + 1 },
   { title: '阅读状态', dataIndex: 'readStatus', slotName: 'readStatus', width: 100 },
   { title: '告警编号', dataIndex: 'id', width: 150, ellipsis: true, tooltip: true },
@@ -413,8 +423,19 @@ const columns = [
   { title: '操作', slotName: 'action', width: 80, align: 'center' as const, fixed: 'right' as const },
 ]
 
+// “告警建任务单”列表不展示阅读状态；告警中心保持原有列不变。
+const columns = computed(() => isCreateMode.value
+  ? baseColumns.filter((column) => column.dataIndex !== 'readStatus')
+  : baseColumns)
+
 const filteredAlarms = computed(() => {
   let result = sanitationAlarms
+  if (isCreateMode.value && alarmIdKeyword.value.trim()) {
+    const alarmId = alarmIdKeyword.value.trim().toLowerCase()
+    result = result.filter((item) => focusedAlarmId.value
+      ? item.id.toLowerCase() === alarmId
+      : item.id.toLowerCase().includes(alarmId))
+  }
   if (keyword.value) {
     result = result.filter((item) => `${item.boxName}${item.address}${item.content}`.includes(keyword.value))
   }
@@ -423,9 +444,6 @@ const filteredAlarms = computed(() => {
   if (taskStatusFilter.value === '未建任务单') result = result.filter((item) => !item.linkedTaskId)
   if (taskStatusFilter.value === '已建任务单') result = result.filter((item) => Boolean(item.linkedTaskId))
   if (starredFilter.value !== '全部') result = result.filter((item) => item.starred)
-  // 保留用户已有筛选条件；若定位目标被筛选隐藏，则仅临时补入目标行用于定位。
-  const focusedAlarm = sanitationAlarms.find((item) => item.id === focusedAlarmId.value)
-  if (focusedAlarm && !result.some((item) => item.id === focusedAlarm.id)) result = [focusedAlarm, ...result]
   // 默认未读排在前面
   result = [...result].sort((a, b) => {
     if (a.readStatus === '未读' && b.readStatus !== '未读') return -1
@@ -530,12 +548,16 @@ async function focusAlarmFromNotification(alarmId: string) {
   }
 
   focusedAlarmId.value = alarm.id
+  // 顶部消息进入时使用告警编号精确查询，列表只展示目标告警。
+  alarmIdKeyword.value = alarm.id
+  keyword.value = ''
+  typeFilter.value = '全部类型'
+  readStatusFilter.value = '全部'
+  taskStatusFilter.value = '全部'
+  starredFilter.value = '全部'
+  pagination.current = 1
   selectedAlarm.value = alarm
   detailVisible.value = true
-
-  // 定位参数不作为筛选条件：完整列表保持不变，只切换至目标所在分页并高亮。
-  const targetIndex = filteredAlarms.value.findIndex((item) => item.id === alarm.id)
-  if (targetIndex >= 0) pagination.current = Math.floor(targetIndex / pagination.pageSize) + 1
 
   // 未建任务单的满溢告警自动打开创建弹窗；已建任务单只展示详情和关联任务入口。
   if (alarm.type === '满溢告警' && !alarm.linkedTaskId) openCreate(alarm)
@@ -550,7 +572,7 @@ watch(
     if (!alarmId) return
     await focusAlarmFromNotification(alarmId)
 
-    // 定位完成即清理一次性参数，避免刷新或返回页面时重复打开弹窗。
+    // 参数仅用于触发一次回填；保留查询框中的 ID，同时清除 URL，确保重复点击同一告警仍可再次触发。
     const query = { ...route.query }
     delete query.focusAlarmId
     delete query.source
@@ -626,6 +648,10 @@ function refreshFlash() {
 
 .search-input {
   width: 260px;
+}
+
+.alarm-id-input {
+  width: 190px;
 }
 
 .filter-select {

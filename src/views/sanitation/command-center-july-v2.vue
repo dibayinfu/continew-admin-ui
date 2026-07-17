@@ -4,6 +4,10 @@
       <button :class="{ active: resolutionMode === 'formal' }" @click="resolutionMode = 'formal'">正式分辨率</button>
       <button :class="{ active: resolutionMode === 'test' }" @click="resolutionMode = 'test'">测试分辨率</button>
       <button :class="{ active: showPrd }" @click="showPrd = !showPrd">产品需求</button>
+      <button :class="{ active: showLayoutMetrics }" @click="showLayoutMetrics = !showLayoutMetrics">布局标注</button>
+      <span v-if="showLayoutMetrics" class="layout-spacing-note">
+        外边距 14px × 2 + 区间距 14px × 3 = <strong>{{ layoutSpacingMetric.width }}px</strong> · {{ layoutSpacingMetric.ratio }}%
+      </span>
     </div>
 
     <div v-if="showPrd" class="prd-mask" @click.self="showPrd = false">
@@ -12,12 +16,18 @@
           <div><span>产品需求文档 · PRD</span><h2>数字大屏指挥中心 V2</h2><p>生活垃圾收运监控、告警处置与调度指挥一体化大屏</p></div>
           <button class="prd-close" aria-label="关闭产品需求文档" @click="showPrd = false">×</button>
         </header>
-        <div class="prd-meta"><span>适用角色：运营主管、调度员、监管人员</span><span>数据形态：演示 Mock 数据 / 后续可替换为实时接口</span><span>页面目标：发现风险 → 快速研判 → 调度处置 → 过程追踪 → 闭环复盘</span></div>
+        <div class="prd-meta"><span>文档版本：开发数据口径版 V2.0</span><span>适用角色：产品、前端、后端、测试、运营</span><span>数据形态：当前 Mock / 生产聚合接口</span><span>页面目标：发现风险 → 快速研判 → 调度处置 → 过程追踪 → 闭环复盘</span></div>
         <div class="prd-body">
           <section v-for="section in prdSections" :key="section.title" class="prd-section">
             <h3>{{ section.title }}</h3>
             <p v-if="section.desc" class="prd-desc">{{ section.desc }}</p>
-            <table class="prd-table"><thead><tr><th>需求项</th><th>详细说明 / 验收口径</th></tr></thead><tbody><tr v-for="item in section.items" :key="item.label"><td>{{ item.label }}</td><td>{{ item.value }}</td></tr></tbody></table>
+            <div class="prd-table-wrap">
+              <table class="prd-table">
+                <colgroup><col class="prd-col-name" /><col class="prd-col-source" /><col class="prd-col-logic" /><col class="prd-col-acceptance" /></colgroup>
+                <thead><tr><th scope="col">数据 / 功能</th><th scope="col">数据来源与关联键</th><th scope="col">计算、筛选与排序逻辑</th><th scope="col">展示及验收口径</th></tr></thead>
+                <tbody><tr v-for="item in section.items" :key="item.label"><th scope="row">{{ item.label }}</th><td>{{ item.source }}</td><td>{{ item.logic }}</td><td>{{ item.acceptance }}</td></tr></tbody>
+              </table>
+            </div>
           </section>
         </div>
       </section>
@@ -45,7 +55,7 @@
           <div v-if="headerNotice" class="header-notice">✓ {{ headerNotice }}</div>
         </header>
 
-        <div class="dashboard-grid">
+        <div class="dashboard-grid" :style="dashboardLayoutStyle">
           <aside class="left-rail">
             <PanelCard title="基础档案" class="archive-card">
               <div class="archive-list">
@@ -71,26 +81,26 @@
 
             <PanelCard title="资产设备监控" class="asset-health-card">
               <div class="asset-health-grid">
-                <button v-for="item in assetHealthStats" :key="item.key" class="asset-health-row" @click="selectedAssetHealth = item">
+                <div v-for="item in assetHealthStats" :key="item.key" class="asset-health-row">
                   <img class="asset-art" :class="item.key" :src="item.asset" :alt="`${item.label}图标`" />
                   <span class="asset-copy"><strong>{{ item.label }}</strong><em>{{ item.count }}{{ item.unit }}</em><b :class="item.tone">健康度 <i>{{ item.health }}%</i></b></span>
-                </button>
+                </div>
               </div>
             </PanelCard>
           </aside>
 
           <section class="analysis-column">
             <PanelCard title="昨日垃圾量乡镇排行（吨）" class="chart-card">
-              <VChart class="analysis-chart" :option="townWasteChartOption" :autoresize="false" :init-options="chartInitOptions" />
+              <VChart :key="`town-${resolutionMode}`" class="analysis-chart" :option="townWasteChartOption" :autoresize="false" :init-options="chartInitOptions" />
             </PanelCard>
             <PanelCard title="近7日清运走势（吨）" class="chart-card">
-              <VChart class="analysis-chart" :option="wasteTrendChartOption" :autoresize="false" :init-options="chartInitOptions" />
+              <VChart :key="`trend-${resolutionMode}`" class="analysis-chart" :option="wasteTrendChartOption" :autoresize="false" :init-options="chartInitOptions" />
             </PanelCard>
             <PanelCard title="昨日司机排行（按任务量）" class="chart-card">
-              <VChart class="analysis-chart" :option="driverRankChartOption" :autoresize="false" :init-options="chartInitOptions" />
+              <VChart :key="`driver-${resolutionMode}`" class="analysis-chart" :option="driverRankChartOption" :autoresize="false" :init-options="chartInitOptions" />
             </PanelCard>
             <PanelCard title="任务准点率（单/日）" class="chart-card">
-              <VChart class="analysis-chart" :option="ontimeTaskChartOption" :autoresize="false" :init-options="chartInitOptions" />
+              <VChart :key="`ontime-${resolutionMode}`" class="analysis-chart" :option="ontimeTaskChartOption" :autoresize="false" :init-options="chartInitOptions" />
             </PanelCard>
           </section>
 
@@ -366,11 +376,6 @@
               <section class="safety-attachment"><div class="attachment-title">告警附件 <span>{{ activeSafetyAttachment.kind === 'video' ? '视频' : '图片' }} · {{ safetyAttachmentIndex + 1 }}/{{ safetyAttachments.length }}</span></div><div class="attachment-stage" :class="[activeSafetyAttachment.kind, { playing: safetyVideoPlaying }]"><button class="attachment-nav prev" @click="changeSafetyAttachment(-1)">‹</button><div class="attachment-content" @click="activeSafetyAttachment.kind === 'video' && (safetyVideoPlaying = !safetyVideoPlaying)"><span>{{ activeSafetyAttachment.kind === 'video' ? (safetyVideoPlaying ? '▮▮ 视频播放中' : '▶ 点击播放视频') : '▣ 现场抓拍图片' }}</span><b>{{ activeSafetyAttachment.label }}</b></div><button class="attachment-nav next" @click="changeSafetyAttachment(1)">›</button></div><div class="attachment-dots"><i v-for="(item, index) in safetyAttachments" :key="`${item.kind}-${index}`" :class="{ active: index === safetyAttachmentIndex }" @click="safetyAttachmentIndex = index" /></div></section>
               <div class="safety-detail-grid"><div><span>车速</span><strong>{{ selectedSafetyMonitor.speed }} km/h</strong></div><div><span>告警等级</span><strong :class="selectedSafetyMonitor.tone">{{ selectedSafetyMonitor.level }}</strong></div><div class="wide"><span>告警地址</span><strong>{{ selectedSafetyMonitor.place }}</strong></div></div>
             </aside>
-            <aside v-if="selectedAssetHealth" class="asset-health-detail-panel">
-              <div class="panel-title">{{ selectedAssetHealth.label }}健康监控<button class="detail-close" @click="selectedAssetHealth = null">×</button></div>
-              <div class="asset-health-summary"><strong>{{ selectedAssetHealth.count }}{{ selectedAssetHealth.unit }}</strong><span>健康度 {{ selectedAssetHealth.health }}%</span><em>连续 3 天离线异常 {{ selectedAssetHealth.abnormal }} 个</em></div>
-              <div class="asset-exception-list"><div v-for="item in selectedAssetHealth.exceptions" :key="item.code"><strong>{{ item.name }}</strong><span>{{ item.code }} · {{ item.location }}</span><em>最后在线：{{ item.lastOnline }} · 连续离线 {{ item.days }} 天</em></div></div>
-            </aside>
           </main>
 
           <aside class="right-rail">
@@ -458,6 +463,11 @@
             </PanelCard>
           </aside>
 
+          <div v-if="showLayoutMetrics" class="layout-guide-layer" aria-hidden="true">
+            <div v-for="(item, index) in layoutMetrics" :key="item.key" class="layout-guide-cell">
+              <span><b>{{ index + 1 }}</b>{{ item.label }} · {{ item.width }}px · {{ item.ratio }}%</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -466,9 +476,10 @@
 
 <script setup lang="ts">
 import { type EChartsOption, graphic } from 'echarts'
-import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { type CSSProperties, computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import VChart from 'vue-echarts'
 import { longanVillageArchives, wgs84ToGcj02 } from './data/longan-archive'
+import { commandCenterPrdSections } from './data/command-center-july-v2-prd'
 import assetHealthBox from '@/assets/images/command-center/asset-health-box.png'
 import assetHealthVehicle from '@/assets/images/command-center/asset-health-vehicle.png'
 import assetHealthTricycle from '@/assets/images/command-center/asset-health-tricycle.png'
@@ -496,84 +507,31 @@ interface MapEntity {
 
 const DESIGN_WIDTH = 4784
 const DESIGN_HEIGHT = 1560
+const LAYOUT_PADDING = 14
+const LAYOUT_GAP = 14
+const LAYOUT_STATISTICS_WIDTH = 520
+const LAYOUT_CHARTS_WIDTH = 800
+const LAYOUT_DISPATCH_WIDTH = 900
+const LAYOUT_FIXED_WIDTH = LAYOUT_STATISTICS_WIDTH + LAYOUT_CHARTS_WIDTH + LAYOUT_DISPATCH_WIDTH
+const LAYOUT_SPACING_WIDTH = LAYOUT_PADDING * 2 + LAYOUT_GAP * 3
+const LAYOUT_MAP_WIDTH = DESIGN_WIDTH - LAYOUT_FIXED_WIDTH - LAYOUT_SPACING_WIDTH
+const formatLayoutRatio = (width: number) => ((width / DESIGN_WIDTH) * 100).toFixed(2)
 const resolutionMode = ref<'formal' | 'test'>('test')
 const showPrd = ref(false)
-const prdSections = [
-  { title: '1. 页面定位与业务目标', desc: '为区县级环卫运营提供全局监控、风险预警、任务调度与过程复盘的一屏式工作台。', items: [
-    { label: '目标用户', value: '运营主管查看全局运行与绩效；调度员处理告警、创建及调整收运任务；监管人员核验状态、轨迹与处置凭证。' },
-    { label: '核心闭环', value: '箱体高温 / 满溢 / 低电量告警 → 查看详情 → 快速创建收运单 → 驾驶员接单、收运、卸车 → 上传完成凭证 → 指标与任务状态同步更新。' },
-    { label: '数据范围', value: '覆盖车辆、箱体、收集点、中转站、焚烧厂、收运任务、告警、主动安全、乡镇档案与资产设备健康度。' },
-    { label: '展示原则', value: '大屏首屏优先呈现异常、在途与待调度事项；点击对象在地图右侧展示详情，关联的轨迹、任务、建单面板在相邻区域展开，不遮挡顶部汇总和底部图例。' },
-  ] },
-  { title: '2. 全局框架与公共交互', items: [
-    { label: '顶部汇总', value: '展示今日垃圾量、今日任务、待接单、收运中、已完成、已超时；数值用于快速判断当日运行负荷与异常量。' },
-    { label: '左侧分析区', value: '基础档案、累计数据、资产设备监控，以及乡镇垃圾量排行、近 7 日清运趋势、司机排行、任务准点率图表。' },
-    { label: '右侧工作台', value: '提供实时告警、任务监控、箱体监控、车辆监控、主动安全五个页签；页签内统计卡及列表均支持筛选或进入详情。' },
-    { label: '顶部工具', value: 'AI 小犀当前点击提示“智能助手即将上线”；全屏切换浏览器全屏；刷新反馈数据已刷新；设置可选择机构并保存。' },
-    { label: '分辨率模式', value: '正式分辨率用于 4784 × 1560 大屏；测试分辨率按容器自动缩放，保证普通显示器可完整查看。' },
-  ] },
-  { title: '3. 地图对象与详情面板', items: [
-    { label: '车辆：大 / 小勾臂车', value: '基本信息包含车牌、机构、VIN、设备号、车型、详细车型、定位时间、当前位置、今日里程、电量、称重、驾驶员与联系方式；状态仅为在线、离线、充电。大勾臂车可展示“下发”指令入口。' },
-    { label: '车辆：小三轮', value: '展示车牌、机构、设备号、车型、详细车型、定位时间、当前位置、今日里程、驾驶员、联系方式；状态仅为在线、离线；支持轨迹与跟踪。' },
-    { label: '箱体：小勾臂箱', value: '展示名称、编号、在线状态、上报时间、满溢状态、电量状态、温度状态、匹配对象、位置、垃圾占比、温度、电量。状态由在线 / 离线和满溢、低电量、高温标签组成。' },
-    { label: '箱体：大勾臂箱', value: '展示名称、编号、在线状态、上报时间、满溢状态、匹配对象、位置、垃圾占比；状态由在线 / 离线和满溢标签组成。' },
-    { label: '收集点 / 中转站 / 焚烧厂', value: '展示档案基本信息及其关联任务的今日完成单量、运输垃圾吨数；该三类固定设施不显示在线状态。' },
-    { label: '面板布局', value: '详情面板顶部不得超过汇总数据、底部不得超过图层图例；车辆与告警详情面板高度保持一致。车辆详情标题优先展示车牌号，且不显示车辆大图或无效留白。' },
-  ] },
-  { title: '4. 车辆调度能力', items: [
-    { label: '轨迹回放', value: '默认查询当天 00:00–23:59；显示模拟历史轨迹、起终点、里程与时间轴；提供播放 / 暂停及正常、5×、10×、15×、20×、25×、30×速度。' },
-    { label: '视频', value: '点击后展示该车辆 5 路摄像头数据，以分屏方式展示摄像头名称、在线状态和模拟视频画面。' },
-    { label: '对讲', value: '点击打开对讲面板；再次点击“对讲”建立模拟通话状态，按钮文案统一为“对讲”。' },
-    { label: '实时跟踪', value: '在地图中显示车辆当前位置及尾随行驶轨迹；通过模拟定时数据推动车辆图标与轨迹动态更新。' },
-    { label: '下发指令', value: '大勾臂车详情提供设备指令下发入口；作为原型展示，提交后给予已下发反馈。' },
-  ] },
-  { title: '5. 实时告警与快速建单', items: [
-    { label: '告警来源与字段', value: '告警来自大小勾臂箱高温、满溢等事件；列表显示时间、类型、位置、已读 / 未读、星标、关联任务单号。无关联任务时显示“-”，不展示“待创建”。' },
-    { label: '筛选与星标', value: '今日告警、未读、星标三张卡片均可筛选列表；详情支持添加星标或取消星标。' },
-    { label: '告警详情', value: '地图右侧展示箱体名称、告警描述、箱体编号、触发规则、地址、触发时间和关联任务；点击列表后未读状态可转为已读。' },
-    { label: '快速创建收运单', value: '点击“基于此快速创建收运单”在左侧展开建单面板；配置驾驶员、车辆、目的地、时效要求（30 / 60 / 90 / 120 分钟）和优先级（一般 / 紧急）。告警内容无需重复展示。' },
-    { label: '提交结果', value: '确认后提示“任务单创建好了”，新任务初始状态为待接单，并与该告警建立关联。' },
-  ] },
-  { title: '6. 任务监控与运单详情', items: [
-    { label: '统计筛选', value: '今日总任务、待接单、收运中、已超时卡片可切换列表；任务状态与超时状态可同时存在。未超时时不显示“未超时”标签。' },
-    { label: '任务列表', value: '每条任务使用两行布局：第一行任务名称与状态；第二行完整展示始发地 → 目的地，以及车牌号、车类型、驾驶员。所有演示任务均已分配车辆和驾驶员。' },
-    { label: '任务详情', value: '展示运单重点、始发地、目的地、时效、驾驶员 / 车辆、称重、辅助信息与关键事件时间线。' },
-    { label: '轨迹规则', value: '待接单为全虚线；已完成为全实线；收运中可前段实线、后段虚线，并以面向目的地的车辆图标表示实时位置。' },
-    { label: '关键事件', value: '已完成运单必须展示派单、接单、到达始发地、装车、发车、到达目的地、卸车完成、上传照片共 8 个事件。' },
-    { label: '异常处置', value: '未完成运单提供强制完成与转单；转单需要重新选择承接车辆 / 驾驶员，完成后列表与详情状态同步更新。' },
-  ] },
-  { title: '7. 箱体监控页签', items: [
-    { label: '汇总与切换', value: '仅保留小勾臂箱、大勾臂箱两张汇总卡，点击后切换对应列表；列表按垃圾占比从高到低排序。' },
-    { label: '小勾臂箱列表', value: '字段：箱体名称、编号、在线状态、满溢状态、电量状态、温度状态、垃圾占比；详情补充匹配对象、当前位置、温度、电量。' },
-    { label: '大勾臂箱列表', value: '字段：箱体名称、编号、在线状态、满溢状态、垃圾占比；详情补充匹配对象、当前位置。宽表允许横向滚动，禁止压缩导致列错位。' },
-    { label: '匹配对象', value: '小勾臂箱可关联车牌、收集点、中转站；大勾臂箱可关联车牌、中转站、焚烧厂。' },
-  ] },
-  { title: '8. 车辆监控页签', items: [
-    { label: '两级筛选', value: '第一层为小勾臂车 370、大勾臂车 6、小三轮车 540；第二层为全部、在线、充电、离线。默认小勾臂车 / 全部。' },
-    { label: '车牌搜索', value: '在车型卡片上方提供车牌号下拉补全搜索，可输入并选择车牌筛选。' },
-    { label: '列表字段', value: '单行展示车牌号、驾驶员、车类型、车辆状态；存在未完成运单时额外显示“收运中”标签，标签不影响文字对齐。' },
-    { label: '详情一致性', value: '点击车辆条目进入同地图点击车辆一致的详情；例如豫E606 标题显示“豫E606”，字段、操作与状态保持一致。' },
-  ] },
-  { title: '9. 主动安全页签', items: [
-    { label: '告警列表', value: '不展示统计卡；列表展示告警类型、时间、车牌号、地址、驾驶员、车速，点击进入详情。' },
-    { label: '事件等级', value: '支持一级、二级、三级、四级，用于详情与告警严重度表达。' },
-    { label: '详情与位置', value: '详情展示告警地址地图定位、车速、等级及告警附件。' },
-    { label: '告警附件', value: '图片、视频统一归为“告警附件”，采用轮播切换；视频排在图片前，视频可点击模拟播放 / 暂停。' },
-  ] },
-  { title: '10. 资产设备监控', items: [
-    { label: '展示指标', value: '固定展示箱体 382 个 / 健康度 98%，车辆 26 台 / 健康度 97%，小三轮 540 辆 / 健康度 95%。卡片采用独立透明 PNG 图标，保持深色大屏视觉。' },
-    { label: '健康度口径：箱体', value: '近 3 天持续离线的大小勾臂箱判定为异常，其他视为健康；健康度 = 健康设备数 ÷ 箱体总数 × 100%。' },
-    { label: '健康度口径：车辆', value: '近 3 天主动安全设备持续离线的车辆判定为异常，其他视为健康；健康度 = 健康车辆数 ÷ 车辆总数 × 100%。' },
-    { label: '健康度口径：小三轮', value: '近 3 天小三轮持续离线判定为异常，其他视为健康；健康度 = 健康小三轮数 ÷ 小三轮总数 × 100%。' },
-  ] },
-  { title: '11. 数据、状态与验收规则', items: [
-    { label: '状态枚举', value: '车辆：在线、离线、充电；小三轮：在线、离线；箱体：在线 / 离线叠加满溢、低电量、高温标签；收集点、中转站、焚烧厂不展示状态。' },
-    { label: '关联关系', value: '地图对象可关联最后一条收运任务；箱体、收集点、中转站、焚烧厂的统计均基于关联任务单计算。' },
-    { label: '数据刷新', value: '原型使用稳定模拟数据和动画数据；接口化时需按实体 ID 关联车辆定位、箱体遥测、告警、任务、视频流与附件。' },
-    { label: '视觉验收', value: '详情面板、轨迹面板、告警面板不得遮挡顶部汇总或底部图例；列表列宽不足时优先横向滚动或文本省略，禁止字段重叠、错行。' },
-    { label: '交互验收', value: '所有地图实体、右侧列表、统计筛选、轨迹 / 视频 / 对讲 / 跟踪、告警建单、任务强制完成 / 转单、附件轮播均有可见反馈。' },
-  ] },
+const showLayoutMetrics = ref(true)
+const layoutMetrics = [
+  { key: 'statistics', label: '最左侧数据统计区', width: LAYOUT_STATISTICS_WIDTH, ratio: formatLayoutRatio(LAYOUT_STATISTICS_WIDTH) },
+  { key: 'charts', label: '左中侧图表区', width: LAYOUT_CHARTS_WIDTH, ratio: formatLayoutRatio(LAYOUT_CHARTS_WIDTH) },
+  { key: 'map', label: '中间地图区', width: LAYOUT_MAP_WIDTH, ratio: formatLayoutRatio(LAYOUT_MAP_WIDTH) },
+  { key: 'dispatch', label: '右侧调度区', width: LAYOUT_DISPATCH_WIDTH, ratio: formatLayoutRatio(LAYOUT_DISPATCH_WIDTH) },
 ]
+const layoutSpacingMetric = { width: LAYOUT_SPACING_WIDTH, ratio: formatLayoutRatio(LAYOUT_SPACING_WIDTH) }
+const dashboardLayoutStyle = {
+  '--layout-statistics-width': `${LAYOUT_STATISTICS_WIDTH}px`,
+  '--layout-charts-width': `${LAYOUT_CHARTS_WIDTH}px`,
+  '--layout-dispatch-width': `${LAYOUT_DISPATCH_WIDTH}px`,
+} as CSSProperties
+const prdSections = commandCenterPrdSections
 const settingsOpen = ref(false)
 const organizations = ['龙安区环卫中心', '马投涧镇环卫站', '龙泉镇环卫站', '文明大道街道办']
 const selectedOrganization = ref(organizations[0])
@@ -760,8 +718,6 @@ const assetHealthStats = [
   { key: 'vehicle', asset: assetHealthVehicle, label: '车辆', count: 26, unit: '台', health: 97, abnormal: 1, tone: 'warning', exceptions: [{ name: '豫E5Q381', code: 'ADAS-E5Q381', location: '龙泉镇南街', lastOnline: '2026-07-10 07:32', days: 3 }] },
   { key: 'tricycle', asset: assetHealthTricycle, label: '小三轮', count: 540, unit: '辆', health: 95, abnormal: 27, tone: 'danger', exceptions: [{ name: '豫E9T266', code: 'TRI-E9T266', location: '善应镇北村', lastOnline: '2026-07-09 16:20', days: 4 }, { name: '豫E7L126', code: 'TRI-E7L126', location: '文明大道街道', lastOnline: '2026-07-10 09:55', days: 3 }] },
 ]
-const selectedAssetHealth = ref<(typeof assetHealthStats)[number] | null>(null)
-
 const townWasteRank = [
   { name: '龙泉镇', value: 186 },
   { name: '马家乡', value: 168 },
@@ -818,8 +774,18 @@ function chartFontSize(testSize: number, formalSize: number) {
   return resolutionMode.value === 'formal' ? formalSize : testSize
 }
 
+function chartSpace(testSize: number, formalSize: number) {
+  return resolutionMode.value === 'formal' ? formalSize : testSize
+}
+
 const townWasteChartOption = computed<EChartsOption>(() => ({
-  grid: { top: 12, right: 52, bottom: 8, left: 78 },
+  grid: {
+    top: chartSpace(12, 22),
+    right: chartSpace(52, 170),
+    bottom: chartSpace(8, 20),
+    left: chartSpace(12, 24),
+    containLabel: true,
+  },
   tooltip: {
     trigger: 'axis',
     axisPointer: { type: 'shadow' },
@@ -841,7 +807,7 @@ const townWasteChartOption = computed<EChartsOption>(() => ({
     data: townWasteRank.map((item) => item.name),
     axisLine: { show: false },
     axisTick: { show: false },
-    axisLabel: { color: '#d7ecff', fontSize: chartFontSize(12, 24), margin: 10 },
+    axisLabel: { color: '#d7ecff', fontSize: chartFontSize(12, 24), margin: 10, interval: 0 },
   },
   series: [{
     type: 'bar',
@@ -871,7 +837,13 @@ const townWasteChartOption = computed<EChartsOption>(() => ({
 }))
 
 const wasteTrendChartOption = computed<EChartsOption>(() => ({
-  grid: { top: 22, right: 20, bottom: 26, left: 42 },
+  grid: {
+    top: chartSpace(22, 38),
+    right: chartSpace(28, 70),
+    bottom: chartSpace(14, 28),
+    left: chartSpace(12, 24),
+    containLabel: true,
+  },
   tooltip: {
     trigger: 'axis',
     backgroundColor: 'rgba(4, 19, 33, 0.92)',
@@ -881,7 +853,8 @@ const wasteTrendChartOption = computed<EChartsOption>(() => ({
   },
   xAxis: {
     type: 'category',
-    boundaryGap: false,
+    // 给首尾数据点留出半个类目宽度，避免正式分辨率下数值标签与纵轴、右边界相撞。
+    boundaryGap: true,
     data: wasteTrend.map((item) => item.date),
     axisLine: { lineStyle: { color: 'rgba(96, 164, 220, 0.2)' } },
     axisTick: { show: false },
@@ -924,13 +897,24 @@ const wasteTrendChartOption = computed<EChartsOption>(() => ({
 }))
 
 const driverRankChartOption = computed<EChartsOption>(() => ({
-  grid: { top: 12, right: 76, bottom: 10, left: 70 },
+  grid: {
+    top: chartSpace(12, 22),
+    right: chartSpace(76, 220),
+    bottom: chartSpace(10, 22),
+    left: chartSpace(12, 24),
+    containLabel: true,
+  },
   tooltip: {
     trigger: 'axis',
     axisPointer: { type: 'shadow' },
     backgroundColor: 'rgba(4, 19, 33, 0.92)',
     borderColor: 'rgba(69, 196, 255, 0.38)',
     textStyle: { color: '#dff7ff', fontSize: chartFontSize(12, 22) },
+    formatter: (params: any) => {
+      const point = Array.isArray(params) ? params[0] : params
+      const item = driverRank[point?.dataIndex ?? 0]
+      return `${item.name}<br/>任务量：${item.tasks} 单<br/>准点率：${item.rate}%`
+    },
   },
   xAxis: {
     type: 'value',
@@ -945,7 +929,7 @@ const driverRankChartOption = computed<EChartsOption>(() => ({
     data: driverRank.map((item) => item.name),
     axisLine: { show: false },
     axisTick: { show: false },
-    axisLabel: { color: '#d7ecff', fontSize: chartFontSize(12, 24), margin: 10 },
+    axisLabel: { color: '#d7ecff', fontSize: chartFontSize(12, 24), margin: 10, interval: 0 },
   },
   series: [
     {
@@ -965,31 +949,29 @@ const driverRankChartOption = computed<EChartsOption>(() => ({
       label: {
         show: true,
         position: 'right',
-        color: '#e7f7ff',
-        fontSize: chartFontSize(11, 22),
-        formatter: '{c} 单',
+        distance: chartSpace(6, 12),
+        formatter: (params: any) => {
+          const item = driverRank[params.dataIndex]
+          return `{tasks|${item.tasks} 单}  {rate|${item.rate}%}`
+        },
+        rich: {
+          tasks: { color: '#e7f7ff', fontSize: chartFontSize(11, 22) },
+          rate: { color: '#43f08f', fontSize: chartFontSize(11, 22) },
+        },
       },
-    },
-    {
-      name: '准点率',
-      type: 'scatter',
-      data: driverRank.map((item) => [item.tasks + 4, item.name, item.rate]),
-      symbolSize: chartFontSize(1, 1),
-      label: {
-        show: true,
-        position: 'right',
-        color: '#43f08f',
-        fontSize: chartFontSize(11, 22),
-        formatter: (params: any) => `${params.value[2]}%`,
-      },
-      tooltip: { show: false },
     },
   ],
   animation: false,
 }))
 
 const ontimeTaskChartOption = computed<EChartsOption>(() => ({
-  grid: { top: 32, right: 46, bottom: 28, left: 42 },
+  grid: {
+    top: chartSpace(32, 62),
+    right: chartSpace(46, 86),
+    bottom: chartSpace(16, 30),
+    left: chartSpace(12, 24),
+    containLabel: true,
+  },
   legend: {
     top: 0,
     right: 4,
@@ -1008,7 +990,7 @@ const ontimeTaskChartOption = computed<EChartsOption>(() => ({
     data: ontimeTaskTrend.map((item) => item.date),
     axisLine: { lineStyle: { color: 'rgba(96, 164, 220, 0.2)' } },
     axisTick: { show: false },
-    axisLabel: { color: chartTextColor, fontSize: chartFontSize(11, 20) },
+    axisLabel: { color: chartTextColor, fontSize: chartFontSize(11, 20), interval: 0 },
   },
   yAxis: [
     {
@@ -1022,7 +1004,6 @@ const ontimeTaskChartOption = computed<EChartsOption>(() => ({
     },
     {
       type: 'value',
-      name: '%',
       min: 90,
       max: 100,
       splitLine: { show: false },
@@ -2022,6 +2003,7 @@ const PanelCard = {
   right: auto;
   left: 12px;
   display: flex;
+  align-items: center;
   gap: 4px;
   margin: 0;
 
@@ -2043,6 +2025,25 @@ const PanelCard = {
   }
 }
 
+.layout-spacing-note {
+  display: inline-flex;
+  align-items: center;
+  height: 24px;
+  margin-left: 4px;
+  padding: 0 9px;
+  color: #9fc7dc;
+  font-size: 11px;
+  white-space: nowrap;
+  background: rgba(7, 28, 47, 0.94);
+  border: 1px solid rgba(80, 190, 231, 0.34);
+  border-radius: 4px;
+
+  strong {
+    margin: 0 3px;
+    color: #68e6ff;
+  }
+}
+
 .prd-mask {
   position: fixed;
   z-index: 120;
@@ -2057,7 +2058,7 @@ const PanelCard = {
 .prd-board {
   display: flex;
   flex-direction: column;
-  width: min(1180px, 94vw);
+  width: min(1560px, 96vw);
   max-height: min(880px, calc(100vh - 56px));
   overflow: hidden;
   color: #d8e9f8;
@@ -2154,15 +2155,25 @@ const PanelCard = {
   line-height: 1.7;
 }
 
+.prd-table-wrap {
+  overflow-x: auto;
+  border: 1px solid rgba(85, 176, 217, 0.3);
+  border-radius: 5px;
+}
+
 .prd-table {
   width: 100%;
-  overflow: hidden;
+  min-width: 1220px;
   font-size: 13px;
   line-height: 1.7;
-  border: 1px solid rgba(85, 176, 217, 0.3);
   border-collapse: separate;
   border-spacing: 0;
-  border-radius: 5px;
+  table-layout: fixed;
+
+  .prd-col-name { width: 15%; }
+  .prd-col-source { width: 24%; }
+  .prd-col-logic { width: 34%; }
+  .prd-col-acceptance { width: 27%; }
 
   th,
   td {
@@ -2179,21 +2190,17 @@ const PanelCard = {
     background: rgba(17, 66, 91, 0.7);
   }
 
-  th:first-child,
-  td:first-child {
-    width: 190px;
-  }
-
-  td:first-child {
+  tbody th {
     color: #dff7ff;
     font-weight: 700;
     background: rgba(13, 53, 76, 0.38);
   }
 
-  td:last-child { color: #b8d2e2; }
+  td { color: #b8d2e2; }
   th:last-child,
   td:last-child { border-right: 0; }
-  tr:last-child td { border-bottom: 0; }
+  tbody tr:last-child th,
+  tbody tr:last-child td { border-bottom: 0; }
 }
 
 @media (max-width: 720px) {
@@ -2201,7 +2208,7 @@ const PanelCard = {
   .prd-head, .prd-meta, .prd-body { padding-right: 16px; padding-left: 16px; }
   .prd-head h2 { font-size: 21px; }
   .prd-table { font-size: 12px; }
-  .prd-table th:first-child, .prd-table td:first-child { width: 112px; }
+  .prd-table { min-width: 1080px; }
 }
 
 .stage-viewport {
@@ -2325,11 +2332,95 @@ const PanelCard = {
 }
 
 .dashboard-grid {
+  position: relative;
   display: grid;
-  grid-template-columns: 620px 760px minmax(0, 1fr) 0 900px;
+  grid-template-columns: var(--layout-statistics-width) var(--layout-charts-width) minmax(0, 1fr) var(--layout-dispatch-width);
   gap: 14px;
   height: calc(100% - 92px);
   padding: 14px;
+}
+
+.layout-guide-layer {
+  position: absolute;
+  z-index: 45;
+  inset: 14px;
+  display: grid;
+  grid-template-columns: var(--layout-statistics-width) var(--layout-charts-width) minmax(0, 1fr) var(--layout-dispatch-width);
+  gap: 14px;
+  pointer-events: none;
+}
+
+.layout-guide-cell {
+  position: relative;
+  min-width: 0;
+  border-top: 2px dashed rgba(99, 231, 255, 0.88);
+
+  &::before,
+  &::after {
+    position: absolute;
+    top: -7px;
+    width: 2px;
+    height: 14px;
+    background: #63e7ff;
+    content: '';
+    box-shadow: 0 0 7px rgba(99, 231, 255, 0.8);
+  }
+
+  &::before { left: 0; }
+  &::after { right: 0; }
+
+  span {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    max-width: calc(100% - 20px);
+    height: 38px;
+    padding: 0 14px;
+    overflow: hidden;
+    color: #dffaff;
+    font-size: 22px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    background: rgba(5, 35, 55, 0.94);
+    border: 1px solid rgba(99, 231, 255, 0.72);
+    border-radius: 4px;
+    transform: translateX(-50%);
+    box-shadow: 0 0 18px rgba(44, 201, 255, 0.26);
+  }
+
+  b {
+    display: inline-grid;
+    flex: 0 0 24px;
+    width: 24px;
+    height: 24px;
+    color: #032338;
+    font-size: 16px;
+    place-items: center;
+    background: #63e7ff;
+    border-radius: 50%;
+  }
+
+  &:nth-child(2) {
+    border-color: rgba(85, 238, 176, 0.88);
+    &::before, &::after, b { background: #55eeb0; }
+    span { border-color: rgba(85, 238, 176, 0.72); }
+  }
+
+  &:nth-child(3) {
+    border-color: rgba(255, 209, 115, 0.9);
+    &::before, &::after, b { background: #ffd173; }
+    span { border-color: rgba(255, 209, 115, 0.72); }
+  }
+
+  &:nth-child(4) {
+    border-color: rgba(157, 143, 255, 0.9);
+    &::before, &::after, b { background: #9d8fff; }
+    span { border-color: rgba(157, 143, 255, 0.72); }
+  }
 }
 
 :deep(.panel-card),
@@ -2371,8 +2462,8 @@ const PanelCard = {
 
 .left-rail {
   grid-column: 1;
-  // 基础档案保持新增资产模块前的可视高度，资产模块使用紧凑指标卡承载。
-  grid-template-rows: 1.8fr 0.8fr 0.75fr;
+  // 保持基础档案高度，压缩资产区并把空间补给累计数据，避免底部模块拥挤或大面积留白。
+  grid-template-rows: 1.8fr 1.05fr 0.45fr;
   animation: panelEnterLeft 0.7s ease both;
 }
 
@@ -2419,64 +2510,68 @@ const PanelCard = {
 // 资产设备监控：使用独立透明 PNG，构图与方案一一致，避免 CSS 图标在不同分辨率下变形。
 .asset-health-card {
   min-height: 0;
+  margin-top: 10px;
 }
 
 .asset-health-card .asset-health-grid {
   display: grid;
+  box-sizing: border-box;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 18px;
-  height: calc(100% - 34px);
-  padding: 12px 18px 18px;
+  gap: 0;
+  height: calc(100% - 72px);
+  padding: 2px 12px 8px;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
 }
 
 .asset-health-card .asset-health-row {
   position: relative;
   display: grid;
-  grid-template-columns: 48% 52%;
+  // 图标列固定，避免百分比网格在大屏缩放后挤压右侧数字区。
+  grid-template-columns: 58px minmax(0, 1fr);
   grid-template-rows: 1fr;
   min-width: 0;
   min-height: 0;
-  padding: 12px 14px;
-  overflow: hidden;
+  padding: 5px 12px;
+  overflow: visible;
   color: #dff3ff;
-  background: linear-gradient(135deg, rgba(17, 74, 105, 0.84), rgba(4, 31, 51, 0.9));
-  border: 1px solid rgba(64, 203, 249, 0.72);
-  border-radius: 12px;
-  box-shadow: inset 0 0 26px rgba(47, 204, 255, 0.09), 0 0 14px rgba(20, 160, 224, 0.07);
-}
+  cursor: default;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
 
-.asset-health-card .asset-health-row:hover {
-  background: linear-gradient(135deg, rgba(21, 96, 132, 0.9), rgba(5, 38, 61, 0.94));
-  border-color: #6ee7ff;
+  &:not(:last-child) { border-right: 1px solid rgba(78, 186, 226, 0.42); }
 }
 
 .asset-health-card .asset-art {
   z-index: 1;
   align-self: center;
   justify-self: start;
-  width: 142px;
-  height: min(122px, calc(100% - 2px));
-  max-width: 138%;
+  width: 46px;
+  height: min(44px, calc(100% - 4px));
+  max-width: 100%;
   object-fit: contain;
   filter: drop-shadow(0 0 8px rgba(73, 224, 255, 0.34));
 }
 
 .asset-health-card .asset-art.box {
-  width: 158px;
-  height: min(138px, calc(100% - 2px));
-  margin-left: -18px;
+  width: 50px;
+  height: min(48px, calc(100% - 4px));
+  margin-left: 0;
 }
 
 .asset-health-card .asset-art.vehicle {
-  width: 130px;
-  height: min(108px, calc(100% - 2px));
-  margin-left: -5px;
+  width: 48px;
+  height: min(40px, calc(100% - 4px));
+  margin-left: 0;
 }
 
 .asset-health-card .asset-art.tricycle {
-  width: 126px;
-  height: min(104px, calc(100% - 2px));
-  margin-left: -2px;
+  width: 44px;
+  height: min(38px, calc(100% - 4px));
+  margin-left: 0;
   filter: drop-shadow(0 0 8px rgba(100, 248, 189, 0.34));
 }
 
@@ -2485,14 +2580,14 @@ const PanelCard = {
   display: grid;
   grid-template-columns: 1fr;
   align-content: center;
-  gap: 8px;
+  gap: 2px;
   min-width: 0;
-  padding: 0 0 0 4px;
+  padding: 0;
 }
 
 .asset-health-card .asset-copy strong {
   color: #e3f7ff;
-  font-size: 20px;
+  font-size: 15px;
   font-weight: 700;
   letter-spacing: 1px;
 }
@@ -2500,7 +2595,7 @@ const PanelCard = {
 .asset-health-card .asset-copy em {
   color: #f3fbff;
   font-family: DINPro, Arial, sans-serif;
-  font-size: 39px;
+  font-size: 24px;
   font-style: normal;
   font-weight: 500;
   line-height: 1;
@@ -2512,19 +2607,22 @@ const PanelCard = {
   display: flex;
   grid-column: auto;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
+  gap: 4px;
+  box-sizing: border-box;
   width: 100%;
-  min-width: 104px;
-  min-height: 38px;
-  margin-top: 4px;
-  padding: 6px 10px;
+  min-width: 0;
+  min-height: 0;
+  margin-top: 1px;
+  padding: 0;
   color: #67eca9;
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 500;
   line-height: 1.15;
-  background: rgba(10, 65, 73, 0.68);
-  border: 1px solid rgba(63, 219, 179, 0.42);
-  border-radius: 5px;
+  white-space: nowrap;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
 }
 
 .asset-health-card .asset-copy b::before {
@@ -2533,7 +2631,7 @@ const PanelCard = {
 
 .asset-health-card .asset-copy b i {
   color: inherit;
-  font-size: 24px;
+  font-size: 17px;
   font-style: normal;
   font-weight: 800;
 }
@@ -2547,6 +2645,15 @@ const PanelCard = {
   strong {
     text-align: right;
   }
+}
+
+.screen-shell .result-card .operation-list {
+  gap: 8px;
+  padding-bottom: 18px;
+}
+
+.screen-shell .result-card .operation-row {
+  min-height: 60px;
 }
 
 .row-icon {
@@ -2563,6 +2670,7 @@ const PanelCard = {
 .analysis-chart {
   position: relative;
   z-index: 1;
+  box-sizing: border-box;
   width: 100%;
   height: calc(100% - 36px);
   padding: 4px 8px 8px;
@@ -2574,6 +2682,8 @@ const PanelCard = {
 .ontime-chart {
   position: relative;
   z-index: 1;
+  box-sizing: border-box;
+  width: 100%;
   height: calc(100% - 36px);
   padding: 6px 12px 12px;
 }
@@ -2778,7 +2888,7 @@ const PanelCard = {
 }
 
 .map-panel {
-  grid-column: 3 / 5;
+  grid-column: 3;
   display: flex;
   flex-direction: column;
   padding: 4px;
@@ -3431,7 +3541,7 @@ const PanelCard = {
 }
 
 .right-rail {
-  grid-column: 5;
+  grid-column: 4;
   min-width: 0;
   animation: panelEnterRight 0.78s ease 0.08s both;
 }
@@ -3447,13 +3557,46 @@ const PanelCard = {
   position: absolute;
   top: 6px;
   right: 8px;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
   width: 28px;
   height: 28px;
+  padding: 0;
   color: #9fc7e6;
   cursor: pointer;
+  font-size: 0;
+  line-height: 1;
   background: rgba(10, 34, 52, 0.9);
   border: 1px solid rgba(84, 160, 224, 0.34);
   border-radius: 4px;
+  transition: border-color 0.18s ease, background 0.18s ease;
+
+  &::before,
+  &::after {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 15px;
+    height: 2px;
+    background: #a9d4f1;
+    border-radius: 2px;
+    transform-origin: center;
+    content: "";
+  }
+
+  &::before {
+    transform: translate(-50%, -50%) rotate(45deg);
+  }
+
+  &::after {
+    transform: translate(-50%, -50%) rotate(-45deg);
+  }
+
+  &:hover {
+    background: rgba(20, 70, 98, 0.94);
+    border-color: rgba(103, 215, 255, 0.72);
+  }
 }
 
 .entity-tabs,
@@ -4467,7 +4610,8 @@ const PanelCard = {
       display: flex;
       justify-content: flex-start;
       gap: 8px;
-      transform: translateX(34px);
+      box-sizing: border-box;
+      padding-left: 34px;
     }
 
     .task-row-second {
@@ -4684,6 +4828,123 @@ const PanelCard = {
     transform: scale(1.2);
     box-shadow: 0 0 22px rgba(255, 74, 54, 0.95);
   }
+}
+
+// 右侧监控页签局部留白：搜索区保持紧凑，主动安全表格不再紧贴页签。
+.vehicle-plate-search {
+  grid-template-columns: max-content minmax(260px, 420px);
+  justify-content: start;
+  gap: 14px;
+  padding: 16px 24px 0;
+  white-space: nowrap;
+}
+
+.vehicle-plate-search input {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.safety-table {
+  margin: 20px 24px 24px;
+}
+
+// 右侧地图弹层可读性优化：提升文字层级，保持原有高度边界与紧凑按钮。
+.detail-panel,
+.alarm-detail-panel,
+.task-detail-panel,
+.safety-detail-panel,
+.asset-health-detail-panel,
+.box-detail-panel {
+  width: 540px;
+}
+
+.detail-panel {
+  padding-right: 10px;
+  padding-left: 10px;
+}
+
+.alarm-task-panel {
+  right: 554px;
+}
+
+.entity-summary {
+  div { font-size: 14px; }
+  strong { font-size: 18px; }
+  p { font-size: 13px; }
+  .entity-status-line strong { font-size: 15px; }
+}
+
+.detail-section .detail-list {
+  span { font-size: 12px; }
+  strong { font-size: 14px; }
+}
+
+.task-name { font-size: 15px; }
+.task-stop {
+  span { font-size: 11px; }
+  strong { font-size: 13px; }
+}
+.task-meta { font-size: 12px; }
+
+.alarm-detail-head { font-size: 18px; }
+.alarm-detail-head em { font-size: 12px; }
+.alarm-detail-grid {
+  span { font-size: 12px; }
+  strong { font-size: 14px; }
+}
+
+.task-detail-header {
+  strong { font-size: 18px; }
+  span { font-size: 12px; }
+  > em { font-size: 12px; }
+}
+.task-route-map span { font-size: 11px; }
+.task-info-cards {
+  span { font-size: 11px; }
+  strong { font-size: 14px; }
+  em { font-size: 11px; }
+}
+.task-detail-section h4 { font-size: 14px; }
+.task-focus {
+  span { font-size: 11px; }
+  b { font-size: 14px; }
+}
+.task-timeline {
+  b, span, em { font-size: 12px; }
+}
+.task-assist-grid {
+  span { font-size: 11px; }
+  strong { font-size: 12px; }
+}
+
+.safety-detail-title {
+  strong { font-size: 19px; }
+  span { font-size: 13px; }
+}
+.safety-location-map {
+  span { font-size: 14px; }
+  em { font-size: 12px; }
+}
+.attachment-title {
+  font-size: 14px;
+  span { font-size: 12px; }
+}
+.attachment-content {
+  span { font-size: 16px; }
+  b { font-size: 12px; }
+}
+.safety-detail-grid {
+  span { font-size: 12px; }
+  strong { font-size: 14px; }
+}
+
+.box-detail-title {
+  strong { font-size: 19px; }
+  span { font-size: 13px; }
+}
+.box-detail-grid {
+  span { font-size: 12px; }
+  strong { font-size: 14px; }
 }
 
 @keyframes liveCarPulse {

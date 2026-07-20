@@ -1059,7 +1059,8 @@ const mapKpis = [
   { label: '已超时', value: '20', unit: '单' },
 ]
 
-const MAP_ICON_BASE = '/static/images/command-center-v2/map-icons'
+// 使用 Vite 的基础路径，兼容 GitHub Pages 在 /continew-admin-ui/ 子路径下部署。
+const MAP_ICON_BASE = `${import.meta.env.BASE_URL}static/images/command-center-v2/map-icons`
 const mapLayerIconMap: Record<string, string> = {
   smallTruck: `${MAP_ICON_BASE}/tricycle.png`,
   hookTruck: `${MAP_ICON_BASE}/hook-truck.png`,

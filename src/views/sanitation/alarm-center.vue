@@ -87,6 +87,15 @@
             <a-select v-model="typeFilter" class="filter-select">
               <a-option v-for="item in typeFilters" :key="item" :value="item">{{ item }}</a-option>
             </a-select>
+            <a-range-picker
+              v-if="isCreateMode"
+              v-model="triggerTimeRange"
+              class="time-range-picker"
+              format="YYYY-MM-DD"
+              value-format="YYYY-MM-DD"
+              :placeholder="['开始日期', '结束日期']"
+              allow-clear
+            />
             <a-select v-model="readStatusFilter" placeholder="阅读状态" class="filter-select">
               <a-option v-for="item in readStatusFilters" :key="item" :value="item">{{ item }}</a-option>
             </a-select>
@@ -324,6 +333,7 @@ const router = useRouter()
 const keyword = ref('')
 const alarmIdKeyword = ref('')
 const typeFilter = ref('全部类型')
+const triggerTimeRange = ref<string[]>([])
 const readStatusFilter = ref('全部')
 const taskStatusFilter = ref('全部')
 const starredFilter = ref('全部')
@@ -401,11 +411,15 @@ const destinationOptions = computed(() => {
   return destinations.filter((item) => item.type === '中转站').map((item) => item.name)
 })
 
-const metrics = computed(() => [
-  { label: '今日告警', value: sanitationAlarms.length, unit: '条', tone: 'danger' },
-  { label: '未读', value: sanitationAlarms.filter((item) => item.readStatus === '未读').length, unit: '条', tone: 'danger' },
-  { label: '星标', value: sanitationAlarms.filter((item) => item.starred).length, unit: '条', tone: 'warning' },
-])
+const metrics = computed(() => {
+  const baseMetrics = [
+    { label: '今日告警', value: sanitationAlarms.length, unit: '条', tone: 'danger' },
+    { label: '星标', value: sanitationAlarms.filter((item) => item.starred).length, unit: '条', tone: 'warning' },
+  ]
+  return isCreateMode.value
+    ? baseMetrics
+    : [baseMetrics[0], { label: '未读', value: sanitationAlarms.filter((item) => item.readStatus === '未读').length, unit: '条', tone: 'danger' }, baseMetrics[1]]
+})
 
 const baseColumns = [
   { title: '序号', width: 70, align: 'center' as const, render: ({ rowIndex }: any) => rowIndex + 1 },
@@ -440,6 +454,13 @@ const filteredAlarms = computed(() => {
     result = result.filter((item) => `${item.boxName}${item.address}${item.content}`.includes(keyword.value))
   }
   if (typeFilter.value !== '全部类型') result = result.filter((item) => item.type === typeFilter.value)
+  if (isCreateMode.value && triggerTimeRange.value.length === 2) {
+    const [startDate, endDate] = triggerTimeRange.value
+    result = result.filter((item) => {
+      const triggerDate = item.triggerTime.slice(0, 10).replaceAll('/', '-')
+      return triggerDate >= startDate && triggerDate <= endDate
+    })
+  }
   if (readStatusFilter.value !== '全部') result = result.filter((item) => item.readStatus === readStatusFilter.value)
   if (taskStatusFilter.value === '未建任务单') result = result.filter((item) => !item.linkedTaskId)
   if (taskStatusFilter.value === '已建任务单') result = result.filter((item) => Boolean(item.linkedTaskId))
@@ -552,6 +573,7 @@ async function focusAlarmFromNotification(alarmId: string) {
   alarmIdKeyword.value = alarm.id
   keyword.value = ''
   typeFilter.value = '全部类型'
+  triggerTimeRange.value = []
   readStatusFilter.value = '全部'
   taskStatusFilter.value = '全部'
   starredFilter.value = '全部'

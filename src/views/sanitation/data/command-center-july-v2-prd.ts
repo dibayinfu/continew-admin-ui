@@ -353,10 +353,10 @@ export const commandCenterPrdSections: CommandCenterPrdSection[] = [
     desc: '汇总卡和列表必须来自同一条件的告警查询；用户已读和星标属于用户维度状态。',
     items: [
       {
-        label: '今日告警/未读/星标',
-        source: '今日触发告警；已读与星标关联 `userId + alarmId`。',
-        logic: '今日告警=今日告警总数；未读=当前用户未读数；星标=当前用户星标数。点击卡片分别筛选全部、未读、星标。',
-        acceptance: '当前卡片36/8/12与6条Mock列表不一致；生产卡片必须由列表同条件COUNT生成。',
+        label: '今日告警/近3日告警/星标',
+        source: '告警触发时间；星标关联 `userId + alarmId`。',
+        logic: '今日告警=当天告警总数；近3日告警=含当天在内近3日告警总数；星标=当前用户星标数。点击卡片分别筛选今日、近3日、星标告警。',
+        acceptance: '卡片计数与列表使用同一数据源和筛选条件。',
       },
       {
         label: '时间列',

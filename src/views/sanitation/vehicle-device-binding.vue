@@ -2,7 +2,7 @@
   <div class="gi_page sanitation-page">
     <ModuleHeader
       title="车辆绑定设备"
-      subtitle="为小勾臂车、大勾臂车绑定融涞整车称重设备；绑定确认后设备不可在本页面修改。"
+      subtitle="按机构选择车辆并绑定整车称重设备；仅显示和操作当前需要新增的绑定数据。"
       phase="V1.0"
       priority="P0"
       module="基础档案"
@@ -30,64 +30,92 @@
 
     <div class="table-panel">
       <div class="toolbar">
-        <a-space wrap>
-          <a-input-search v-model="keyword" placeholder="搜索车牌号或整车称重设备" allow-clear class="search-input" />
-          <a-select v-model="bindingFilter" class="filter-select">
-            <a-option v-for="item in bindingFilters" :key="item" :value="item">{{ item }}</a-option>
-          </a-select>
-          <a-button @click="reset">
-            <template #icon><icon-refresh /></template>
-            重置
-          </a-button>
-        </a-space>
-        <a-button type="outline" @click="refresh">
-          <template #icon><icon-sync /></template>
-          刷新
+        <a-button type="primary" @click="openBinding">
+          <template #icon><icon-plus /></template>
+          新增绑定
         </a-button>
       </div>
-
       <a-table
         row-key="id"
-        :data="filteredRows"
+        :data="bindingRecords"
         :columns="tableColumns"
         :pagination="{ pageSize: 20, showTotal: true, showJumper: true }"
         :scroll="{ x: 1120 }"
         stripe
       >
         <template #cell="{ column, record }">
-          <StatusTag v-if="column.dataIndex === 'bindingStatus'" :value="record.bindingStatus" />
-          <span v-else-if="column.dataIndex === 'weighDeviceNo'" :class="{ 'empty-text': !record.weighDeviceNo }">
-            {{ record.weighDeviceNo || '未绑定' }}
-          </span>
+          <a-tag v-if="column.dataIndex === 'bindingStatus'" color="green">{{ record.bindingStatus }}</a-tag>
           <span v-else>{{ record[column.dataIndex] ?? '-' }}</span>
-        </template>
-        <template #action="{ record }">
-          <a-button v-if="!record.weighDeviceNo" type="primary" size="mini" @click="openBinding(record)">
-            绑定设备
-          </a-button>
-          <a-tooltip v-else content="设备已绑定并锁定，如需更换请走设备运维审批流程">
-            <a-button size="mini" disabled>已绑定，禁止修改</a-button>
-          </a-tooltip>
         </template>
       </a-table>
     </div>
 
-    <a-modal v-model:visible="bindingVisible" title="绑定整车称重设备" :ok-button-props="{ disabled: !selectedDeviceNo }" @ok="confirmBinding">
-      <a-alert type="warning" :show-icon="true" class="binding-alert">
-        确认绑定后，本页面不支持修改或解除该车辆的称重设备。
+    <a-modal
+      v-model:visible="bindingVisible"
+      title="新增车辆设备绑定"
+      :footer="false"
+      @cancel="resetForm"
+    >
+      <a-alert type="info" :show-icon="true" class="binding-alert">
+        设备列表仅显示启用且未绑定的设备，暂不支持解绑，请谨慎操作。
       </a-alert>
       <a-form :model="bindingForm" layout="vertical" class="binding-form">
-        <a-form-item label="车辆">
-          <a-input :model-value="selectedVehicle ? `${selectedVehicle.plateNo}（${selectedVehicle.vehicleType}）` : ''" disabled />
+        <a-form-item label="所属公司" required>
+          <a-select
+            v-model="bindingForm.organization"
+            placeholder="请输入公司名称进行搜索"
+            allow-search
+            allow-clear
+            @change="handleOrganizationChange"
+          >
+            <a-option v-for="organization in organizations" :key="organization" :value="organization">
+              {{ organization }}
+            </a-option>
+          </a-select>
+        </a-form-item>
+        <a-form-item label="车辆" required>
+          <a-select
+            v-model="bindingForm.vehicleId"
+            placeholder="请先选择所属公司，再搜索车牌号"
+            allow-search
+            allow-clear
+            :disabled="!bindingForm.organization"
+            @change="handleVehicleChange"
+          >
+            <a-option v-for="vehicle in organizationVehicles" :key="vehicle.id" :value="vehicle.id">
+              {{ vehicle.plateNo }} · {{ vehicle.vehicleType }}
+            </a-option>
+          </a-select>
         </a-form-item>
         <a-form-item label="整车称重设备" required>
-          <a-select v-model="selectedDeviceNo" placeholder="请选择启用且未绑定的整车称重设备" allow-search>
+          <a-select
+            v-model="bindingForm.deviceNo"
+            placeholder="请选择启用且未绑定的整车称重设备"
+            allow-search
+            allow-clear
+          >
             <a-option v-for="device in availableDevices" :key="device.deviceNo" :value="device.deviceNo">
               {{ device.deviceNo }} · {{ device.manufacturer }}
             </a-option>
           </a-select>
+          <div v-if="!availableDevices.length" class="field-tip">当前没有可绑定的整车称重设备。</div>
         </a-form-item>
       </a-form>
+
+      <a-descriptions v-if="selectedDevice" title="设备基本信息" :column="2" bordered size="small" class="device-info">
+        <a-descriptions-item label="设备编号">{{ selectedDevice.deviceNo }}</a-descriptions-item>
+        <a-descriptions-item label="设备名称">{{ selectedDevice.deviceName }}</a-descriptions-item>
+        <a-descriptions-item label="设备类型">{{ selectedDevice.deviceType }}</a-descriptions-item>
+        <a-descriptions-item label="设备厂家">{{ selectedDevice.manufacturer }}</a-descriptions-item>
+        <a-descriptions-item label="SIM 卡号" :span="2">{{ selectedDevice.simCard }}</a-descriptions-item>
+        <a-descriptions-item label="绑定状态" :span="2"><a-tag color="green">未绑定，可绑定</a-tag></a-descriptions-item>
+      </a-descriptions>
+      <div class="modal-footer">
+        <a-button @click="closeBinding">取消</a-button>
+        <a-popconfirm content="确认添加后，暂不支持修改或解除绑定，请谨慎操作。" @ok="confirmBinding">
+          <a-button type="primary" :disabled="!canSubmit">确定</a-button>
+        </a-popconfirm>
+      </div>
     </a-modal>
   </div>
 </template>
@@ -96,7 +124,6 @@
 import { computed, reactive, ref } from 'vue'
 import { Message as ArcoMessage } from '@arco-design/web-vue'
 import ModuleHeader from './components/ModuleHeader.vue'
-import StatusTag from './components/StatusTag.vue'
 import { devices } from './data/pageConfigs'
 import { vehicles } from './data/mock'
 
@@ -106,124 +133,140 @@ type BindingVehicle = {
   id: string
   plateNo: string
   vehicleType: '小勾臂车' | '大勾臂车'
-  town: string
-  driver: string
-  weighDeviceNo: string
-  bindingStatus: '未绑定' | '已绑定'
+  organization: string
 }
 
-const supplementalSmallHookVehicles: BindingVehicle[] = [
-  ['CAR-BIND-008', '豫E6A112', '马投涧镇', '刘师傅'], ['CAR-BIND-009', '豫E5B236', '龙泉镇', '陈师傅'],
-  ['CAR-BIND-010', '豫E9D518', '善应镇', '周师傅'], ['CAR-BIND-011', '豫E2F631', '马家乡', '冯师傅'],
-  ['CAR-BIND-012', '豫E4H725', '东风乡', '何师傅'], ['CAR-BIND-013', '豫E7J846', '马投涧镇', '宋师傅'],
-  ['CAR-BIND-014', '豫E8L159', '龙泉镇', '高师傅'], ['CAR-BIND-015', '豫E0M274', '善应镇', '罗师傅'],
-  ['CAR-BIND-016', '豫E3N386', '马家乡', '邓师傅'], ['CAR-BIND-017', '豫E1Q497', '东风乡', '于师傅'],
-  ['CAR-BIND-018', '豫E6R508', '马投涧镇', '许师傅'], ['CAR-BIND-019', '豫E4S619', '龙泉镇', '魏师傅'],
-  ['CAR-BIND-020', '豫E9T720', '善应镇', '马师傅'],
-].map(([id, plateNo, town, driver]) => ({ id, plateNo, town, driver, vehicleType: '小勾臂车', weighDeviceNo: '', bindingStatus: '未绑定' }))
+type BindingRecord = BindingVehicle & {
+  deviceNo: string
+  bindingStatus: '已绑定'
+  bindingTime: string
+}
 
-const bindingVehicles = reactive<BindingVehicle[]>([
+const supplementalVehicles: BindingVehicle[] = [
+  ['CAR-BIND-008', '豫E6A112', '马投涧镇'], ['CAR-BIND-009', '豫E5B236', '龙泉镇'],
+  ['CAR-BIND-010', '豫E9D518', '善应镇'], ['CAR-BIND-011', '豫E2F631', '马家乡'],
+  ['CAR-BIND-012', '豫E4H725', '东风乡'], ['CAR-BIND-013', '豫E7J846', '马投涧镇'],
+  ['CAR-BIND-014', '豫E8L159', '龙泉镇'], ['CAR-BIND-015', '豫E0M274', '善应镇'],
+].map(([id, plateNo, town]) => ({ id, plateNo, organization: getCompanyName(town), vehicleType: '小勾臂车' }))
+
+const bindingVehicles: BindingVehicle[] = [
   ...vehicles
     .filter((vehicle) => vehicle.vehicleType === '小勾臂车' || vehicle.vehicleType === '大勾臂车')
     .map((vehicle) => ({
       id: vehicle.id,
       plateNo: vehicle.plateNo,
       vehicleType: vehicle.vehicleType as BindingVehicle['vehicleType'],
-      town: vehicle.town,
-      driver: vehicle.driver,
-      weighDeviceNo: '',
-      bindingStatus: '未绑定' as const,
+      organization: getCompanyName(vehicle.town),
     })),
-  ...supplementalSmallHookVehicles,
-])
-
-const keyword = ref('')
-const bindingFilter = ref('全部状态')
-const bindingVisible = ref(false)
-const selectedVehicle = ref<BindingVehicle | null>(null)
-const selectedDeviceNo = ref('')
-const bindingForm = reactive({})
-
-const bindingFilters = ['全部状态', '未绑定', '已绑定']
-const tableColumns = [
-  { title: '车牌号', dataIndex: 'plateNo', width: 140 },
-  { title: '整车称重设备', dataIndex: 'weighDeviceNo', width: 200 },
-  { title: '绑定整车称重', dataIndex: 'bindingStatus', width: 130 },
-  { title: '操作', slotName: 'action', width: 170, fixed: 'right' as const, align: 'center' as const },
+  ...supplementalVehicles,
 ]
 
-const filteredRows = computed(() => bindingVehicles.filter((vehicle) => {
-  const search = keyword.value.trim().toLowerCase()
-  const matchesKeyword = !search || [vehicle.plateNo, vehicle.weighDeviceNo].some((value) => value.toLowerCase().includes(search))
-  const matchesBinding = bindingFilter.value === '全部状态' || vehicle.bindingStatus === bindingFilter.value
-  return matchesKeyword && matchesBinding
-}))
+const bindingVisible = ref(false)
+const bindingForm = reactive({ organization: '', vehicleId: '', deviceNo: '' })
+const bindingRecords = ref<BindingRecord[]>([
+  { ...bindingVehicles.find((vehicle) => vehicle.id === 'CAR002')!, deviceNo: 'DEV-WV-RL-001', bindingStatus: '已绑定', bindingTime: '2026-07-18 09:20:15' },
+  { ...bindingVehicles.find((vehicle) => vehicle.id === 'CAR003')!, deviceNo: 'DEV-WV-RL-002', bindingStatus: '已绑定', bindingTime: '2026-07-18 10:05:42' },
+  { ...bindingVehicles.find((vehicle) => vehicle.id === 'CAR005')!, deviceNo: 'DEV-WV-RL-003', bindingStatus: '已绑定', bindingTime: '2026-07-19 14:36:08' },
+  { ...bindingVehicles.find((vehicle) => vehicle.id === 'CAR008')!, deviceNo: 'DEV-WV-RL-004', bindingStatus: '已绑定', bindingTime: '2026-07-20 16:12:33' },
+])
 
-const availableDevices = computed(() => {
-  const boundDeviceNos = new Set(bindingVehicles.map((vehicle) => vehicle.weighDeviceNo).filter(Boolean))
-  return devices.filter((device) => device.deviceType === '整车称重' && device.status === '启用' && !boundDeviceNos.has(device.deviceNo))
-})
+const organizations = computed(() => [...new Set(bindingVehicles.map((vehicle) => vehicle.organization))])
+const boundVehicleIds = computed(() => new Set(bindingRecords.value.map((record) => record.id)))
+const boundDeviceNos = computed(() => new Set(bindingRecords.value.map((record) => record.deviceNo)))
+const organizationVehicles = computed(() => bindingVehicles.filter((vehicle) => (
+  vehicle.organization === bindingForm.organization && !boundVehicleIds.value.has(vehicle.id)
+)))
+const availableDevices = computed(() => devices.filter((device) => (
+  device.deviceType === '整车称重'
+  && device.status === '启用'
+  && !boundDeviceNos.value.has(device.deviceNo)
+)))
+const selectedDevice = computed(() => availableDevices.value.find((device) => device.deviceNo === bindingForm.deviceNo))
+const selectedVehicle = computed(() => organizationVehicles.value.find((vehicle) => vehicle.id === bindingForm.vehicleId))
+const canSubmit = computed(() => Boolean(bindingForm.organization && selectedVehicle.value && selectedDevice.value))
+const tableColumns = [
+  { title: '所属公司', dataIndex: 'organization', width: 220 },
+  { title: '车牌号', dataIndex: 'plateNo', width: 140 },
+  { title: '车辆类型', dataIndex: 'vehicleType', width: 140 },
+  { title: '整车称重设备', dataIndex: 'deviceNo', width: 190 },
+  { title: '绑定状态', dataIndex: 'bindingStatus', width: 120 },
+  { title: '绑定时间', dataIndex: 'bindingTime', width: 190 },
+]
 
 const prd = [
   {
     title: '🎯 功能范围',
     items: [
-      { label: '展示对象', value: '仅展示当前机构的小勾臂车 20 台和大勾臂车 6 台，共 26 台；小三轮 540 台不展示、不参与绑定。' },
-      { label: '设备来源', value: '仅可选择“设备档案”中类型为“整车称重”、状态为“启用”的融涞设备。' },
-      { label: '列表字段', value: '展示车牌号、已绑定整车称重设备、绑定整车称重标记和操作。' },
-      { label: '查询筛选', value: '支持按车牌号、整车称重设备模糊查询，并按绑定整车称重状态筛选。' },
+      { label: '默认展示', value: '页面不直接列出车辆清单，仅展示已添加的绑定记录，避免未使用该模块的公司看到无关车辆数据。' },
+      { label: '新增流程', value: '按“所属公司 → 该公司下车辆 → 整车称重设备”顺序选择，三个下拉框均支持搜索补全。' },
+      { label: '设备来源', value: '仅显示设备档案中类型为“整车称重”、状态为“启用”且当前未绑定的设备。' },
     ],
   },
   {
     title: '🔒 绑定规则',
     items: [
+      { label: '设备信息确认', value: '选中设备后展示设备编号、名称、类型、厂家、SIM 卡号与绑定状态，确认“未绑定，可绑定”后才可提交。' },
       { label: '一车一设备', value: '每台车辆最多绑定 1 台整车称重设备。' },
-      { label: '一设备一车', value: '已被绑定的整车称重设备不会出现在其他车辆的可选列表中。' },
-      { label: '绑定锁定', value: '用户在弹窗确认绑定后，设备编号和操作按钮即锁定；本页面不可修改或解除绑定。' },
-      { label: '阶段性方案', value: '当前仅允许一车配一台整车称重设备，用于满足现阶段车辆绑定使用；后续根据主站发展统一重构。车辆本身还会配置主动安全、单桶称重、360 等多款设备，届时将按设备类型提供“绑定整车称重”“绑定主动安全”“绑定单桶称重”“绑定 360”等独立绑定标记与能力。' },
-      { label: '设备变更', value: '设备故障、换装等场景须由设备运维通过审批流程处理；后端应记录操作人、操作时间、原设备和新设备。' },
-    ],
-  },
-  {
-    title: '⚠️ 校验与权限',
-    items: [
-      { label: '提交校验', value: '提交时校验车辆未绑定、设备为启用状态且未被其他车辆占用；任一条件不满足则禁止绑定。' },
-      { label: '机构隔离', value: '车辆和设备必须属于当前机构（租户），后端按 tenantId 校验。' },
-      { label: '权限建议', value: '仅“设备管理员”可执行绑定；普通用户仅可查看。' },
-      { label: '数据状态', value: '当前为前端 mock 交互；接入后端后应使用事务保证车辆与设备的一对一关系。' },
+      { label: '一设备一车', value: '绑定成功后设备将立即从可选下拉中移除，不再允许重复绑定。' },
+      { label: '提交校验', value: '提交前进行二次确认，并再次校验设备仍为启用且未绑定；接入后端后应以事务及唯一约束保证并发下的一对一关系。' },
     ],
   },
 ]
 
-function openBinding(vehicle: BindingVehicle) {
-  selectedVehicle.value = vehicle
-  selectedDeviceNo.value = ''
+function openBinding() {
+  resetForm()
   bindingVisible.value = true
 }
 
+function handleOrganizationChange() {
+  bindingForm.vehicleId = ''
+}
+
+function handleVehicleChange() {
+  // 保留设备选择；设备可跨机构调配，提交时由后端按租户与归属关系最终校验。
+}
+
 function confirmBinding() {
-  if (!selectedVehicle.value || !selectedDeviceNo.value) return
-  if (selectedVehicle.value.weighDeviceNo) {
-    ArcoMessage.warning('该车辆已绑定设备，不能修改')
+  if (!selectedVehicle.value || !selectedDevice.value) return
+  if (boundDeviceNos.value.has(selectedDevice.value.deviceNo)) {
+    ArcoMessage.warning('该设备已被其他车辆绑定，请重新选择')
+    bindingForm.deviceNo = ''
     return
   }
-  if (!availableDevices.value.some((device) => device.deviceNo === selectedDeviceNo.value)) {
-    ArcoMessage.warning('设备不可用或已被其他车辆绑定，请重新选择')
-    return
-  }
-  selectedVehicle.value.weighDeviceNo = selectedDeviceNo.value
-  selectedVehicle.value.bindingStatus = '已绑定'
+
+  const vehicle = selectedVehicle.value
+  const deviceNo = selectedDevice.value.deviceNo
+  bindingRecords.value.unshift({
+    ...vehicle,
+    deviceNo,
+    bindingStatus: '已绑定',
+    bindingTime: new Date().toLocaleString('zh-CN', { hour12: false }),
+  })
   bindingVisible.value = false
-  ArcoMessage.success(`已为 ${selectedVehicle.value.plateNo} 绑定 ${selectedDeviceNo.value}，该绑定已锁定`)
+  resetForm()
+  ArcoMessage.success(`添加成功：${vehicle.plateNo} 已绑定 ${deviceNo}`)
 }
 
-function reset() {
-  keyword.value = ''
-  bindingFilter.value = '全部状态'
+function resetForm() {
+  bindingForm.organization = ''
+  bindingForm.vehicleId = ''
+  bindingForm.deviceNo = ''
 }
 
-function refresh() {
-  ArcoMessage.success('列表已刷新')
+function closeBinding() {
+  bindingVisible.value = false
+  resetForm()
+}
+
+function getCompanyName(town: string) {
+  const companyByTown: Record<string, string> = {
+    马投涧镇: '龙安区城乡环境服务有限公司',
+    龙泉镇: '龙安区环卫清运有限公司',
+    善应镇: '龙安区智慧环卫运营有限公司',
+    马家乡: '龙安区市容环境管理有限公司',
+    东风乡: '龙安区洁净城市服务有限公司',
+  }
+  return companyByTown[town] || '龙安区环境卫生服务有限公司'
 }
 </script>
 
@@ -272,31 +315,34 @@ function refresh() {
   font-weight: 500;
 }
 
-.toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 16px;
-}
-
-.search-input {
-  width: 280px;
-}
-
-.filter-select {
-  width: 130px;
-}
-
-.empty-text {
-  color: var(--color-text-4);
-}
-
 .binding-alert {
   margin-bottom: 16px;
 }
 
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
 .binding-form {
-  margin-top: 8px;
+  margin-bottom: 20px;
+}
+
+.field-tip {
+  margin-top: 6px;
+  color: rgb(var(--warning-6));
+  font-size: 12px;
+}
+
+.device-info {
+  margin-top: 4px;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 24px;
 }
 </style>

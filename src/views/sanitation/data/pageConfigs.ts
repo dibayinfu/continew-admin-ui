@@ -125,12 +125,12 @@ const alarmRows = alarms.map((item) => ({
 }))
 
 const alertRuleRows: Record<string, any>[] = [
-  { id: 'AR001', alarmType: '小勾臂箱满溢', level: '一般', thresholdValue: 90, thresholdUnit: '%', thresholdDesc: '垃圾占比 > 90%', notifyMethods: ['PC', 'APP'], notifyScope: '所有人', notifyUsers: [], notifyContent: '【满溢告警】{boxName} 当前垃圾占比 {fillRate}%，请及时安排清运。', notifyScopeLabel: '所有人', morningSend: false, morningTime: '08:00', morningSendLabel: '实时发送', status: '启用' },
-  { id: 'AR002', alarmType: '小勾臂箱低电量', level: '一般', thresholdValue: 10, thresholdUnit: '%', thresholdDesc: '电量 < 10%', notifyMethods: ['PC'], notifyScope: '所有人', notifyUsers: [], notifyContent: '【低电量告警】{boxName} 当前电量 {battery}%，请检查太阳能板或更换电池。', notifyScopeLabel: '所有人', morningSend: true, morningTime: '08:00', morningSendLabel: '次日 08:00 发送', status: '启用' },
-  { id: 'AR003', alarmType: '小勾臂箱高温', level: '一般', thresholdValue: 60, thresholdUnit: '°C', thresholdDesc: '温度 > 60°C', notifyMethods: ['PC', 'APP', '短信'], notifyScope: '指定用户', notifyUsers: ['张师傅', '李师傅'], notifyContent: '【高温告警】{boxName} 当前温度 {temperature}°C，存在安全隐患，请立即处理。', notifyScopeLabel: '指定 2 人', morningSend: false, morningTime: '08:00', morningSendLabel: '实时发送', status: '启用' },
-  { id: 'AR004', alarmType: '小勾臂箱离线', level: '一般', thresholdValue: 60, thresholdUnit: '分钟', thresholdDesc: '无心跳 > 60 分钟', notifyMethods: ['PC'], notifyScope: '所有人', notifyUsers: [], notifyContent: '【离线告警】{boxName} 已离线超过 60 分钟，请检查设备状态。', notifyScopeLabel: '所有人', morningSend: true, morningTime: '07:30', morningSendLabel: '次日 07:30 发送', status: '启用' },
-  { id: 'AR005', alarmType: '大勾臂箱满溢', level: '一般', thresholdValue: 90, thresholdUnit: '%', thresholdDesc: '垃圾占比 > 90%', notifyMethods: ['PC', 'APP'], notifyScope: '所有人', notifyUsers: [], notifyContent: '【满溢告警】{boxName} 当前垃圾占比 {fillRate}%，请及时安排清运。', notifyScopeLabel: '所有人', morningSend: false, morningTime: '08:00', morningSendLabel: '实时发送', status: '启用' },
-  { id: 'AR006', alarmType: '大勾臂箱离线', level: '一般', thresholdValue: 1440, thresholdUnit: '分钟', thresholdDesc: '无心跳 > 24 小时', notifyMethods: ['PC'], notifyScope: '所有人', notifyUsers: [], notifyContent: '【离线告警】{boxName} 已离线超过 24 小时，请检查设备状态。', notifyScopeLabel: '所有人', morningSend: true, morningTime: '08:00', morningSendLabel: '次日 08:00 发送', status: '停用' },
+  { id: 'AR001', alarmType: '小勾臂箱满溢', level: '一般', thresholdValue: 90, thresholdUnit: '%', thresholdDesc: '垃圾占比 > 90%', notifyMethods: ['PC', 'APP'], notifyScope: '所有人', notifyUsers: [], notifyContent: '{boxName} 当前垃圾占比超过 {fillRate}%，位于{address}，请及时安排清运。', notifyScopeLabel: '所有人', morningSend: false, morningTime: '08:00', morningSendLabel: '实时发送', status: '启用' },
+  { id: 'AR002', alarmType: '小勾臂箱低电量', level: '一般', thresholdValue: 10, thresholdUnit: '%', thresholdDesc: '电量 < 10%', notifyMethods: ['PC'], notifyScope: '所有人', notifyUsers: [], notifyContent: '{boxName} 当前电量低于 {battery}%，位于{address}，请检查太阳能板或更换电池。', notifyScopeLabel: '所有人', morningSend: true, morningTime: '08:00', morningSendLabel: '次日 08:00 发送', status: '启用' },
+  { id: 'AR003', alarmType: '小勾臂箱高温', level: '一般', thresholdValue: 60, thresholdUnit: '°C', thresholdDesc: '温度 > 60°C', notifyMethods: ['PC', 'APP', '短信'], notifyScope: '指定用户', notifyUsers: ['张师傅', '李师傅'], notifyContent: '{boxName}当前温度超过{temperature}°C，存在安全隐患，请立即处理。', notifyScopeLabel: '指定 2 人', morningSend: false, morningTime: '08:00', morningSendLabel: '实时发送', status: '启用' },
+  { id: 'AR004', alarmType: '小勾臂箱离线', level: '一般', thresholdValue: 60, thresholdUnit: '分钟', thresholdDesc: '无心跳 > 60 分钟', notifyMethods: ['PC'], notifyScope: '所有人', notifyUsers: [], notifyContent: '{boxName} 已离线超过 {time}小时，位于{address}，请检查设备状态。', notifyScopeLabel: '所有人', morningSend: true, morningTime: '07:30', morningSendLabel: '次日 07:30 发送', status: '启用' },
+  { id: 'AR005', alarmType: '大勾臂箱满溢', level: '一般', thresholdValue: 90, thresholdUnit: '%', thresholdDesc: '垃圾占比 > 90%', notifyMethods: ['PC', 'APP'], notifyScope: '所有人', notifyUsers: [], notifyContent: '{boxName} 当前垃圾占比超过 {fillRate}%，位于{address}，请及时安排清运。', notifyScopeLabel: '所有人', morningSend: false, morningTime: '08:00', morningSendLabel: '实时发送', status: '启用' },
+  { id: 'AR006', alarmType: '大勾臂箱离线', level: '一般', thresholdValue: 1440, thresholdUnit: '分钟', thresholdDesc: '无心跳 > 24 小时', notifyMethods: ['PC'], notifyScope: '所有人', notifyUsers: [], notifyContent: '{boxName} 已离线超过 {time}小时，位于{address}，请检查设备状态。', notifyScopeLabel: '所有人', morningSend: true, morningTime: '08:00', morningSendLabel: '次日 08:00 发送', status: '停用' },
 ]
 
 const weighingRows = weighRecords.map((item) => ({
@@ -1218,7 +1218,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
     metrics: [{ label: '启用规则', value: 6, unit: '条' }, { label: '今日触发', value: 23, unit: '次', tone: 'warning' }, { label: '重复抑制', value: 12, unit: '次' }],
     columns: [],
     rows: alertRuleRows,
-    fieldOptions: { notifyMethods: ['PC', 'APP', '短信'] },
+    fieldOptions: { notifyMethods: ['PC', 'APP', '小程序', '短信'] },
     prd: [
       {
         title: '🎯 功能要点（开发 / 测试关注）',
@@ -1243,7 +1243,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
       {
         title: '📢 通知配置',
         items: [
-          { label: '通知方式', value: 'PC、APP、短信，可多选' },
+          { label: '通知方式', value: 'PC、APP、小程序、短信，可多选' },
           { label: '通知内容', value: '自定义消息模板，支持占位符如 {boxName}、{fillRate}、{temperature}、{battery} 等，上限 200 字' },
           { label: '通知范围', value: '「所有人」通知该机构所有人员；「指定用户」从该机构平台账户下拉多选，显示姓名/手机号/账户，全球查找人员' },
           { label: '早上定时发送', value: '夜间达到告警阈值时暂不推送，次日指定时间统一发送；关闭则实时触发实时推送' },

@@ -1082,7 +1082,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
     phase: 'V1.0',
     priority: 'P0',
     module: '箱体监控',
-    searchPlaceholder: '搜索箱体编号',
+    searchPlaceholder: '搜索箱体编号或名称',
     filters: ['全部', '正常', '预警', '满溢'],
     metrics: [{ label: '小勾臂箱', value: smallBoxRows.length, unit: '个' }, { label: '满溢箱体', value: smallBoxRows.filter((b) => b.overflowStatus === '满溢').length, unit: '个', tone: 'danger' }, { label: '低电量箱体', value: smallBoxRows.filter((b) => b.batteryStatus === '低电量').length, unit: '个', tone: 'warning' }, { label: '高温箱体', value: smallBoxRows.filter((b) => b.temperatureStatus === '高温').length, unit: '个', tone: 'danger' }],
     columns: [
@@ -1112,7 +1112,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
         title: '🎯 功能要点（开发 / 测试关注）',
         items: [
           { label: '列表查询', value: '分页 20 条/页，展示箱体名称、编号、容量、垃圾占比、温度、温度状态、电量、电量状态、匹配对象、当前位置、满溢状态、在线状态' },
-          { label: '搜索', value: '按箱体编号模糊匹配，与满溢状态筛选叠加取交集' },
+          { label: '搜索', value: '按箱体编号或名称模糊匹配，与满溢状态筛选叠加取交集' },
           { label: '满溢状态筛选', value: '下拉选择「全部 / 正常 / 预警 / 满溢」' },
           { label: '电量状态筛选', value: '下拉选择「全部 / 正常 / 低电量」' },
           { label: '远程开锁', value: '操作栏提供「远程开锁」按钮，二次确认后调用远程接口' },

@@ -1,6 +1,6 @@
 import axios from 'axios'
 import qs from 'query-string'
-import type { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
+import type { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios'
 import { useTenantStore } from '@/stores/modules/tenant'
 import { useUserStore } from '@/stores'
 import { getToken } from '@/utils/auth'
@@ -50,17 +50,14 @@ const handleError = (msg: string) => {
 
 // 请求拦截器
 http.interceptors.request.use(
-  (config: AxiosRequestConfig) => {
+  (config: InternalAxiosRequestConfig) => {
     const token = getToken()
-    if (!config.headers) {
-      config.headers = {}
-    }
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`
+      config.headers.set('Authorization', `Bearer ${token}`)
     }
     const tenantStore = useTenantStore()
     if (tenantStore.tenantEnabled && tenantStore.tenantId) {
-      config.headers['X-Tenant-Id'] = tenantStore.tenantId
+      config.headers.set('X-Tenant-Id', tenantStore.tenantId)
     }
     return config
   },

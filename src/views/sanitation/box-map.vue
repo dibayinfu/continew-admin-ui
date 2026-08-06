@@ -6,6 +6,7 @@
         <div class="page-subtitle">查看箱体实时位置、满溢状态及设备运行信息</div>
       </div>
       <a-space>
+        <a-button :loading="cloudLoading" @click="loadFromCloud()">从云端刷新</a-button>
         <a-button @click="importVisible = true">导入最新 JSON</a-button>
         <a-button type="primary" :disabled="!selectedBox" @click="copyLocationLink">复制当前定位链接</a-button>
       </a-space>
@@ -43,6 +44,11 @@
       </a-card>
 
       <a-card v-if="selectedBox" class="detail-card" :bordered="false" title="箱体详情">
+          <template #extra>
+            <a-button type="text" size="mini" class="detail-close-btn" @click="selectedBox = undefined">
+              <template #icon><icon-close /></template>
+            </a-button>
+          </template>
           <div class="detail-heading">
             <div>
               <span class="box-no">箱体编号 {{ selectedBox.containerNo }}</span>
@@ -76,7 +82,7 @@
     </div>
 
     <a-modal v-model:visible="importVisible" title="导入最新箱体数据" :width="680" @before-ok="importBoxes">
-      <p class="modal-tip">粘贴接口完整 JSON，格式需包含 <code>data.list</code> 数组。导入后仅更新当前页面数据。</p>
+      <p class="modal-tip">粘贴接口完整 JSON，格式需包含 <code>data.list</code> 数组（云端格式为 <code>data.points</code>）。导入后仅更新当前页面数据。</p>
       <a-textarea v-model="importText" :auto-size="{ minRows: 12, maxRows: 18 }" placeholder="粘贴完整接口 JSON" />
     </a-modal>
   </div>
@@ -86,6 +92,7 @@
 import { Message } from '@arco-design/web-vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { type AMapInstance, type AMapMarker, loadAmapJsApi } from '@/utils/amap'
+import { CLOUD_BOXES_URL, extractArray, fetchCloudJson } from './map-cloud'
 
 defineOptions({ name: 'SanitationBoxMap' })
 
@@ -129,6 +136,7 @@ const mapTheme = ref<MapTheme>('light')
 const boxes = ref<Box[]>(initialBoxes)
 const selectedBox = ref<Box>()
 const mapError = ref('')
+const cloudLoading = ref(false)
 const importVisible = ref(false)
 const importText = ref('')
 let map: AMapInstance | undefined
@@ -222,12 +230,29 @@ function importBoxes() {
 watch([keyword, overflowOnly], drawMarkers)
 watch(boxes, drawMarkers)
 watch(mapTheme, (theme) => map?.setMapStyle(`amap://styles/${theme}`))
+async function loadFromCloud(silent = false) {
+  cloudLoading.value = true
+  try {
+    const json = await fetchCloudJson<{ data?: Record<string, unknown> }>(CLOUD_BOXES_URL)
+    const list = extractArray<Box>(json, ['points', 'list'])
+    if (!list) throw new Error('no-list')
+    boxes.value = list
+    gcjPoints = new WeakMap<Box, GcjPoint>()
+    selectedBox.value = undefined
+    if (!silent) Message.success(`已加载云端箱体数据 ${list.length} 个`)
+  } catch (error) {
+    if (!silent) Message.warning('云端数据加载失败，已使用本地/缓存数据')
+  } finally {
+    cloudLoading.value = false
+  }
+}
 onMounted(async () => {
   if (!mapRef.value) return
   try {
     amap = await loadAmapJsApi()
     map = new amap.Map(mapRef.value, { zoom: 13, center: [114.1, 36.04], viewMode: '2D', mapStyle: `amap://styles/${mapTheme.value}`, resizeEnable: true, animateEnable: false, jogEnable: false })
     drawMarkers()
+    loadFromCloud(true)
   } catch (error) { mapError.value = error instanceof Error ? error.message : '高德地图加载失败，请检查地图配置' }
 })
 onBeforeUnmount(() => { markers.forEach((marker) => marker.setMap(null)); map?.destroy() })
@@ -250,6 +275,7 @@ onBeforeUnmount(() => { markers.forEach((marker) => marker.setMap(null)); map?.d
 .map-stat b { display: block; color: #165dff; font-size: 22px; line-height: 28px; }.map-stat.danger b { color: #f53f3f; }
 .map-error { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px; color: #f53f3f; background: #f7f8fa; }
 .detail-heading { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 18px; }.detail-heading h3 { margin: 4px 0 0; color: #1d2129; font-size: 17px; }.box-no, .section-label { color: #86909c; font-size: 12px; }
+.detail-card :deep(.arco-card-header) { align-items: center; }.detail-close-btn { color: #86909c; }.detail-close-btn:hover { color: #1d2129; }
 .coordinate-block { display: grid; gap: 5px; margin: 18px 0; }.coordinate-block span { color: #86909c; font-size: 12px; }.coordinate-block code { margin-bottom: 8px; padding: 8px; border-radius: 3px; background: #f7f8fa; color: #4e5969; font-size: 12px; }
 .matched-block { margin-bottom: 18px; }.matched-item { display: grid; gap: 2px; padding: 9px 0; border-bottom: 1px solid #f2f3f5; }.matched-item b { color: #4e5969; font-size: 13px; }.matched-item span { color: #86909c; font-size: 12px; }
 .modal-tip { margin-top: 0; color: #4e5969; }.modal-tip code { padding: 1px 4px; background: #f2f3f5; }

@@ -3,6 +3,10 @@ export interface AMapMarker {
   on: (event: string, handler: () => void) => void
 }
 
+export interface AMapCircle {
+  setMap: (map: AMapInstance | null) => void
+}
+
 export interface AMapInstance {
   destroy: () => void
   getZoom: () => number
@@ -14,6 +18,8 @@ export interface AMapInstance {
 export interface AMapNamespace {
   Map: new (container: HTMLElement, options: Record<string, unknown>) => AMapInstance
   Marker: new (options: Record<string, unknown>) => AMapMarker
+  Circle: new (options: Record<string, unknown>) => AMapCircle
+  LngLat: new (lng: number, lat: number) => unknown
   Pixel: new (x: number, y: number) => unknown
 }
 

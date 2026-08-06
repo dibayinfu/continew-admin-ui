@@ -390,12 +390,12 @@ async function loadFromCloud(silent = false) {
   let ok = false
   try {
     const json = await fetchCloudJson<{ data?: Record<string, unknown> }>(CLOUD_BOXES_URL)
-    const list = extractArray<Box>(json, ['points', 'boxes', 'list'])
+    const list = extractArray<Box>(json, ['boxes', 'list', 'points'])
     if (list) { boxes.value = list; boxGcjPoints = new WeakMap<Box, GcjPoint>(); boxCount = list.length; ok = true }
   } catch { /* 单个失败不影响另一个 */ }
   try {
     const json = await fetchCloudJson<{ data?: Record<string, unknown> }>(CLOUD_POINTS_URL)
-    const list = extractArray<CollectionPoint>(json, ['boxes', 'points', 'list'])
+    const list = extractArray<CollectionPoint>(json, ['list', 'boxes', 'points'])
     if (list) { points.value = list; pointGcjPoints = new WeakMap<CollectionPoint, GcjPoint>(); pointCount = list.length; ok = true }
   } catch { /* 单个失败不影响另一个 */ }
   selectedBox.value = undefined

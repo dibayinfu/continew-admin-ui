@@ -234,7 +234,7 @@ async function loadFromCloud(silent = false) {
   cloudLoading.value = true
   try {
     const json = await fetchCloudJson<{ data?: Record<string, unknown> }>(CLOUD_BOXES_URL)
-    const list = extractArray<Box>(json, ['points', 'list'])
+    const list = extractArray<Box>(json, ['boxes', 'list', 'points'])
     if (!list) throw new Error('no-list')
     boxes.value = list
     gcjPoints = new WeakMap<Box, GcjPoint>()

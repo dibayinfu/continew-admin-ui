@@ -16,7 +16,7 @@ export const systemRoutes: RouteRecordRaw[] = [
     path: '/',
     name: 'Dashboard',
     component: Layout,
-    redirect: '/sanitation/command-center',
+    redirect: '/sanitation/overview',
     meta: { title: '仪表盘', icon: 'dashboard', hidden: false },
     children: [
       {
@@ -127,6 +127,19 @@ export const systemRoutes: RouteRecordRaw[] = [
         meta: { title: '数字大屏指挥中心', icon: 'dashboard', hidden: false },
       },
 
+      // ===== 临时工具（子菜单） =====
+      {
+        path: '/sanitation/temp-tools',
+        name: 'SanitationTempTools',
+        redirect: '/sanitation/boxMap',
+        meta: { title: '临时工具', icon: 'tool', hidden: false, alwaysShow: true },
+        children: [
+          { path: '/sanitation/boxMap', name: 'SanitationBoxMap', component: () => import('@/views/sanitation/box-map.vue'), meta: { title: '箱体地图', icon: 'location', hidden: false } },
+          { path: '/sanitation/collectionPointMap', name: 'SanitationCollectionPointMap', component: () => import('@/views/sanitation/collection-point-map.vue'), meta: { title: '收集点地图', icon: 'pushpin', hidden: false } },
+          { path: '/sanitation/boxPointMap', name: 'SanitationBoxPointMap', component: () => import('@/views/sanitation/box-point-map.vue'), meta: { title: '箱体收集点地图', icon: 'apps', hidden: false } },
+        ],
+      },
+
       // ===== 基础档案（子菜单） =====
       {
         path: '/sanitation/archives',
@@ -158,17 +171,6 @@ export const systemRoutes: RouteRecordRaw[] = [
           { path: '/sanitation/smallBoxState', name: 'SanitationSmallBoxState', component: () => import('@/views/sanitation/prototype.vue'), props: { pageKey: 'smallBoxState' }, meta: { title: '小勾臂箱监控', icon: 'file', hidden: false } },
           { path: '/sanitation/bigBoxState', name: 'SanitationBigBoxState', component: () => import('@/views/sanitation/prototype.vue'), props: { pageKey: 'bigBoxState' }, meta: { title: '大勾臂箱监控', icon: 'file', hidden: false } },
           { path: '/sanitation/overflowRule', name: 'SanitationOverflowRule', component: () => import('@/views/sanitation/alert-rule.vue'), props: { pageKey: 'overflowRule' }, meta: { title: '监控告警规则', icon: 'file', hidden: false } },
-        ],
-      },
-
-      // ===== 临时工具（子菜单） =====
-      {
-        path: '/sanitation/temp-tools',
-        name: 'SanitationTempTools',
-        redirect: '/sanitation/boxMap',
-        meta: { title: '临时工具', icon: 'tool', hidden: false, alwaysShow: true },
-        children: [
-          { path: '/sanitation/boxMap', name: 'SanitationBoxMap', component: () => import('@/views/sanitation/box-map.vue'), meta: { title: '箱体地图', icon: 'location', hidden: false } },
         ],
       },
 

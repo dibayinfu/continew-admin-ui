@@ -122,7 +122,8 @@ export const systemRoutes: RouteRecordRaw[] = [
       {
         path: '/sanitation/command-center',
         name: 'SanitationCommandCenter',
-        component: () => import('@/views/sanitation/command-center.vue'),
+        // 旧版页面已下线，保留原访问地址并复用当前维护中的 V2 页面。
+        component: () => import('@/views/sanitation/command-center-july-v2.vue'),
         meta: { title: '数字大屏指挥中心', icon: 'dashboard', hidden: false },
       },
 
@@ -157,6 +158,17 @@ export const systemRoutes: RouteRecordRaw[] = [
           { path: '/sanitation/smallBoxState', name: 'SanitationSmallBoxState', component: () => import('@/views/sanitation/prototype.vue'), props: { pageKey: 'smallBoxState' }, meta: { title: '小勾臂箱监控', icon: 'file', hidden: false } },
           { path: '/sanitation/bigBoxState', name: 'SanitationBigBoxState', component: () => import('@/views/sanitation/prototype.vue'), props: { pageKey: 'bigBoxState' }, meta: { title: '大勾臂箱监控', icon: 'file', hidden: false } },
           { path: '/sanitation/overflowRule', name: 'SanitationOverflowRule', component: () => import('@/views/sanitation/alert-rule.vue'), props: { pageKey: 'overflowRule' }, meta: { title: '监控告警规则', icon: 'file', hidden: false } },
+        ],
+      },
+
+      // ===== 临时工具（子菜单） =====
+      {
+        path: '/sanitation/temp-tools',
+        name: 'SanitationTempTools',
+        redirect: '/sanitation/boxMap',
+        meta: { title: '临时工具', icon: 'tool', hidden: false, alwaysShow: true },
+        children: [
+          { path: '/sanitation/boxMap', name: 'SanitationBoxMap', component: () => import('@/views/sanitation/box-map.vue'), meta: { title: '箱体地图', icon: 'location', hidden: false } },
         ],
       },
 
@@ -198,7 +210,7 @@ export const systemRoutes: RouteRecordRaw[] = [
         children: [
           { path: '/sanitation/overview', name: 'SanitationOverview', component: () => import('@/views/sanitation/index.vue'), meta: { title: '运营概览', icon: 'desktop', hidden: false } },
           { path: '/sanitation/map', name: 'SanitationMap', component: () => import('@/views/sanitation/map.vue'), meta: { title: '全域地图监管', icon: 'location', hidden: false } },
-          { path: '/sanitation/command-center-july', name: 'SanitationCommandCenterJuly', component: () => import('@/views/sanitation/command-center-july.vue'), meta: { title: '数字大屏指挥中心', icon: 'dashboard', hidden: false } },
+          { path: '/sanitation/command-center-july', name: 'SanitationCommandCenterJuly', component: () => import('@/views/sanitation/command-center-july-v2.vue'), meta: { title: '数字大屏指挥中心', icon: 'dashboard', hidden: false } },
           { path: '/sanitation/command-center-july-v2', name: 'SanitationCommandCenterJulyV2', component: () => import('@/views/sanitation/command-center-july-v2.vue'), meta: { title: '数字大屏指挥中心V2', icon: 'dashboard', hidden: false } },
           { path: '/sanitation/location-monitor-weighing', name: 'SanitationLocationMonitorWeighing', component: () => import('@/views/sanitation/location-monitor-weighing.vue'), meta: { title: '位置监控增加称重', icon: 'location', hidden: false } },
           { path: '/sanitation/history-track-weighing', name: 'SanitationHistoryTrackWeighing', component: () => import('@/views/sanitation/history-track-weighing.vue'), meta: { title: '历史轨迹增加称重', icon: 'history', hidden: false } },

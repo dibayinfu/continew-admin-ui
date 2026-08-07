@@ -13,6 +13,7 @@ export interface AMapInstance {
   setMapStyle: (style: string) => void
   setFitView: (markers?: AMapMarker[], immediately?: boolean, padding?: [number, number, number, number]) => void
   setZoomAndCenter: (zoom: number, center: [number, number]) => void
+  setCenter: (center: [number, number]) => void
 }
 
 export interface AMapNamespace {

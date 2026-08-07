@@ -14,13 +14,13 @@
 
     <a-card class="filter-card" :bordered="false">
       <a-space wrap>
-        <a-input v-model="keyword" allow-clear placeholder="输入箱体编号或名称" style="width: 240px">
+        <a-input v-model="keyword" allow-clear placeholder="输入箱体编号或名称" style="width: 240px" @press-enter="focusMatchedBox">
           <template #prefix><icon-search /></template>
         </a-input>
         <a-button :type="overflowOnly ? 'primary' : 'outline'" :status="overflowOnly ? 'danger' : 'normal'" @click="overflowOnly = !overflowOnly">
           {{ overflowOnly ? '已筛选满溢' : '只看满溢' }}
         </a-button>
-        <span class="filter-result">当前显示 {{ visibleBoxes.length }} 个箱体</span>
+        <span class="filter-result">{{ keyword.trim() ? `匹配到 ${matchedCount} 个箱体` : `当前显示 ${visibleBoxes.length} 个箱体` }}</span>
       </a-space>
     </a-card>
 
@@ -28,7 +28,7 @@
       <a-card class="map-card" :bordered="false">
         <div ref="mapRef" class="amap-container"></div>
         <div class="map-stats">
-          <div class="map-stat"><span>箱体总数</span><b>{{ visibleBoxes.length }}</b></div>
+          <div class="map-stat"><span>箱体总数</span><b>{{ boxes.length }}</b></div>
           <div class="map-stat danger"><span>满溢预警</span><b>{{ overflowCount }}</b></div>
         </div>
         <div class="map-theme-picker">
@@ -152,13 +152,15 @@ const mapThemes: Array<{ label: string, value: MapTheme }> = [
   { label: '默认', value: 'normal' },
 ]
 
-const visibleBoxes = computed(() => {
-  const query = keyword.value.trim().toLowerCase()
-  return boxes.value.filter((box) => Number.isFinite(box.longitude) && Number.isFinite(box.latitude)
-    && (!overflowOnly.value || box.overflowStatus === 1)
-    && (!query || box.containerNo.toLowerCase().includes(query) || box.containerName.toLowerCase().includes(query)))
-})
+const visibleBoxes = computed(() => boxes.value.filter((box) => Number.isFinite(box.longitude) && Number.isFinite(box.latitude)
+  && (!overflowOnly.value || box.overflowStatus === 1)))
 const overflowCount = computed(() => boxes.value.filter((box) => box.overflowStatus === 1).length)
+const matchedBoxes = computed<Set<Box> | null>(() => {
+  const query = keyword.value.trim().toLowerCase()
+  if (!query) return null
+  return new Set(boxes.value.filter((box) => box.containerNo.toLowerCase().includes(query) || box.containerName.toLowerCase().includes(query)))
+})
+const matchedCount = computed(() => matchedBoxes.value?.size ?? 0)
 const selectedGcj = computed(() => selectedBox.value ? getGcjPoint(selectedBox.value) : undefined)
 const matchedObjects = computed(() => {
   if (!selectedBox.value?.matchObject) return []
@@ -179,6 +181,12 @@ function toGcj(lng: number, lat: number): GcjPoint {
 }
 
 function markerTone(box: Box) { return box.overflowStatus === 1 ? 'overflow' : box.fillLevel >= 70 ? 'warning' : '' }
+function markerClass(box: Box) {
+  const classes = ['box-map-marker', markerTone(box)]
+  if (box === selectedBox.value) classes.push('selected')
+  if (matchedBoxes.value?.has(box)) classes.push('matched')
+  return classes.filter(Boolean).join(' ')
+}
 function getGcjPoint(box: Box) {
   const cached = gcjPoints.get(box)
   if (cached) return cached
@@ -189,24 +197,31 @@ function getGcjPoint(box: Box) {
 function escapeHtml(value: string | number) {
   return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!)
 }
-function drawMarkers() {
+function drawMarkers(fit = true) {
   if (!map || !amap) return
   markers.forEach((marker) => marker.setMap(null)); markers = []
-  markers = visibleBoxes.value.map((box) => {
+  markers = visibleBoxes.value.map((box, index) => {
     const point = getGcjPoint(box)
-    const marker = new amap.Marker({ position: [point.lng, point.lat], offset: new amap.Pixel(-18, -34), content: `<div class="box-map-marker ${markerTone(box)}">${escapeHtml(box.containerNo)}</div>`, title: box.containerName })
+    const marker = new amap.Marker({ position: [point.lng, point.lat], offset: new amap.Pixel(-18, -34), content: `<div class="${markerClass(box)}">${escapeHtml(box.containerNo)}</div>`, title: box.containerName, zIndex: box === selectedBox.value ? 1000 : 10 + index })
     marker.on('click', () => selectBox(box))
     marker.setMap(map!)
     return marker
   })
-  if (markers.length) map.setFitView(markers, false, [60, 60, 60, 360])
+  if (fit && markers.length) map.setFitView(markers, false, [60, 60, 60, 360])
   if (selectedBox.value && !visibleBoxes.value.includes(selectedBox.value)) selectedBox.value = undefined
 }
 
 function selectBox(box: Box) {
   selectedBox.value = box
+  drawMarkers(false)
   const point = getGcjPoint(box)
   if (map) map.setZoomAndCenter(Math.max(map.getZoom(), 16), [point.lng, point.lat])
+}
+function focusMatchedBox() {
+  const matched = matchedBoxes.value
+  if (!matched || matched.size === 0) return
+  if (matched.size > 1) { Message.info(`匹配到 ${matched.size} 个箱体，请输入更精确的编号`); return }
+  selectBox([...matched][0])
 }
 function statusText(box: Box) { return box.overflowStatus === 1 ? '满溢' : box.fillLevel >= 70 ? '接近满溢' : '正常' }
 function statusColor(box: Box) { return box.overflowStatus === 1 ? 'red' : box.fillLevel >= 70 ? 'orange' : 'green' }
@@ -231,7 +246,8 @@ function importBoxes() {
   } catch { Message.error('JSON 格式不正确：需要包含 data.list 数组'); return false }
 }
 
-watch([keyword, overflowOnly], drawMarkers)
+watch(keyword, () => drawMarkers(false))
+watch(overflowOnly, drawMarkers)
 watch(boxes, drawMarkers)
 watch(mapTheme, (theme) => map?.setMapStyle(`amap://styles/${theme}`))
 async function loadFromCloud(silent = false) {
@@ -287,6 +303,6 @@ onBeforeUnmount(() => { markers.forEach((marker) => marker.setMap(null)); map?.d
 .matched-block { margin-bottom: 18px; }.matched-item { display: grid; gap: 2px; padding: 9px 0; border-bottom: 1px solid #f2f3f5; }.matched-item b { color: #4e5969; font-size: 13px; }.matched-item span { color: #86909c; font-size: 12px; }
 .modal-tip { margin-top: 0; color: #4e5969; }.modal-tip code { padding: 1px 4px; background: #f2f3f5; }
 :global(.box-map-marker) { position: relative; min-width: 36px; height: 26px; padding: 0 8px; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; border-radius: 4px; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 12px; font-weight: 600; }
-:global(.box-map-marker::after) { content: ''; position: absolute; bottom: -6px; left: 50%; width: 10px; height: 10px; border-right: 1px solid #fff; border-bottom: 1px solid #fff; background: inherit; transform: translateX(-50%) rotate(45deg); }.box-map-page :global(.box-map-marker.warning) { background: #ff7d00; }.box-map-page :global(.box-map-marker.overflow) { background: #f53f3f; }
+:global(.box-map-marker::after) { content: ''; position: absolute; bottom: -6px; left: 50%; width: 10px; height: 10px; border-right: 1px solid #fff; border-bottom: 1px solid #fff; background: inherit; transform: translateX(-50%) rotate(45deg); }.box-map-page :global(.box-map-marker.warning) { background: #ff7d00; }.box-map-page :global(.box-map-marker.overflow) { background: #f53f3f; }.box-map-page :global(.box-map-marker.matched) { box-shadow: 0 0 0 3px #00b42a, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.1); z-index: 1; }.box-map-page :global(.box-map-marker.selected) { border: 2px solid #fff; box-shadow: 0 0 0 3px #165dff, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.15); opacity: 1; z-index: 2; }
 @media (max-width: 960px) { .map-layout { grid-template-columns: 1fr; grid-template-rows: minmax(0, 45vh) minmax(0, 45vh); overflow: hidden; }.detail-card { min-height: 0; }.page-header { align-items: flex-start; gap: 12px; flex-direction: column; } }
 </style>

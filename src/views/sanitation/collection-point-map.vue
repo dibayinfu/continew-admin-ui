@@ -53,6 +53,7 @@
             <template #icon><icon-close /></template>
           </a-button>
         </template>
+        <div class="detail-scroll">
         <div class="detail-heading">
           <div>
             <span class="point-no">{{ selectedPoint.townshipName }} · {{ selectedPoint.villageName }}</span>
@@ -84,7 +85,10 @@
           <span>原始坐标（WGS84）</span><code>{{ selectedPoint.longitude }}, {{ selectedPoint.latitude }}</code>
           <span>地图坐标（GCJ-02）</span><code>{{ selectedGcj ? `${selectedGcj.lng.toFixed(6)}, ${selectedGcj.lat.toFixed(6)}` : '-' }}</code>
         </div>
-        <a-button type="primary" long @click="openAmap">在高德地图中打开</a-button>
+        </div>
+        <div class="detail-actions">
+          <a-button type="primary" long @click="openAmap">在高德地图中打开</a-button>
+        </div>
       </a-card>
     </div>
 
@@ -304,11 +308,14 @@ onBeforeUnmount(() => { markers.forEach((marker) => marker.setMap(null)); radius
 .page-title { color: #1d2129; font-size: 20px; font-weight: 600; line-height: 30px; }
 .page-subtitle, .filter-result { color: #86909c; font-size: 13px; }
 .filter-card :deep(.arco-card-body) { padding: 14px 16px; }
-.map-layout { flex: 1; min-height: 600px; display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }.map-layout.has-detail { grid-template-columns: minmax(0, 1fr) 360px; }
+.map-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 16px; overflow: hidden; }.map-layout.has-detail { grid-template-columns: minmax(0, 1fr) 360px; }
 .map-card, .detail-card { min-height: 0; overflow: hidden; }
 .map-card :deep(.arco-card-body) { height: 100%; padding: 0; }
-.detail-card :deep(.arco-card-body) { overflow: auto; }
-.amap-container { width: 100%; height: 100%; min-height: 600px; background: #f2f3f5; }
+.detail-card { display: flex; flex-direction: column; }
+.detail-card :deep(.arco-card-body) { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+.detail-card .detail-scroll { flex: 1; min-height: 0; overflow-y: auto; }
+.detail-card .detail-actions { flex-shrink: 0; padding-top: 16px; }
+.amap-container { width: 100%; height: 100%; background: #f2f3f5; }
 .map-stats { position: absolute; top: 16px; left: 16px; display: flex; gap: 10px; z-index: 1; }
 .map-theme-picker { position: absolute; z-index: 1; top: 16px; right: 16px; display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; }.map-theme-picker :deep(.arco-select) { width: 88px; }
 .map-stat { min-width: 106px; padding: 9px 14px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; }
@@ -323,5 +330,5 @@ onBeforeUnmount(() => { markers.forEach((marker) => marker.setMap(null)); radius
 .point-map-page :global(.point-map-marker.multi) { background: #ff7d00; }
 :global(.point-radius-label) { position: relative; padding: 1px 6px; border-radius: 3px; background: rgb(22 93 255 / 90%); color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; box-shadow: 0 1px 4px rgb(29 33 41 / 25%); }
 .point-radius-label::after { content: ''; position: absolute; bottom: -5px; left: 50%; width: 8px; height: 8px; border-left: 1px solid rgb(22 93 255 / 90%); border-bottom: 1px solid rgb(22 93 255 / 90%); background: rgb(22 93 255 / 90%); transform: translateX(-50%) rotate(-45deg); }
-@media (max-width: 960px) { .map-layout { grid-template-columns: 1fr; }.detail-card { min-height: 460px; }.page-header { align-items: flex-start; gap: 12px; flex-direction: column; } }
+@media (max-width: 960px) { .map-layout { grid-template-columns: 1fr; grid-template-rows: minmax(0, 45vh) minmax(0, 45vh); overflow: hidden; }.detail-card { min-height: 0; }.page-header { align-items: flex-start; gap: 12px; flex-direction: column; } }
 </style>

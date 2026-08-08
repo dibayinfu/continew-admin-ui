@@ -6,29 +6,51 @@
         <div class="page-subtitle">箱体与收集点同图展示，支持一键导入最新 JSON 数据</div>
       </div>
       <a-space>
-        <a-button :loading="cloudLoading" @click="loadFromCloud()">从云端刷新</a-button>
+        <a-tag :color="tokenStatusColor">{{ tokenStatusText }}</a-tag>
+        <a-button type="primary" @click="openLogin()">登录</a-button>
+        <a-button @click="openTokenModal">Token</a-button>
+        <a-button :loading="cloudLoading" @click="loadFromCloud()">从云端更新</a-button>
         <a-button @click="importVisible = true">导入最新 JSON</a-button>
-        <a-button type="primary" :disabled="!selected" @click="copyLocationLink">复制当前定位链接</a-button>
+        <a-button :disabled="!selected" @click="copyLocationLink">复制定位链接</a-button>
       </a-space>
     </div>
 
     <a-card class="filter-card" :bordered="false">
-      <a-space wrap>
-        <a-input v-model="keyword" allow-clear placeholder="输入箱体编号、收集点名称、乡镇或村庄" style="width: 280px">
+      <div class="filter-block">
+        <a-input v-model="keyword" allow-clear placeholder="输入箱体编号、收集点名称、乡镇或村庄" style="width: 320px">
           <template #prefix><icon-search /></template>
         </a-input>
-        <a-select v-model="township" placeholder="全部乡镇" allow-clear style="width: 150px">
-          <a-option v-for="name in townshipOptions" :key="name" :value="name">{{ name }}</a-option>
-        </a-select>
-        <a-button :type="multiOnly ? 'primary' : 'outline'" :status="multiOnly ? 'warning' : 'normal'" @click="multiOnly = !multiOnly">
-          {{ multiOnly ? '已筛多箱点' : '只看多箱点' }}
-        </a-button>
-        <a-button :type="overflowOnly ? 'primary' : 'outline'" :status="overflowOnly ? 'danger' : 'normal'" @click="overflowOnly = !overflowOnly">
-          {{ overflowOnly ? '已筛选满溢' : '只看满溢' }}
-        </a-button>
+      </div>
+      <div class="filter-block">
+        <span class="filter-label">乡镇</span>
+        <button type="button" class="chip" :class="{ active: isAllSelected }" @click="toggleAllTownships">全部</button>
+        <button v-for="name in allTownships" :key="name" type="button" class="chip" :class="{ active: selectedTownships.has(name) }" @click="toggleTownship(name)">{{ name }}</button>
+      </div>
+      <div class="filter-block">
+        <span class="filter-label">箱体</span>
+        <a-switch v-model="showBoxes" size="small" />
+        <div class="seg" :class="{ disabled: !showBoxes }">
+          <button type="button" class="seg-btn" :class="{ active: overflowFilter === 'all' }" @click="overflowFilter = 'all'">全部</button>
+          <button type="button" class="seg-btn danger" :class="{ active: overflowFilter === 'overflow' }" @click="overflowFilter = 'overflow'">只看满溢</button>
+        </div>
+      </div>
+      <div class="filter-block">
+        <span class="filter-label">收集点</span>
+        <a-switch v-model="showPoints" size="small" />
+        <div class="seg" :class="{ disabled: !showPoints }">
+          <button type="button" class="seg-btn" :class="{ active: multiFilter === 'all' }" @click="multiFilter = 'all'">全部</button>
+          <button type="button" class="seg-btn warning" :class="{ active: multiFilter === 'multi' }" @click="multiFilter = 'multi'">只看多箱点</button>
+        </div>
         <span class="filter-result">当前显示 {{ visiblePoints.length }} 收集点 / {{ visibleBoxes.length }} 箱体</span>
-      </a-space>
+      </div>
     </a-card>
+
+    <div v-if="daasAuth.expired" class="token-expired-banner">
+      <icon-exclamation-circle-fill />
+      <span>接口 Token 已过期或未登录。请</span>
+      <a class="token-reset-link" @click="openLogin()">重新登录</a>
+      <span>后重试。</span>
+    </div>
 
     <div class="map-layout" :class="{ 'has-detail': selected }">
       <a-card class="map-card" :bordered="false">
@@ -130,6 +152,11 @@
       <p class="modal-tip">粘贴接口完整 JSON，格式需包含 <code>data.boxes</code>（箱体）与 <code>data.points</code>（收集点）数组，可只传其一。</p>
       <a-textarea v-model="importText" :auto-size="{ minRows: 12, maxRows: 18 }" placeholder='{"code":200,"data":{"boxes":[...],"points":[...]}}' />
     </a-modal>
+
+    <a-modal v-model:visible="tokenModalVisible" title="手动配置 Token（兜底）" :width="640" @ok="saveToken">
+      <p class="modal-tip">推荐使用「登录」自动获取；此处可手动粘贴 daas-api 登录返回的原始 JWT，无需 <code>Bearer </code> 前缀。</p>
+      <a-textarea v-model="tokenInput" :auto-size="{ minRows: 4, maxRows: 8 }" placeholder="粘贴 Bearer Token（JWT）" />
+    </a-modal>
   </div>
 </template>
 
@@ -137,9 +164,14 @@
 import { Message } from '@arco-design/web-vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { type AMapCircle, type AMapInstance, type AMapMarker, loadAmapJsApi } from '@/utils/amap'
-import { CLOUD_BOXES_URL, CLOUD_POINTS_URL, extractArray, fetchCloudJson } from './map-cloud'
+import { daasAuth, daasRequest, getHiddenBoxIds, getHiddenPointIds, setDaasToken } from '@/utils/daas'
 
 defineOptions({ name: 'SanitationBoxPointMap' })
+
+/** 真实接口（走全局 daas 登录/请求），size=1000 一次性拉取全部 */
+const BOX_MONITOR_PATH = '/domestic/waste/containers/sbgMonitoring'
+const COLLECTION_POINTS_PATH = '/domestic/waste/v/collection-points/page'
+const COLLECTION_POINTS_QUERY = { keyword: '', organizationId: 506, page: 0, size: 1000 }
 
 interface GcjPoint { lng: number, lat: number }
 type MapTheme = 'normal' | 'light'
@@ -206,9 +238,6 @@ const initialPoints: CollectionPoint[] = [
 
 const mapRef = ref<HTMLDivElement>()
 const keyword = ref('')
-const township = ref<string>()
-const multiOnly = ref(false)
-const overflowOnly = ref(false)
 const mapTheme = ref<MapTheme>('light')
 const boxes = ref<Box[]>(initialBoxes)
 const points = ref<CollectionPoint[]>(initialPoints)
@@ -218,6 +247,27 @@ const mapError = ref('')
 const cloudLoading = ref(false)
 const importVisible = ref(false)
 const importText = ref('')
+const tokenModalVisible = ref(false)
+const tokenInput = ref(daasAuth.token)
+
+const tokenStatusText = computed(() => {
+  if (!daasAuth.token) return daasAuth.expired ? 'Token 已过期' : 'Token 未配置'
+  return daasAuth.expired ? 'Token 已过期' : 'Token 已配置'
+})
+const tokenStatusColor = computed(() => (daasAuth.expired ? 'red' : daasAuth.token ? 'green' : 'gray'))
+function openTokenModal() {
+  tokenInput.value = daasAuth.token
+  tokenModalVisible.value = true
+}
+function saveToken() {
+  const token = tokenInput.value.trim()
+  setDaasToken(token)
+  if (token) Message.success('Token 已保存')
+  tokenModalVisible.value = false
+}
+function openLogin() {
+  daasAuth.visible = true
+}
 let map: AMapInstance | undefined
 let boxMarkers: AMapMarker[] = []
 let pointMarkers: AMapMarker[] = []
@@ -237,19 +287,47 @@ const selectedGcj = computed(() => {
   if (selectedPoint.value) return getPointGcj(selectedPoint.value)
   return undefined
 })
-const townshipOptions = computed(() => Array.from(new Set(points.value.map((p) => p.townshipName).filter(Boolean))).sort())
+const allTownships = computed(() => Array.from(new Set(points.value.map((p) => p.townshipName).filter(Boolean))).sort())
+const townshipTouched = ref(false)
+const selectedTownships = ref<Set<string>>(new Set())
+const isAllSelected = computed(() => allTownships.value.length > 0 && allTownships.value.every((t) => selectedTownships.value.has(t)))
+// 默认全部勾选：乡镇列表变化（如加载真实数据后）且用户未手动筛选时，自动补全新出现的乡镇
+watch(allTownships, (towns) => {
+  if (!townshipTouched.value) selectedTownships.value = new Set(towns)
+}, { immediate: true })
+function toggleTownship(name: string) {
+  townshipTouched.value = true
+  const next = new Set(selectedTownships.value)
+  if (next.has(name)) next.delete(name)
+  else next.add(name)
+  selectedTownships.value = next
+}
+function toggleAllTownships() {
+  townshipTouched.value = true
+  selectedTownships.value = isAllSelected.value ? new Set() : new Set(allTownships.value)
+}
+const showBoxes = ref(true)
+const showPoints = ref(true)
+const multiFilter = ref<'all' | 'multi'>('all')
+const overflowFilter = ref<'all' | 'overflow'>('all')
 const visiblePoints = computed(() => {
+  if (!showPoints.value) return []
+  const hidden = getHiddenPointIds()
   const query = keyword.value.trim().toLowerCase()
   return points.value.filter((p) => Number.isFinite(p.longitude) && Number.isFinite(p.latitude)
-    && (!township.value || p.townshipName === township.value)
-    && (!multiOnly.value || p.containerCount >= 2)
+    && !hidden.has(p.id)
+    && selectedTownships.value.has(p.townshipName)
+    && (multiFilter.value === 'all' || p.containerCount >= 2)
     && (!query || p.pointName.toLowerCase().includes(query) || p.townshipName.toLowerCase().includes(query)
       || p.villageName.toLowerCase().includes(query) || p.address.toLowerCase().includes(query)))
 })
 const visibleBoxes = computed(() => {
+  if (!showBoxes.value) return []
+  const hidden = getHiddenBoxIds()
   const query = keyword.value.trim().toLowerCase()
   return boxes.value.filter((b) => Number.isFinite(b.longitude) && Number.isFinite(b.latitude)
-    && (!overflowOnly.value || b.overflowStatus === 1)
+    && !hidden.has(b.id)
+    && (overflowFilter.value === 'all' || b.overflowStatus === 1)
     && (!query || b.containerNo.toLowerCase().includes(query) || b.containerName.toLowerCase().includes(query)))
 })
 const overflowCount = computed(() => visibleBoxes.value.filter((b) => b.overflowStatus === 1).length)
@@ -382,7 +460,7 @@ function importData() {
   } catch { Message.error('JSON 格式不正确：需要包含 data.boxes 或 data.points 数组'); return false }
 }
 
-watch([keyword, township, multiOnly, overflowOnly], drawMarkers)
+watch([keyword, multiFilter, overflowFilter, selectedTownships, showBoxes, showPoints], drawMarkers)
 watch(boxes, drawMarkers)
 watch(points, drawMarkers)
 watch(selectedPoint, drawSelectedRadiusLabel)
@@ -393,20 +471,18 @@ async function loadFromCloud(silent = false) {
   let pointCount = 0
   let ok = false
   try {
-    const json = await fetchCloudJson<{ data?: Record<string, unknown> }>(CLOUD_BOXES_URL)
-    const list = extractArray<Box>(json, ['boxes', 'list', 'points'])
-    if (list) { boxes.value = list; boxGcjPoints = new WeakMap<Box, GcjPoint>(); boxCount = list.length; ok = true }
+    const data = await daasRequest<{ list: Box[] }>(BOX_MONITOR_PATH, { body: { current: 1, size: 1000 } })
+    if (Array.isArray(data?.list)) { boxes.value = data.list; boxGcjPoints = new WeakMap<Box, GcjPoint>(); boxCount = data.list.length; ok = true }
   } catch { /* 单个失败不影响另一个 */ }
   try {
-    const json = await fetchCloudJson<{ data?: Record<string, unknown> }>(CLOUD_POINTS_URL)
-    const list = extractArray<CollectionPoint>(json, ['list', 'boxes', 'points'])
-    if (list) { points.value = list; pointGcjPoints = new WeakMap<CollectionPoint, GcjPoint>(); pointCount = list.length; ok = true }
+    const data = await daasRequest<{ list: CollectionPoint[] }>(COLLECTION_POINTS_PATH, { method: 'GET', query: COLLECTION_POINTS_QUERY })
+    if (Array.isArray(data?.list)) { points.value = data.list; pointGcjPoints = new WeakMap<CollectionPoint, GcjPoint>(); pointCount = data.list.length; ok = true }
   } catch { /* 单个失败不影响另一个 */ }
   selectedBox.value = undefined
   selectedPoint.value = undefined
   cloudLoading.value = false
-  if (ok) { if (!silent) Message.success(`已加载云端数据：${pointCount} 收集点 / ${boxCount} 箱体`) }
-  else if (!silent) Message.warning('云端数据加载失败，已使用本地/缓存数据')
+  if (ok) { if (!silent) Message.success(`已从云端更新：${pointCount} 收集点 / ${boxCount} 箱体`) }
+  else if (!silent) Message.warning('云端数据加载失败，请检查网络或稍后重试')
 }
 onMounted(async () => {
   if (!mapRef.value) return
@@ -429,7 +505,23 @@ onBeforeUnmount(() => {
 .page-header { display: flex; align-items: center; justify-content: space-between; padding: 2px 0; }
 .page-title { color: #1d2129; font-size: 20px; font-weight: 600; line-height: 30px; }
 .page-subtitle, .filter-result { color: #86909c; font-size: 13px; }
+.token-expired-banner { display: flex; align-items: center; gap: 6px; padding: 9px 14px; border: 1px solid #fbaca3; border-radius: 4px; background: #ffece8; color: #f53f3f; font-size: 13px; }
+.token-reset-link { color: #165dff; cursor: pointer; text-decoration: underline; }
 .filter-card :deep(.arco-card-body) { padding: 14px 16px; }
+.filter-block { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.filter-block:last-child { margin-bottom: 0; }
+.filter-label { color: #4e5969; font-size: 13px; white-space: nowrap; }
+.chip { padding: 2px 13px; border: 1px solid #e5e6eb; border-radius: 14px; background: #fff; color: #4e5969; font-size: 13px; line-height: 22px; cursor: pointer; transition: all .15s; }
+.chip:hover { border-color: #165dff; color: #165dff; }
+.chip.active { background: #165dff; border-color: #165dff; color: #fff; }
+.seg { display: inline-flex; align-items: stretch; border: 1px solid #d2d3d8; border-radius: 4px; overflow: hidden; box-shadow: 0 1px 2px rgb(0 0 0 / 5%); }
+.seg-btn { padding: 4px 15px; border: 0; background: #fff; color: #4e5969; font-size: 13px; line-height: 18px; cursor: pointer; transition: all .15s; }
+.seg-btn + .seg-btn { border-left: 1px solid #d2d3d8; }
+.seg-btn:hover { color: #165dff; }
+.seg-btn.active { background: #165dff; color: #fff; font-weight: 500; box-shadow: inset 0 0 0 1px #165dff; }
+.seg-btn.danger.active { background: #f53f3f; box-shadow: inset 0 0 0 1px #f53f3f; }
+.seg-btn.warning.active { background: #ff7d00; box-shadow: inset 0 0 0 1px #ff7d00; }
+.seg.disabled { opacity: .5; pointer-events: none; }
 .map-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 16px; overflow: hidden; }.map-layout.has-detail { grid-template-columns: minmax(0, 1fr) 360px; }
 .map-card, .detail-card { min-height: 0; overflow: hidden; }
 .map-card :deep(.arco-card-body) { height: 100%; padding: 0; }

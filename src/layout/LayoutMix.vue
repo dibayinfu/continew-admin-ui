@@ -15,7 +15,6 @@
           <Menu :menus="twoLevelMenus" :menu-style="{ width: '100%' }" />
         </a-scrollbar>
       </div>
-      <WwAds class="ads" />
     </section>
 
     <!-- 右侧内容区域 -->
@@ -58,7 +57,6 @@ import { useLevelMenu } from '@/layout/hooks/useLevelMenu'
 import { useDevice } from '@/hooks'
 import { getToken } from '@/utils/auth'
 
-import WwAds from '@/layout/components/WwAds.vue'
 import NoticePopup from '@/views/user/message/components/NoticePopup.vue'
 import { isPrototypeMode } from '@/utils/prototype'
 

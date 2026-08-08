@@ -13,11 +13,13 @@
     >
       <router-view></router-view>
     </a-watermark>
+    <DaasLoginModal />
   </a-config-provider>
 </template>
 
 <script setup lang="ts">
 import { useAppStore, useUserStore } from '@/stores'
+import DaasLoginModal from '@/views/sanitation/components/DaasLoginModal.vue'
 
 defineOptions({ name: 'App' })
 const userStore = useUserStore()

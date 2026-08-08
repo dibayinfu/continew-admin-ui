@@ -45,6 +45,26 @@ export function clearDaasToken() {
   write(DAS_REFRESH_KEY, '')
 }
 
+/** 隐藏配置：箱体/收集点哪些 id 不在地图上显示（localStorage 持久化，两个地图页共用） */
+const HIDDEN_BOXES_KEY = 'sbg-monitor:hidden-boxes'
+const HIDDEN_POINTS_KEY = 'sbg-monitor:hidden-points'
+
+function readIdSet(key: string): Set<number> {
+  try {
+    const raw = localStorage.getItem(key)
+    if (!raw) return new Set()
+    const arr = JSON.parse(raw)
+    return new Set(Array.isArray(arr) ? arr.filter((n): n is number => typeof n === 'number') : [])
+  } catch { return new Set() }
+}
+function writeIdSet(key: string, ids: Set<number> | number[]) {
+  try { localStorage.setItem(key, JSON.stringify(Array.from(ids))) } catch { /* 忽略 */ }
+}
+export function getHiddenBoxIds(): Set<number> { return readIdSet(HIDDEN_BOXES_KEY) }
+export function getHiddenPointIds(): Set<number> { return readIdSet(HIDDEN_POINTS_KEY) }
+export function saveHiddenBoxIds(ids: Set<number> | number[]) { writeIdSet(HIDDEN_BOXES_KEY, ids) }
+export function saveHiddenPointIds(ids: Set<number> | number[]) { writeIdSet(HIDDEN_POINTS_KEY, ids) }
+
 interface LoginWaiter {
   resolve: () => void
   reject: (error: Error) => void
@@ -77,6 +97,7 @@ export function cancelDaasLogin() {
 export interface DaasRequestOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'DELETE'
   body?: unknown
+  query?: Record<string, unknown>
 }
 
 /**
@@ -89,8 +110,17 @@ export async function daasRequest<T = unknown>(path: string, options: DaasReques
       await requireDaasLogin()
       return run(true)
     }
+    let url = `${DAS_API_BASE}${path}`
+    if (options.query) {
+      const qs = new URLSearchParams()
+      Object.entries(options.query).forEach(([k, v]) => {
+        if (v !== undefined && v !== null) qs.set(k, String(v))
+      })
+      const q = qs.toString()
+      if (q) url += `?${q}`
+    }
     const hasBody = options.body !== undefined
-    const res = await fetch(`${DAS_API_BASE}${path}`, {
+    const res = await fetch(url, {
       method: options.method || (hasBody ? 'POST' : 'GET'),
       headers: {
         ...(hasBody ? { 'Content-Type': 'application/json' } : {}),

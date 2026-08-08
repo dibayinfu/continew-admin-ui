@@ -16,7 +16,7 @@
     </div>
 
     <a-card class="filter-card" :bordered="false">
-      <a-space wrap>
+      <div class="filter-block">
         <a-input v-model="keyword" allow-clear placeholder="输入箱体编号或名称" style="width: 240px" @press-enter="focusMatchedBox">
           <template #prefix><icon-search /></template>
         </a-input>
@@ -24,7 +24,17 @@
           {{ overflowOnly ? '已筛选满溢' : '只看满溢' }}
         </a-button>
         <span class="filter-result">{{ keyword.trim() ? `匹配到 ${matchedCount} 个箱体` : `当前显示 ${visibleBoxes.length} 个箱体` }}</span>
-      </a-space>
+      </div>
+      <div class="filter-block">
+        <span class="filter-label">乡镇</span>
+        <button type="button" class="chip" :class="{ active: !townshipFilter }" @click="selectTownship('')">全部</button>
+        <button v-for="t in townshipOptions" :key="t" type="button" class="chip" :class="{ active: townshipFilter === t }" @click="selectTownship(t)">{{ t }}</button>
+      </div>
+      <div class="filter-block">
+        <span class="filter-label">村庄</span>
+        <button type="button" class="chip" :class="{ active: !villageFilter }" @click="villageFilter = ''">全部</button>
+        <button v-for="v in villageOptions" :key="v" type="button" class="chip" :class="{ active: villageFilter === v }" @click="villageFilter = v">{{ v }}</button>
+      </div>
     </a-card>
 
     <div v-if="daasAuth.expired" class="token-expired-banner">
@@ -114,12 +124,15 @@
 import { Message } from '@arco-design/web-vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { type AMapInstance, type AMapMarker, loadAmapJsApi } from '@/utils/amap'
-import { daasAuth, daasRequest, setDaasToken } from '@/utils/daas'
+import { daasAuth, daasRequest, getHiddenBoxIds, setDaasToken } from '@/utils/daas'
 
 defineOptions({ name: 'SanitationBoxMap' })
 
 /** 箱体监控真实接口路径（走全局 daas 登录/请求，size=1000 一次性拉取全部） */
 const BOX_MONITOR_PATH = '/domestic/waste/containers/sbgMonitoring'
+/** 收集点接口：用于给箱体匹配所属乡镇/村庄（townshipName/villageName） */
+const COLLECTION_POINTS_PATH = '/domestic/waste/v/collection-points/page'
+const COLLECTION_POINTS_QUERY = { keyword: '', organizationId: 506, page: 0, size: 1000 }
 
 interface GcjPoint { lng: number, lat: number }
 type MapTheme = 'normal' | 'light'
@@ -140,6 +153,15 @@ interface Box {
   voltage: number
   switchStatus: string
 }
+interface CollectionPoint {
+  id: number
+  pointName: string
+  pointCode: string
+  townshipName: string
+  villageName: string
+  longitude: number
+  latitude: number
+}
 
 const initialBoxes: Box[] = [
   { id: 48, deviceNo: '13820260721000000026', containerNo: '132', containerName: '小勾臂箱132号设备', onlineStatus: 0, overflowStatus: 0, matchObject: '{"龙泉镇中转站（临时）":{"latitude":36.064611,"longitude":114.247368},"6225420055":{"latitude":36.068728,"longitude":114.242248},"6226170009":{"latitude":36.068764,"longitude":114.242648}}', fillLevel: 0, capacity: 1.5, longitude: 114.242817, latitude: 36.069452, reportTime: '2026-08-06 18:56:04', temperature: 34.37, voltage: 40, switchStatus: '0' },
@@ -159,6 +181,9 @@ const keyword = ref('')
 const overflowOnly = ref(false)
 const mapTheme = ref<MapTheme>('light')
 const boxes = ref<Box[]>(initialBoxes)
+const points = ref<CollectionPoint[]>([])
+const townshipFilter = ref('')
+const villageFilter = ref('')
 const selectedBox = ref<Box>()
 const mapError = ref('')
 const cloudLoading = ref(false)
@@ -195,8 +220,57 @@ function openLogin() {
   daasAuth.visible = true
 }
 
-const visibleBoxes = computed(() => boxes.value.filter((box) => Number.isFinite(box.longitude) && Number.isFinite(box.latitude)
-  && (!overflowOnly.value || box.overflowStatus === 1)))
+/** 箱体 -> 所属乡镇/村庄（来自收集点数据 townshipName/villageName） */
+const boxAreas = new Map<number, { township: string, village: string }>()
+
+// 按业务逻辑：只有当箱体 matchObject 匹配到「收集点」时，才建立乡镇/村庄归属；
+// 匹配到车辆/中转站/焚烧厂或未匹配时，箱体无乡镇/村庄归属（只出现在「全部」下）。
+function assignBoxAreas(boxList: Box[], pointList: CollectionPoint[]) {
+  boxAreas.clear()
+  for (const box of boxList) {
+    let hit: CollectionPoint | undefined
+    try {
+      const keys = Object.keys(JSON.parse(box.matchObject || '{}'))
+      for (const key of keys) {
+        const p = pointList.find((pp) => pp.pointName === key || pp.pointCode === key || String(pp.id) === key)
+        if (p) { hit = p; break }
+      }
+    } catch { /* 忽略 */ }
+    if (hit) boxAreas.set(box.id, { township: hit.townshipName, village: hit.villageName || '' })
+  }
+}
+
+const townshipOptions = computed(() => {
+  const s = new Set<string>()
+  for (const b of boxes.value) {
+    const a = boxAreas.get(b.id)
+    if (a?.township) s.add(a.township)
+  }
+  return Array.from(s).sort()
+})
+const villageOptions = computed(() => {
+  const s = new Set<string>()
+  for (const b of boxes.value) {
+    const a = boxAreas.get(b.id)
+    if (!a?.village) continue
+    if (townshipFilter.value && a.township !== townshipFilter.value) continue
+    s.add(a.village)
+  }
+  return Array.from(s).sort()
+})
+function selectTownship(val: string) {
+  townshipFilter.value = val
+  villageFilter.value = ''
+}
+
+const visibleBoxes = computed(() => {
+  const hidden = getHiddenBoxIds()
+  return boxes.value.filter((box) => Number.isFinite(box.longitude) && Number.isFinite(box.latitude)
+    && !hidden.has(box.id)
+    && (!overflowOnly.value || box.overflowStatus === 1)
+    && (!townshipFilter.value || boxAreas.get(box.id)?.township === townshipFilter.value)
+    && (!villageFilter.value || boxAreas.get(box.id)?.village === villageFilter.value))
+})
 const overflowCount = computed(() => boxes.value.filter((box) => box.overflowStatus === 1).length)
 const matchedBoxes = computed<Set<Box> | null>(() => {
   const query = keyword.value.trim().toLowerCase()
@@ -284,31 +358,34 @@ function importBoxes() {
     const list = JSON.parse(importText.value)?.data?.list
     if (!Array.isArray(list)) throw new Error()
     boxes.value = list as Box[]; gcjPoints = new WeakMap<Box, GcjPoint>(); selectedBox.value = undefined; importText.value = ''
+    if (points.value.length) assignBoxAreas(boxes.value, points.value)
     Message.success(`已导入 ${list.length} 个箱体`)
     return true
   } catch { Message.error('JSON 格式不正确：需要包含 data.list 数组'); return false }
 }
 
 watch(keyword, () => drawMarkers(false))
-watch(overflowOnly, drawMarkers)
+watch([overflowOnly, townshipFilter, villageFilter], drawMarkers)
 watch(boxes, drawMarkers)
 watch(mapTheme, (theme) => map?.setMapStyle(`amap://styles/${theme}`))
 async function loadFromCloud(silent = false) {
   cloudLoading.value = true
+  let ok = false
+  let boxList: Box[] | undefined
   try {
     const data = await daasRequest<{ list: Box[] }>(BOX_MONITOR_PATH, { body: { current: 1, size: 1000 } })
-    const list = data?.list
-    if (!Array.isArray(list)) throw new Error('no-list')
-    boxes.value = list
-    gcjPoints = new WeakMap<Box, GcjPoint>()
-    selectedBox.value = undefined
-    if (!silent) Message.success(`已从云端更新 ${list.length} 个箱体`)
-  } catch (error) {
-    // daasRequest 已自动处理登录与 401，这里仅兜底提示
-    if (!silent) Message.warning(error instanceof Error ? error.message : '云端数据加载失败')
-  } finally {
-    cloudLoading.value = false
-  }
+    if (Array.isArray(data?.list)) { boxList = data.list; ok = true }
+  } catch { /* 单个失败不影响另一个 */ }
+  try {
+    const data = await daasRequest<{ list: CollectionPoint[] }>(COLLECTION_POINTS_PATH, { method: 'GET', query: COLLECTION_POINTS_QUERY })
+    if (Array.isArray(data?.list)) { points.value = data.list; ok = true }
+  } catch { /* 单个失败不影响另一个 */ }
+  // 先分配箱体归属，再赋值 boxes（避免渲染时 boxAreas 为空导致筛选选项缓存为空）
+  if (boxList?.length && points.value.length) assignBoxAreas(boxList, points.value)
+  if (boxList) { boxes.value = boxList; gcjPoints = new WeakMap<Box, GcjPoint>(); selectedBox.value = undefined }
+  cloudLoading.value = false
+  if (ok) { if (!silent) Message.success(`已从云端更新 ${boxes.value.length} 个箱体`) }
+  else if (!silent) Message.warning('云端数据加载失败，请检查网络或稍后重试')
 }
 onMounted(async () => {
   if (!mapRef.value) return
@@ -328,6 +405,12 @@ onBeforeUnmount(() => { markers.forEach((marker) => marker.setMap(null)); map?.d
 .page-title { color: #1d2129; font-size: 20px; font-weight: 600; line-height: 30px; }
 .page-subtitle, .filter-result { color: #86909c; font-size: 13px; }
 .filter-card :deep(.arco-card-body) { padding: 14px 16px; }
+.filter-block { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.filter-block:last-child { margin-bottom: 0; }
+.filter-label { color: #4e5969; font-size: 13px; white-space: nowrap; }
+.chip { padding: 2px 13px; border: 1px solid #e5e6eb; border-radius: 14px; background: #fff; color: #4e5969; font-size: 13px; line-height: 22px; cursor: pointer; transition: all .15s; }
+.chip:hover { border-color: #165dff; color: #165dff; }
+.chip.active { background: #165dff; border-color: #165dff; color: #fff; }
 .map-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 16px; overflow: hidden; }.map-layout.has-detail { grid-template-columns: minmax(0, 1fr) 360px; }
 .map-card, .detail-card { min-height: 0; overflow: hidden; }
 .map-card :deep(.arco-card-body) { height: 100%; padding: 0; }

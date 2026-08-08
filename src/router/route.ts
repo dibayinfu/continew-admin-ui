@@ -137,6 +137,7 @@ export const systemRoutes: RouteRecordRaw[] = [
           { path: '/sanitation/boxMap', name: 'SanitationBoxMap', component: () => import('@/views/sanitation/box-map.vue'), meta: { title: '箱体地图', icon: 'location', hidden: false } },
           { path: '/sanitation/collectionPointMap', name: 'SanitationCollectionPointMap', component: () => import('@/views/sanitation/collection-point-map.vue'), meta: { title: '收集点地图', icon: 'pushpin', hidden: false } },
           { path: '/sanitation/boxPointMap', name: 'SanitationBoxPointMap', component: () => import('@/views/sanitation/box-point-map.vue'), meta: { title: '箱体收集点地图', icon: 'apps', hidden: false } },
+          { path: '/sanitation/dataHiddenConfig', name: 'SanitationDataHiddenConfig', component: () => import('@/views/sanitation/data-hidden-config.vue'), meta: { title: '数据隐藏配置', icon: 'eye-invisible', hidden: false } },
         ],
       },
 

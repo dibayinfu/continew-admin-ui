@@ -6,9 +6,12 @@
         <div class="page-subtitle">查看箱体实时位置、满溢状态及设备运行信息</div>
       </div>
       <a-space>
-        <a-button :loading="cloudLoading" @click="loadFromCloud()">从云端刷新</a-button>
-        <a-button @click="importVisible = true">导入最新 JSON</a-button>
-        <a-button type="primary" :disabled="!selectedBox" @click="copyLocationLink">复制当前定位链接</a-button>
+        <a-tag :color="tokenStatusColor">{{ tokenStatusText }}</a-tag>
+        <a-button type="primary" @click="openLogin()">登录</a-button>
+        <a-button @click="openTokenModal">Token</a-button>
+        <a-button :loading="cloudLoading" @click="loadFromCloud()">从云端更新</a-button>
+        <a-button @click="importVisible = true">导入 JSON</a-button>
+        <a-button :disabled="!selectedBox" @click="copyLocationLink">复制定位链接</a-button>
       </a-space>
     </div>
 
@@ -23,6 +26,13 @@
         <span class="filter-result">{{ keyword.trim() ? `匹配到 ${matchedCount} 个箱体` : `当前显示 ${visibleBoxes.length} 个箱体` }}</span>
       </a-space>
     </a-card>
+
+    <div v-if="daasAuth.expired" class="token-expired-banner">
+      <icon-exclamation-circle-fill />
+      <span>接口 Token 已过期或未登录。请</span>
+      <a class="token-reset-link" @click="openLogin()">重新登录</a>
+      <span>后重试。</span>
+    </div>
 
     <div class="map-layout" :class="{ 'has-detail': selectedBox }">
       <a-card class="map-card" :bordered="false">
@@ -89,6 +99,14 @@
       <p class="modal-tip">粘贴接口完整 JSON，格式需包含 <code>data.list</code> 数组（云端格式为 <code>data.points</code>）。导入后仅更新当前页面数据。</p>
       <a-textarea v-model="importText" :auto-size="{ minRows: 12, maxRows: 18 }" placeholder="粘贴完整接口 JSON" />
     </a-modal>
+
+    <a-modal v-model:visible="tokenModalVisible" title="手动配置 Token（兜底）" :width="640" @ok="saveToken">
+      <p class="modal-tip">
+        用于调用真实接口 <code>/domestic/waste/containers/sbgMonitoring</code>（<code>size=1000</code> 一次性拉取全部箱体）。
+        推荐使用「登录」自动获取；此处可手动粘贴 daas-api 登录返回的原始 JWT，无需 <code>Bearer </code> 前缀。
+      </p>
+      <a-textarea v-model="tokenInput" :auto-size="{ minRows: 4, maxRows: 8 }" placeholder="粘贴 Bearer Token（JWT）" />
+    </a-modal>
   </div>
 </template>
 
@@ -96,9 +114,12 @@
 import { Message } from '@arco-design/web-vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { type AMapInstance, type AMapMarker, loadAmapJsApi } from '@/utils/amap'
-import { CLOUD_BOXES_URL, extractArray, fetchCloudJson } from './map-cloud'
+import { daasAuth, daasRequest, setDaasToken } from '@/utils/daas'
 
 defineOptions({ name: 'SanitationBoxMap' })
+
+/** 箱体监控真实接口路径（走全局 daas 登录/请求，size=1000 一次性拉取全部） */
+const BOX_MONITOR_PATH = '/domestic/waste/containers/sbgMonitoring'
 
 interface GcjPoint { lng: number, lat: number }
 type MapTheme = 'normal' | 'light'
@@ -143,6 +164,8 @@ const mapError = ref('')
 const cloudLoading = ref(false)
 const importVisible = ref(false)
 const importText = ref('')
+const tokenModalVisible = ref(false)
+const tokenInput = ref(daasAuth.token)
 let map: AMapInstance | undefined
 let markers: AMapMarker[] = []
 let amap: Awaited<ReturnType<typeof loadAmapJsApi>> | undefined
@@ -151,6 +174,26 @@ const mapThemes: Array<{ label: string, value: MapTheme }> = [
   { label: '标准', value: 'light' },
   { label: '默认', value: 'normal' },
 ]
+
+const tokenStatusText = computed(() => {
+  if (!daasAuth.token) return daasAuth.expired ? 'Token 已过期' : 'Token 未配置'
+  return daasAuth.expired ? 'Token 已过期' : 'Token 已配置'
+})
+const tokenStatusColor = computed(() => (daasAuth.expired ? 'red' : daasAuth.token ? 'green' : 'gray'))
+
+function openTokenModal() {
+  tokenInput.value = daasAuth.token
+  tokenModalVisible.value = true
+}
+function saveToken() {
+  const token = tokenInput.value.trim()
+  setDaasToken(token)
+  if (token) Message.success('Token 已保存')
+  tokenModalVisible.value = false
+}
+function openLogin() {
+  daasAuth.visible = true
+}
 
 const visibleBoxes = computed(() => boxes.value.filter((box) => Number.isFinite(box.longitude) && Number.isFinite(box.latitude)
   && (!overflowOnly.value || box.overflowStatus === 1)))
@@ -253,15 +296,16 @@ watch(mapTheme, (theme) => map?.setMapStyle(`amap://styles/${theme}`))
 async function loadFromCloud(silent = false) {
   cloudLoading.value = true
   try {
-    const json = await fetchCloudJson<{ data?: Record<string, unknown> }>(CLOUD_BOXES_URL)
-    const list = extractArray<Box>(json, ['boxes', 'list', 'points'])
-    if (!list) throw new Error('no-list')
+    const data = await daasRequest<{ list: Box[] }>(BOX_MONITOR_PATH, { body: { current: 1, size: 1000 } })
+    const list = data?.list
+    if (!Array.isArray(list)) throw new Error('no-list')
     boxes.value = list
     gcjPoints = new WeakMap<Box, GcjPoint>()
     selectedBox.value = undefined
-    if (!silent) Message.success(`已加载云端箱体数据 ${list.length} 个`)
+    if (!silent) Message.success(`已从云端更新 ${list.length} 个箱体`)
   } catch (error) {
-    if (!silent) Message.warning('云端数据加载失败，已使用本地/缓存数据')
+    // daasRequest 已自动处理登录与 401，这里仅兜底提示
+    if (!silent) Message.warning(error instanceof Error ? error.message : '云端数据加载失败')
   } finally {
     cloudLoading.value = false
   }
@@ -302,6 +346,8 @@ onBeforeUnmount(() => { markers.forEach((marker) => marker.setMap(null)); map?.d
 .coordinate-block { display: grid; gap: 5px; margin: 18px 0; }.coordinate-block span { color: #86909c; font-size: 12px; }.coordinate-block code { margin-bottom: 8px; padding: 8px; border-radius: 3px; background: #f7f8fa; color: #4e5969; font-size: 12px; }
 .matched-block { margin-bottom: 18px; }.matched-item { display: grid; gap: 2px; padding: 9px 0; border-bottom: 1px solid #f2f3f5; }.matched-item b { color: #4e5969; font-size: 13px; }.matched-item span { color: #86909c; font-size: 12px; }
 .modal-tip { margin-top: 0; color: #4e5969; }.modal-tip code { padding: 1px 4px; background: #f2f3f5; }
+.token-expired-banner { display: flex; align-items: center; gap: 6px; padding: 9px 14px; border: 1px solid #fbaca3; border-radius: 4px; background: #ffece8; color: #f53f3f; font-size: 13px; }
+.token-reset-link { color: #165dff; cursor: pointer; text-decoration: underline; }
 :global(.box-map-marker) { position: relative; min-width: 36px; height: 26px; padding: 0 8px; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; border-radius: 4px; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 12px; font-weight: 600; }
 :global(.box-map-marker::after) { content: ''; position: absolute; bottom: -6px; left: 50%; width: 10px; height: 10px; border-right: 1px solid #fff; border-bottom: 1px solid #fff; background: inherit; transform: translateX(-50%) rotate(45deg); }.box-map-page :global(.box-map-marker.warning) { background: #ff7d00; }.box-map-page :global(.box-map-marker.overflow) { background: #f53f3f; }.box-map-page :global(.box-map-marker.matched) { box-shadow: 0 0 0 3px #00b42a, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.1); z-index: 1; }.box-map-page :global(.box-map-marker.selected) { border: 2px solid #fff; box-shadow: 0 0 0 3px #165dff, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.15); opacity: 1; z-index: 2; }
 @media (max-width: 960px) { .map-layout { grid-template-columns: 1fr; grid-template-rows: minmax(0, 45vh) minmax(0, 45vh); overflow: hidden; }.detail-card { min-height: 0; }.page-header { align-items: flex-start; gap: 12px; flex-direction: column; } }

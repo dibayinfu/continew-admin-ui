@@ -29,11 +29,13 @@
         <span class="filter-label">乡镇</span>
         <button type="button" class="chip" :class="{ active: !townshipFilter }" @click="selectTownship('')">全部</button>
         <button v-for="t in townshipOptions" :key="t" type="button" class="chip" :class="{ active: townshipFilter === t }" @click="selectTownship(t)">{{ t }}</button>
+        <button type="button" class="chip unmatched" :class="{ active: townshipFilter === UNMATCHED }" @click="selectTownship(UNMATCHED)">未匹配 {{ unmatchedTownshipCount }}</button>
       </div>
       <div class="filter-block">
         <span class="filter-label">村庄</span>
         <button type="button" class="chip" :class="{ active: !villageFilter }" @click="villageFilter = ''">全部</button>
         <button v-for="v in villageOptions" :key="v" type="button" class="chip" :class="{ active: villageFilter === v }" @click="villageFilter = v">{{ v }}</button>
+        <button type="button" class="chip unmatched" :class="{ active: villageFilter === UNMATCHED }" @click="villageFilter = UNMATCHED">未匹配 {{ unmatchedVillageCount }}</button>
       </div>
     </a-card>
 
@@ -185,6 +187,8 @@ const boxes = ref<Box[]>(initialBoxes)
 const points = ref<CollectionPoint[]>([])
 const townshipFilter = ref('')
 const villageFilter = ref('')
+/** 「未匹配」筛选值：无收集点归属（无乡镇/村庄）的箱体专用 sentinel，不会与真实乡镇/村庄名冲突 */
+const UNMATCHED = '__unmatched__'
 const selectedBox = ref<Box>()
 const mapError = ref('')
 const cloudLoading = ref(false)
@@ -264,13 +268,33 @@ function selectTownship(val: string) {
   villageFilter.value = ''
 }
 
+/** 「未匹配」箱体数量：乡镇=无乡镇归属；村庄=无村庄归属（跟随乡镇筛选级联，同 villageOptions） */
+const unmatchedTownshipCount = computed(() => boxes.value.filter((b) => !boxAreas.get(b.id)?.township).length)
+const unmatchedVillageCount = computed(() => boxes.value.filter((b) => {
+  if (boxAreas.get(b.id)?.village) return false
+  if (townshipFilter.value && townshipFilter.value !== UNMATCHED) return false
+  return true
+}).length)
+function matchTownship(box: Box) {
+  if (!townshipFilter.value) return true
+  const township = boxAreas.get(box.id)?.township
+  if (townshipFilter.value === UNMATCHED) return !township
+  return township === townshipFilter.value
+}
+function matchVillage(box: Box) {
+  if (!villageFilter.value) return true
+  const village = boxAreas.get(box.id)?.village
+  if (villageFilter.value === UNMATCHED) return !village
+  return village === villageFilter.value
+}
+
 const visibleBoxes = computed(() => {
   const hidden = getHiddenBoxIds()
   return boxes.value.filter((box) => Number.isFinite(box.longitude) && Number.isFinite(box.latitude)
     && !hidden.has(box.id)
     && (!overflowOnly.value || box.overflowStatus === 1)
-    && (!townshipFilter.value || boxAreas.get(box.id)?.township === townshipFilter.value)
-    && (!villageFilter.value || boxAreas.get(box.id)?.village === villageFilter.value))
+    && matchTownship(box)
+    && matchVillage(box))
 })
 const overflowCount = computed(() => boxes.value.filter((box) => box.overflowStatus === 1).length)
 const matchedBoxes = computed<Set<Box> | null>(() => {
@@ -429,6 +453,9 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); markers.forEach((marker) =>
 .chip { padding: 2px 13px; border: 1px solid #e5e6eb; border-radius: 14px; background: #fff; color: #4e5969; font-size: 13px; line-height: 22px; cursor: pointer; transition: all .15s; }
 .chip:hover { border-color: #165dff; color: #165dff; }
 .chip.active { background: #165dff; border-color: #165dff; color: #fff; }
+.chip.unmatched { border-style: dashed; color: #86909c; }
+.chip.unmatched:hover { border-color: #86909c; color: #4e5969; }
+.chip.unmatched.active { background: #4e5969; border-color: #4e5969; color: #fff; }
 .map-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 16px; overflow: hidden; }.map-layout.has-detail { grid-template-columns: minmax(0, 1fr) 360px; }
 .map-card, .detail-card { min-height: 0; overflow: hidden; }
 .map-card :deep(.arco-card-body) { height: 100%; padding: 0; }

@@ -17,9 +17,10 @@
 
     <a-card class="filter-card" :bordered="false">
       <div class="filter-block">
-        <a-input v-model="keyword" allow-clear placeholder="输入箱体编号、收集点名称、乡镇或村庄" style="width: 320px">
+        <a-input v-model="keyword" allow-clear placeholder="输入箱体编号，回车定位" style="width: 320px" @press-enter="focusMatchedBox">
           <template #prefix><icon-search /></template>
         </a-input>
+        <span v-if="keyword.trim()" class="filter-result">箱体匹配到 {{ matchedCount }} 个，回车定位</span>
       </div>
       <div class="filter-block">
         <span class="filter-label">乡镇</span>
@@ -165,6 +166,7 @@ import { Message } from '@arco-design/web-vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { type AMapCircle, type AMapInstance, type AMapMarker, loadAmapJsApi } from '@/utils/amap'
 import { daasAuth, daasRequest, getHiddenBoxIds, getHiddenPointIds, setDaasToken } from '@/utils/daas'
+import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
 
 defineOptions({ name: 'SanitationBoxPointMap' })
 
@@ -313,24 +315,35 @@ const overflowFilter = ref<'all' | 'overflow'>('all')
 const visiblePoints = computed(() => {
   if (!showPoints.value) return []
   const hidden = getHiddenPointIds()
-  const query = keyword.value.trim().toLowerCase()
+  // 关键字不再隐藏收集点（与箱体一致：仅用于箱体高亮定位），仍受开关/隐藏/乡镇/多箱点筛选约束
   return points.value.filter((p) => Number.isFinite(p.longitude) && Number.isFinite(p.latitude)
     && !hidden.has(p.id)
     && selectedTownships.value.has(p.townshipName)
-    && (multiFilter.value === 'all' || p.containerCount >= 2)
-    && (!query || p.pointName.toLowerCase().includes(query) || p.townshipName.toLowerCase().includes(query)
-      || p.villageName.toLowerCase().includes(query) || p.address.toLowerCase().includes(query)))
+    && (multiFilter.value === 'all' || p.containerCount >= 2))
 })
 const visibleBoxes = computed(() => {
   if (!showBoxes.value) return []
   const hidden = getHiddenBoxIds()
-  const query = keyword.value.trim().toLowerCase()
+  // 关键字不再隐藏未命中的箱体（参考箱体地图：仅高亮定位），仍受开关/隐藏/满溢筛选约束
   return boxes.value.filter((b) => Number.isFinite(b.longitude) && Number.isFinite(b.latitude)
     && !hidden.has(b.id)
-    && (overflowFilter.value === 'all' || b.overflowStatus === 1)
-    && (!query || b.containerNo.toLowerCase().includes(query) || b.containerName.toLowerCase().includes(query)))
+    && (overflowFilter.value === 'all' || b.overflowStatus === 1))
 })
 const overflowCount = computed(() => visibleBoxes.value.filter((b) => b.overflowStatus === 1).length)
+
+/** 输入箱体编号/名称命中的箱体：仅高亮定位，不隐藏其它箱体 */
+const matchedBoxes = computed<Set<Box> | null>(() => {
+  const query = keyword.value.trim().toLowerCase()
+  if (!query) return null
+  return new Set(boxes.value.filter((box) => box.containerNo.toLowerCase().includes(query) || box.containerName.toLowerCase().includes(query)))
+})
+const matchedCount = computed(() => matchedBoxes.value?.size ?? 0)
+function focusMatchedBox() {
+  const matched = matchedBoxes.value
+  if (!matched || matched.size === 0) return
+  if (matched.size > 1) { Message.info(`匹配到 ${matched.size} 个箱体，请输入更精确的编号`); return }
+  selectBox([...matched][0])
+}
 
 function toGcj(lng: number, lat: number): GcjPoint {
   if (lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271) return { lng, lat }
@@ -359,6 +372,12 @@ function escapeHtml(value: string | number) {
   return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!)
 }
 function boxTone(box: Box) { return box.overflowStatus === 1 ? 'overflow' : box.fillLevel >= 70 ? 'warning' : '' }
+function boxMarkerClass(box: Box) {
+  const classes = ['box-map-marker', boxTone(box)]
+  if (box === selectedBox.value) classes.push('selected')
+  if (matchedBoxes.value?.has(box)) classes.push('matched')
+  return classes.filter(Boolean).join(' ')
+}
 function pointTone(point: CollectionPoint) { return point.containerCount >= 2 ? 'multi' : '' }
 function boxStatusText(box: Box) { return box.overflowStatus === 1 ? '满溢' : box.fillLevel >= 70 ? '接近满溢' : '正常' }
 function boxStatusColor(box: Box) { return box.overflowStatus === 1 ? 'red' : box.fillLevel >= 70 ? 'orange' : 'green' }
@@ -383,7 +402,7 @@ function drawMarkers() {
   // 箱体：图钉标记
   visibleBoxes.value.forEach((box) => {
     const gcj = getBoxGcj(box)
-    const marker = new amap.Marker({ position: [gcj.lng, gcj.lat], offset: new amap.Pixel(-18, -34), content: `<div class="box-map-marker ${boxTone(box)}">${escapeHtml(box.containerNo)}</div>`, title: box.containerName })
+    const marker = new amap.Marker({ position: [gcj.lng, gcj.lat], offset: new amap.Pixel(-18, -34), content: `<div class="${boxMarkerClass(box)}">${escapeHtml(box.containerNo)}</div>`, title: box.containerName })
     marker.on('click', () => selectBox(box))
     marker.setMap(map!)
     boxMarkers.push(marker)
@@ -472,11 +491,11 @@ async function loadFromCloud(silent = false) {
   let ok = false
   try {
     const data = await daasRequest<{ list: Box[] }>(BOX_MONITOR_PATH, { body: { current: 1, size: 1000 } })
-    if (Array.isArray(data?.list)) { boxes.value = data.list; boxGcjPoints = new WeakMap<Box, GcjPoint>(); boxCount = data.list.length; ok = true }
+    if (Array.isArray(data?.list)) { boxes.value = data.list; boxGcjPoints = new WeakMap<Box, GcjPoint>(); boxCount = data.list.length; ok = true; saveCachedBoxes(data.list) }
   } catch { /* 单个失败不影响另一个 */ }
   try {
     const data = await daasRequest<{ list: CollectionPoint[] }>(COLLECTION_POINTS_PATH, { method: 'GET', query: COLLECTION_POINTS_QUERY })
-    if (Array.isArray(data?.list)) { points.value = data.list; pointGcjPoints = new WeakMap<CollectionPoint, GcjPoint>(); pointCount = data.list.length; ok = true }
+    if (Array.isArray(data?.list)) { points.value = data.list; pointGcjPoints = new WeakMap<CollectionPoint, GcjPoint>(); pointCount = data.list.length; ok = true; saveCachedPoints(data.list) }
   } catch { /* 单个失败不影响另一个 */ }
   selectedBox.value = undefined
   selectedPoint.value = undefined
@@ -484,7 +503,21 @@ async function loadFromCloud(silent = false) {
   if (ok) { if (!silent) Message.success(`已从云端更新：${pointCount} 收集点 / ${boxCount} 箱体`) }
   else if (!silent) Message.warning('云端数据加载失败，请检查网络或稍后重试')
 }
+let offBoxes: () => void
+let offPoints: () => void
 onMounted(async () => {
+  // 先读共享缓存（其它页面已更新的数据），再静默刷新云端
+  const cachedBoxes = getCachedBoxes<Box>()
+  const cachedPoints = getCachedPoints<CollectionPoint>()
+  if (cachedBoxes.length) { boxes.value = cachedBoxes; boxGcjPoints = new WeakMap<Box, GcjPoint>() }
+  if (cachedPoints.length) { points.value = cachedPoints; pointGcjPoints = new WeakMap<CollectionPoint, GcjPoint>() }
+  // 其它页面更新数据时，本页同步刷新（boxes/points 已被 watch 绑定 drawMarkers）
+  offBoxes = subscribeBoxesUpdated((list) => {
+    if (Array.isArray(list) && list.length) { boxes.value = list as Box[]; boxGcjPoints = new WeakMap<Box, GcjPoint>() }
+  })
+  offPoints = subscribePointsUpdated((list) => {
+    if (Array.isArray(list) && list.length) { points.value = list as CollectionPoint[]; pointGcjPoints = new WeakMap<CollectionPoint, GcjPoint>() }
+  })
   if (!mapRef.value) return
   try {
     amap = await loadAmapJsApi()
@@ -494,6 +527,7 @@ onMounted(async () => {
   } catch (error) { mapError.value = error instanceof Error ? error.message : '高德地图加载失败，请检查地图配置' }
 })
 onBeforeUnmount(() => {
+  offBoxes?.(); offPoints?.()
   boxMarkers.forEach((m) => m.setMap(null)); pointMarkers.forEach((m) => m.setMap(null))
   pointRadiusCircles.forEach((c) => c.setMap(null)); clearSelectedRadiusLabel()
   map?.destroy()
@@ -544,7 +578,7 @@ onBeforeUnmount(() => {
 :global(.point-map-marker) { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; border-radius: 50%; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 13px; font-weight: 600; }
 .box-point-map-page :global(.point-map-marker.multi) { background: #ff7d00; }
 :global(.box-map-marker) { position: relative; min-width: 36px; height: 26px; padding: 0 8px; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; border-radius: 4px; background: #00b42a; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 12px; font-weight: 600; }
-:global(.box-map-marker::after) { content: ''; position: absolute; bottom: -6px; left: 50%; width: 10px; height: 10px; border-right: 1px solid #fff; border-bottom: 1px solid #fff; background: inherit; transform: translateX(-50%) rotate(45deg); }.box-point-map-page :global(.box-map-marker.warning) { background: #ff7d00; }.box-point-map-page :global(.box-map-marker.overflow) { background: #f53f3f; }
+:global(.box-map-marker::after) { content: ''; position: absolute; bottom: -6px; left: 50%; width: 10px; height: 10px; border-right: 1px solid #fff; border-bottom: 1px solid #fff; background: inherit; transform: translateX(-50%) rotate(45deg); }.box-point-map-page :global(.box-map-marker.warning) { background: #ff7d00; }.box-point-map-page :global(.box-map-marker.overflow) { background: #f53f3f; }.box-point-map-page :global(.box-map-marker.matched) { box-shadow: 0 0 0 3px #00b42a, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.1); z-index: 1; }.box-point-map-page :global(.box-map-marker.selected) { border: 2px solid #fff; box-shadow: 0 0 0 3px #165dff, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.15); opacity: 1; z-index: 2; }
 :global(.point-radius-label) { position: relative; padding: 1px 6px; border-radius: 3px; background: rgb(22 93 255 / 90%); color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; box-shadow: 0 1px 4px rgb(29 33 41 / 25%); }
 .point-radius-label::after { content: ''; position: absolute; bottom: -5px; left: 50%; width: 8px; height: 8px; border-left: 1px solid rgb(22 93 255 / 90%); border-bottom: 1px solid rgb(22 93 255 / 90%); background: rgb(22 93 255 / 90%); transform: translateX(-50%) rotate(-45deg); }
 @media (max-width: 960px) { .map-layout { grid-template-columns: 1fr; grid-template-rows: minmax(0, 45vh) minmax(0, 45vh); overflow: hidden; }.detail-card { min-height: 0; }.page-header { align-items: flex-start; gap: 12px; flex-direction: column; } }

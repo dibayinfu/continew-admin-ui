@@ -83,7 +83,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import {
   daasAuth,
@@ -94,6 +94,7 @@ import {
   saveHiddenPointIds,
   setDaasToken,
 } from '@/utils/daas'
+import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
 
 defineOptions({ name: 'SanitationDataHiddenConfig' })
 
@@ -183,18 +184,38 @@ async function loadAll(silent = false) {
   let ok = false
   try {
     const data = await daasRequest<{ list: Box[] }>(BOX_MONITOR_PATH, { body: { current: 1, size: 1000 } })
-    if (Array.isArray(data?.list)) { boxes.value = data.list; ok = true }
+    if (Array.isArray(data?.list)) { boxes.value = data.list; ok = true; saveCachedBoxes(data.list) }
   } catch { /* 单个失败不影响另一个 */ }
   try {
     const data = await daasRequest<{ list: Point[] }>(COLLECTION_POINTS_PATH, { method: 'GET', query: COLLECTION_POINTS_QUERY })
-    if (Array.isArray(data?.list)) { points.value = data.list; ok = true }
+    if (Array.isArray(data?.list)) { points.value = data.list; ok = true; saveCachedPoints(data.list) }
   } catch { /* 单个失败不影响另一个 */ }
   loading.value = false
   if (ok) { if (!silent) Message.success(`已加载 ${boxes.value.length} 个箱体、${points.value.length} 个收集点`) }
   else if (!silent) Message.warning('数据加载失败，请检查网络或稍后重试')
 }
 
-onMounted(() => { loadAll(true) })
+let offBoxes: () => void
+let offPoints: () => void
+onMounted(() => {
+  // 先读共享缓存（其它页面已更新的数据），再静默刷新云端
+  const cachedBoxes = getCachedBoxes<Box>()
+  const cachedPoints = getCachedPoints<Point>()
+  if (cachedBoxes.length) boxes.value = cachedBoxes
+  if (cachedPoints.length) points.value = cachedPoints
+  // 其它页面更新数据时，本页同步刷新
+  offBoxes = subscribeBoxesUpdated((list) => {
+    if (Array.isArray(list) && list.length) boxes.value = list as Box[]
+  })
+  offPoints = subscribePointsUpdated((list) => {
+    if (Array.isArray(list) && list.length) points.value = list as Point[]
+  })
+  loadAll(true)
+})
+onBeforeUnmount(() => {
+  offBoxes?.()
+  offPoints?.()
+})
 </script>
 
 <style scoped lang="scss">

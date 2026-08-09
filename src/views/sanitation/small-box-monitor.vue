@@ -43,11 +43,13 @@
         <span class="filter-label">乡镇</span>
         <button type="button" class="chip" :class="{ active: !townshipFilter }" @click="selectTownship('')">全部</button>
         <button v-for="t in townshipOptions" :key="t" type="button" class="chip" :class="{ active: townshipFilter === t }" @click="selectTownship(t)">{{ t }}</button>
+        <button type="button" class="chip unmatched" :class="{ active: townshipFilter === UNMATCHED }" @click="selectTownship(UNMATCHED)">未匹配 {{ unmatchedTownshipCount }}</button>
       </div>
       <div class="filter-block">
         <span class="filter-label">村庄</span>
         <button type="button" class="chip" :class="{ active: !villageFilter }" @click="villageFilter = ''">全部</button>
         <button v-for="v in villageOptions" :key="v" type="button" class="chip" :class="{ active: villageFilter === v }" @click="villageFilter = v">{{ v }}</button>
+        <button type="button" class="chip unmatched" :class="{ active: villageFilter === UNMATCHED }" @click="villageFilter = UNMATCHED">未匹配 {{ unmatchedVillageCount }}</button>
       </div>
     </a-card>
 
@@ -219,6 +221,8 @@ const keyword = ref('')
 const overflowOnly = ref(false)
 const townshipFilter = ref('')
 const villageFilter = ref('')
+/** 「未匹配」筛选值：无收集点归属（无乡镇/村庄）的箱体专用 sentinel，不会与真实乡镇/村庄名冲突 */
+const UNMATCHED = '__unmatched__'
 const cloudLoading = ref(false)
 const tokenModalVisible = ref(false)
 const tokenInput = ref(daasAuth.token)
@@ -287,6 +291,27 @@ function selectTownship(val: string) {
   villageFilter.value = ''
 }
 
+/** 箱体是否已有乡镇 / 村庄归属（来自匹配到的收集点） */
+function hasTownship(box: Box) { return findPointsOf(box).some((p) => p.townshipName) }
+function hasVillage(box: Box) { return findPointsOf(box).some((p) => p.villageName) }
+/** 「未匹配」箱体数量：乡镇=无乡镇归属；村庄=无村庄归属（跟随乡镇筛选级联，同 villageOptions） */
+const unmatchedTownshipCount = computed(() => boxes.value.filter((b) => !hasTownship(b)).length)
+const unmatchedVillageCount = computed(() => boxes.value.filter((b) => {
+  if (hasVillage(b)) return false
+  if (townshipFilter.value && townshipFilter.value !== UNMATCHED) return false
+  return true
+}).length)
+function matchTownship(box: Box) {
+  if (!townshipFilter.value) return true
+  if (townshipFilter.value === UNMATCHED) return !hasTownship(box)
+  return findPointsOf(box).some((p) => p.townshipName === townshipFilter.value)
+}
+function matchVillage(box: Box) {
+  if (!villageFilter.value) return true
+  if (villageFilter.value === UNMATCHED) return !hasVillage(box)
+  return findPointsOf(box).some((p) => p.villageName === villageFilter.value)
+}
+
 const rows = computed<Row[]>(() => {
   const q = keyword.value.trim().toLowerCase()
   const hidden = getHiddenBoxIds() // 遵循「数据隐藏配置」：隐藏的箱体不显示
@@ -294,8 +319,8 @@ const rows = computed<Row[]>(() => {
     .filter((b) => !hidden.has(b.id)
       && (!q || b.containerNo.toLowerCase().includes(q) || b.containerName.toLowerCase().includes(q))
       && (!overflowOnly.value || b.overflowStatus === 1)
-      && (!townshipFilter.value || findPointsOf(b).some((p) => p.townshipName === townshipFilter.value))
-      && (!villageFilter.value || findPointsOf(b).some((p) => p.villageName === villageFilter.value)))
+      && matchTownship(b)
+      && matchVillage(b))
     .map((b) => {
       const hits = findPointsOf(b)
       return {
@@ -572,6 +597,9 @@ onBeforeUnmount(() => {
 .chip { padding: 2px 13px; border: 1px solid var(--color-border-2); border-radius: 14px; background: var(--color-bg-2); color: var(--color-text-2); font-size: 13px; line-height: 22px; cursor: pointer; transition: all .15s; }
 .chip:hover { border-color: rgb(var(--arcoblue-6)); color: rgb(var(--arcoblue-6)); }
 .chip.active { background: rgb(var(--arcoblue-6)); border-color: rgb(var(--arcoblue-6)); color: #fff; }
+.chip.unmatched { border-style: dashed; color: var(--color-text-3); }
+.chip.unmatched:hover { border-color: var(--color-text-3); color: var(--color-text-2); }
+.chip.unmatched.active { background: var(--color-text-2); border-color: var(--color-text-2); color: #fff; }
 .table-panel { padding: 16px; background: var(--color-bg-2); border-radius: 4px; }
 
 /* 表头允许换行显示（与其它档案页统一样式） */

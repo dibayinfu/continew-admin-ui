@@ -125,12 +125,12 @@ const alarmRows = alarms.map((item) => ({
 }))
 
 const alertRuleRows: Record<string, any>[] = [
-  { id: 'AR001', alarmType: '小勾臂箱满溢', level: '一般', thresholdValue: 90, thresholdUnit: '%', thresholdDesc: '垃圾占比 > 90%', notifyMethods: ['PC', 'APP'], notifyScope: '所有人', notifyUsers: [], notifyContent: '【满溢告警】{boxName} 当前垃圾占比 {fillRate}%，请及时安排清运。', notifyScopeLabel: '所有人', morningSend: false, morningTime: '08:00', morningSendLabel: '实时发送', status: '启用' },
-  { id: 'AR002', alarmType: '小勾臂箱低电量', level: '一般', thresholdValue: 10, thresholdUnit: '%', thresholdDesc: '电量 < 10%', notifyMethods: ['PC'], notifyScope: '所有人', notifyUsers: [], notifyContent: '【低电量告警】{boxName} 当前电量 {battery}%，请检查太阳能板或更换电池。', notifyScopeLabel: '所有人', morningSend: true, morningTime: '08:00', morningSendLabel: '次日 08:00 发送', status: '启用' },
-  { id: 'AR003', alarmType: '小勾臂箱高温', level: '一般', thresholdValue: 60, thresholdUnit: '°C', thresholdDesc: '温度 > 60°C', notifyMethods: ['PC', 'APP', '短信'], notifyScope: '指定用户', notifyUsers: ['张师傅', '李师傅'], notifyContent: '【高温告警】{boxName} 当前温度 {temperature}°C，存在安全隐患，请立即处理。', notifyScopeLabel: '指定 2 人', morningSend: false, morningTime: '08:00', morningSendLabel: '实时发送', status: '启用' },
-  { id: 'AR004', alarmType: '小勾臂箱离线', level: '一般', thresholdValue: 60, thresholdUnit: '分钟', thresholdDesc: '无心跳 > 60 分钟', notifyMethods: ['PC'], notifyScope: '所有人', notifyUsers: [], notifyContent: '【离线告警】{boxName} 已离线超过 60 分钟，请检查设备状态。', notifyScopeLabel: '所有人', morningSend: true, morningTime: '07:30', morningSendLabel: '次日 07:30 发送', status: '启用' },
-  { id: 'AR005', alarmType: '大勾臂箱满溢', level: '一般', thresholdValue: 90, thresholdUnit: '%', thresholdDesc: '垃圾占比 > 90%', notifyMethods: ['PC', 'APP'], notifyScope: '所有人', notifyUsers: [], notifyContent: '【满溢告警】{boxName} 当前垃圾占比 {fillRate}%，请及时安排清运。', notifyScopeLabel: '所有人', morningSend: false, morningTime: '08:00', morningSendLabel: '实时发送', status: '启用' },
-  { id: 'AR006', alarmType: '大勾臂箱离线', level: '一般', thresholdValue: 1440, thresholdUnit: '分钟', thresholdDesc: '无心跳 > 24 小时', notifyMethods: ['PC'], notifyScope: '所有人', notifyUsers: [], notifyContent: '【离线告警】{boxName} 已离线超过 24 小时，请检查设备状态。', notifyScopeLabel: '所有人', morningSend: true, morningTime: '08:00', morningSendLabel: '次日 08:00 发送', status: '停用' },
+  { id: 'AR001', alarmType: '小勾臂箱满溢', level: '一般', thresholdValue: 90, thresholdUnit: '%', thresholdDesc: '垃圾占比 > 90%', notifyMethods: ['PC', 'APP'], notifyScope: '所有人', notifyUsers: [], notifyContent: '{boxName} 当前垃圾占比超过 {fillRate}%，位于{address}，请及时安排清运。', notifyScopeLabel: '所有人', morningSend: false, morningTime: '08:00', morningSendLabel: '实时发送', status: '启用' },
+  { id: 'AR002', alarmType: '小勾臂箱低电量', level: '一般', thresholdValue: 10, thresholdUnit: '%', thresholdDesc: '电量 < 10%', notifyMethods: ['PC'], notifyScope: '所有人', notifyUsers: [], notifyContent: '{boxName} 当前电量低于 {battery}%，位于{address}，请检查太阳能板或更换电池。', notifyScopeLabel: '所有人', morningSend: true, morningTime: '08:00', morningSendLabel: '次日 08:00 发送', status: '启用' },
+  { id: 'AR003', alarmType: '小勾臂箱高温', level: '一般', thresholdValue: 60, thresholdUnit: '°C', thresholdDesc: '温度 > 60°C', notifyMethods: ['PC', 'APP', '短信'], notifyScope: '指定用户', notifyUsers: ['张师傅', '李师傅'], notifyContent: '{boxName}当前温度超过{temperature}°C，存在安全隐患，请立即处理。', notifyScopeLabel: '指定 2 人', morningSend: false, morningTime: '08:00', morningSendLabel: '实时发送', status: '启用' },
+  { id: 'AR004', alarmType: '小勾臂箱离线', level: '一般', thresholdValue: 60, thresholdUnit: '分钟', thresholdDesc: '无心跳 > 60 分钟', notifyMethods: ['PC'], notifyScope: '所有人', notifyUsers: [], notifyContent: '{boxName} 已离线超过 {time}小时，位于{address}，请检查设备状态。', notifyScopeLabel: '所有人', morningSend: true, morningTime: '07:30', morningSendLabel: '次日 07:30 发送', status: '启用' },
+  { id: 'AR005', alarmType: '大勾臂箱满溢', level: '一般', thresholdValue: 90, thresholdUnit: '%', thresholdDesc: '垃圾占比 > 90%', notifyMethods: ['PC', 'APP'], notifyScope: '所有人', notifyUsers: [], notifyContent: '{boxName} 当前垃圾占比超过 {fillRate}%，位于{address}，请及时安排清运。', notifyScopeLabel: '所有人', morningSend: false, morningTime: '08:00', morningSendLabel: '实时发送', status: '启用' },
+  { id: 'AR006', alarmType: '大勾臂箱离线', level: '一般', thresholdValue: 1440, thresholdUnit: '分钟', thresholdDesc: '无心跳 > 24 小时', notifyMethods: ['PC'], notifyScope: '所有人', notifyUsers: [], notifyContent: '{boxName} 已离线超过 {time}小时，位于{address}，请检查设备状态。', notifyScopeLabel: '所有人', morningSend: true, morningTime: '08:00', morningSendLabel: '次日 08:00 发送', status: '停用' },
 ]
 
 const weighingRows = weighRecords.map((item) => ({
@@ -202,6 +202,32 @@ export const devices = [
   { id: 'DEV012', deviceNo: 'DEV-DB-LQ-001', deviceType: '大勾臂箱', deviceName: '大勾臂箱智能设备', manufacturer: '中昱', simCard: '8986012380010000012', status: '启用' },
   { id: 'DEV013', deviceNo: 'DEV-DB-MTJ-001', deviceType: '大勾臂箱', deviceName: '大勾臂箱智能设备', manufacturer: '中昱', simCard: '8986012380010000013', status: '启用' },
   { id: 'DEV014', deviceNo: 'DEV-DB-DF-001', deviceType: '大勾臂箱', deviceName: '大勾臂箱智能设备', manufacturer: '中昱', simCard: '8986012380010000014', status: '停用' },
+  { id: 'DEV015', deviceNo: 'DEV-WV-RL-001', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000015', status: '启用' },
+  { id: 'DEV016', deviceNo: 'DEV-WV-RL-002', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000016', status: '启用' },
+  { id: 'DEV017', deviceNo: 'DEV-WV-RL-003', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000017', status: '启用' },
+  { id: 'DEV018', deviceNo: 'DEV-WV-RL-004', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000018', status: '启用' },
+  { id: 'DEV019', deviceNo: 'DEV-WV-RL-005', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000019', status: '启用' },
+  { id: 'DEV020', deviceNo: 'DEV-WV-RL-006', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000020', status: '启用' },
+  { id: 'DEV021', deviceNo: 'DEV-WV-RL-007', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000021', status: '启用' },
+  { id: 'DEV022', deviceNo: 'DEV-WV-RL-008', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000022', status: '启用' },
+  { id: 'DEV023', deviceNo: 'DEV-WV-RL-009', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000023', status: '启用' },
+  { id: 'DEV024', deviceNo: 'DEV-WV-RL-010', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000024', status: '启用' },
+  { id: 'DEV025', deviceNo: 'DEV-WV-RL-011', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000025', status: '启用' },
+  { id: 'DEV026', deviceNo: 'DEV-WV-RL-012', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000026', status: '启用' },
+  { id: 'DEV027', deviceNo: 'DEV-WV-RL-013', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000027', status: '启用' },
+  { id: 'DEV028', deviceNo: 'DEV-WV-RL-014', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000028', status: '启用' },
+  { id: 'DEV029', deviceNo: 'DEV-WV-RL-015', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000029', status: '启用' },
+  { id: 'DEV030', deviceNo: 'DEV-WV-RL-016', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000030', status: '启用' },
+  { id: 'DEV031', deviceNo: 'DEV-WV-RL-017', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000031', status: '启用' },
+  { id: 'DEV032', deviceNo: 'DEV-WV-RL-018', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000032', status: '启用' },
+  { id: 'DEV033', deviceNo: 'DEV-WV-RL-019', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000033', status: '启用' },
+  { id: 'DEV034', deviceNo: 'DEV-WV-RL-020', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000034', status: '启用' },
+  { id: 'DEV035', deviceNo: 'DEV-WV-RL-021', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000035', status: '启用' },
+  { id: 'DEV036', deviceNo: 'DEV-WV-RL-022', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000036', status: '启用' },
+  { id: 'DEV037', deviceNo: 'DEV-WV-RL-023', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000037', status: '启用' },
+  { id: 'DEV038', deviceNo: 'DEV-WV-RL-024', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000038', status: '启用' },
+  { id: 'DEV039', deviceNo: 'DEV-WV-RL-025', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000039', status: '启用' },
+  { id: 'DEV040', deviceNo: 'DEV-WV-RL-026', deviceType: '整车称重', deviceName: '整车称重设备', manufacturer: '融涞', simCard: '8986012380010000040', status: '启用' },
 ]
 
 /** 小勾臂箱可选的设备编号（仅小勾臂箱类型 + 启用状态） */
@@ -903,7 +929,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
   deviceArchive: makeConfig({
     key: 'deviceArchive',
     title: '设备档案',
-    subtitle: '管理小勾臂箱和大勾臂箱的满溢检测、定位等硬件设备档案，是箱体绑定设备的数据来源。',
+    subtitle: '管理小勾臂箱、大勾臂箱及整车称重等硬件设备档案，是箱体绑定设备的数据来源。',
     phase: 'V1.0',
     priority: 'P0',
     module: '基础档案',
@@ -919,9 +945,9 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
       { title: '启用状态', dataIndex: 'status', width: 90 },
     ],
     rows: devices,
-    fieldOptions: { deviceType: ['小勾臂箱', '大勾臂箱'], status: ['启用', '停用'] },
+    fieldOptions: { deviceType: ['小勾臂箱', '大勾臂箱', '整车称重'], status: ['启用', '停用'] },
     multiFilters: [
-      { key: 'deviceType', options: ['设备类型', '小勾臂箱', '大勾臂箱'] },
+      { key: 'deviceType', options: ['设备类型', '小勾臂箱', '大勾臂箱', '整车称重'] },
       { key: 'status', options: ['启停状态', '启用', '停用'] },
     ],
     prd: [
@@ -930,9 +956,9 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
         items: [
           { label: '列表查询', value: '分页 20 条/页，展示设备编号、设备名称、类型、设备厂家、SIM卡、启用状态' },
           { label: '搜索', value: '按设备编号、设备名称、厂家、SIM卡号模糊匹配，与类型筛选、状态筛选叠加取交集' },
-          { label: '类型筛选', value: '下拉选择「全部 / 小勾臂箱 / 大勾臂箱」' },
+          { label: '类型筛选', value: '下拉选择「全部 / 小勾臂箱 / 大勾臂箱 / 整车称重」' },
           { label: '状态筛选', value: '下拉选择「全部 / 启用 / 停用」' },
-          { label: '新增 / 编辑', value: '录入设备编号、设备名称、设备厂家、SIM卡号，选择设备类型（小勾臂箱 | 大勾臂箱）和启用状态（启用 | 停用）' },
+          { label: '新增 / 编辑', value: '录入设备编号、设备名称、设备厂家、SIM卡号，选择设备类型（小勾臂箱 | 大勾臂箱 | 整车称重）和启用状态（启用 | 停用）' },
           { label: '删除', value: 'Popconfirm 二次确认；删除前需检查是否被小勾臂箱档案或大勾臂箱档案引用为绑定设备，禁止级联删除' },
           { label: '详情', value: '右侧抽屉展示全部字段，只读' },
         ],
@@ -941,8 +967,8 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
         title: '🔑 字段校验规则',
         items: [
           { label: '设备编号 (deviceNo)', value: '必填，在当前机构（租户）内唯一' },
-          { label: '设备名称 (deviceName)', value: '必填，不受勾臂箱流动影响，统一命名为「小勾臂箱智能设备」或「大勾臂箱智能设备」' },
-          { label: '类型 (deviceType)', value: '枚举值：小勾臂箱 / 大勾臂箱，必选' },
+          { label: '设备名称 (deviceName)', value: '必填；勾臂箱设备统一命名为「小勾臂箱智能设备」或「大勾臂箱智能设备」，整车称重设备统一命名为「整车称重设备」' },
+          { label: '类型 (deviceType)', value: '枚举值：小勾臂箱 / 大勾臂箱 / 整车称重，必选' },
           { label: '设备厂家 (manufacturer)', value: '必填，文本框自由输入' },
           { label: 'SIM卡 (simCard)', value: '必填，19 位 ICCID 编号，用于物联网卡管理和流量监控' },
           { label: '启用状态 (status)', value: '枚举值：启用 / 停用；停用后该设备不会出现在小勾臂箱档案和大勾臂箱档案的绑定设备下拉列表中' },
@@ -951,7 +977,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
       {
         title: '⚠️ 边界 & 约束',
         items: [
-          { label: '定位说明', value: '设备档案是基础档案中"小勾臂箱档案"和"大勾臂箱档案"绑定设备字段的数据来源；小勾臂箱只能绑定类型为"小勾臂箱"且状态为"启用"的设备；大勾臂箱只能绑定类型为"大勾臂箱"且状态为"启用"的设备' },
+          { label: '定位说明', value: '设备档案是基础档案中"小勾臂箱档案"和"大勾臂箱档案"绑定设备字段的数据来源；小勾臂箱只能绑定类型为"小勾臂箱"且状态为"启用"的设备；大勾臂箱只能绑定类型为"大勾臂箱"且状态为"启用"的设备；整车称重设备不参与箱体绑定' },
           { label: '勾臂箱流动性', value: '小勾臂箱和大勾臂箱是流动的，不固定在某个村庄或站点，因此设备名称不包含村庄/站点信息，统一使用"小勾臂箱智能设备"或"大勾臂箱智能设备"' },
           { label: 'SIM卡管理', value: 'SIM卡号用于物联网平台流量监控和欠费预警，需与运营商对接；更换设备时SIM卡号需同步更新' },
           { label: '删除约束', value: '删除前需检查是否被小勾臂箱档案或大勾臂箱档案引用为绑定设备，禁止级联删除' },
@@ -1056,7 +1082,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
     phase: 'V1.0',
     priority: 'P0',
     module: '箱体监控',
-    searchPlaceholder: '搜索箱体编号',
+    searchPlaceholder: '搜索箱体编号或名称',
     filters: ['全部', '正常', '预警', '满溢'],
     metrics: [{ label: '小勾臂箱', value: smallBoxRows.length, unit: '个' }, { label: '满溢箱体', value: smallBoxRows.filter((b) => b.overflowStatus === '满溢').length, unit: '个', tone: 'danger' }, { label: '低电量箱体', value: smallBoxRows.filter((b) => b.batteryStatus === '低电量').length, unit: '个', tone: 'warning' }, { label: '高温箱体', value: smallBoxRows.filter((b) => b.temperatureStatus === '高温').length, unit: '个', tone: 'danger' }],
     columns: [
@@ -1086,7 +1112,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
         title: '🎯 功能要点（开发 / 测试关注）',
         items: [
           { label: '列表查询', value: '分页 20 条/页，展示箱体名称、编号、容量、垃圾占比、温度、温度状态、电量、电量状态、匹配对象、当前位置、满溢状态、在线状态' },
-          { label: '搜索', value: '按箱体编号模糊匹配，与满溢状态筛选叠加取交集' },
+          { label: '搜索', value: '按箱体编号或名称模糊匹配，与满溢状态筛选叠加取交集' },
           { label: '满溢状态筛选', value: '下拉选择「全部 / 正常 / 预警 / 满溢」' },
           { label: '电量状态筛选', value: '下拉选择「全部 / 正常 / 低电量」' },
           { label: '远程开锁', value: '操作栏提供「远程开锁」按钮，二次确认后调用远程接口' },
@@ -1192,7 +1218,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
     metrics: [{ label: '启用规则', value: 6, unit: '条' }, { label: '今日触发', value: 23, unit: '次', tone: 'warning' }, { label: '重复抑制', value: 12, unit: '次' }],
     columns: [],
     rows: alertRuleRows,
-    fieldOptions: { notifyMethods: ['PC', 'APP', '短信'] },
+    fieldOptions: { notifyMethods: ['PC', 'APP', '小程序', '短信'] },
     prd: [
       {
         title: '🎯 功能要点（开发 / 测试关注）',
@@ -1217,7 +1243,7 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
       {
         title: '📢 通知配置',
         items: [
-          { label: '通知方式', value: 'PC、APP、短信，可多选' },
+          { label: '通知方式', value: 'PC、APP、小程序、短信，可多选' },
           { label: '通知内容', value: '自定义消息模板，支持占位符如 {boxName}、{fillRate}、{temperature}、{battery} 等，上限 200 字' },
           { label: '通知范围', value: '「所有人」通知该机构所有人员；「指定用户」从该机构平台账户下拉多选，显示姓名/手机号/账户，全球查找人员' },
           { label: '早上定时发送', value: '夜间达到告警阈值时暂不推送，次日指定时间统一发送；关闭则实时触发实时推送' },

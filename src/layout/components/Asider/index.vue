@@ -13,7 +13,6 @@
           <Menu></Menu>
         </a-scrollbar>
       </div>
-      <WwAds class="ads" />
     </a-layout-sider>
   </div>
 </template>
@@ -21,7 +20,6 @@
 <script setup lang="ts">
 import Menu from '../Menu/index.vue'
 import Logo from '../Logo.vue'
-import WwAds from '../WwAds.vue'
 import { useAppStore } from '@/stores'
 import { useDevice } from '@/hooks'
 

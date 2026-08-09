@@ -145,6 +145,7 @@
               <a-checkbox-group v-model="formData.notifyMethods">
                 <a-checkbox value="PC">PC</a-checkbox>
                 <a-checkbox value="APP">APP</a-checkbox>
+                <a-checkbox value="小程序">小程序</a-checkbox>
                 <a-checkbox value="短信">短信</a-checkbox>
               </a-checkbox-group>
             </a-form-item>

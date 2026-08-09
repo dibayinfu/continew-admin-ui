@@ -18,6 +18,7 @@
   },
   "dependencies": {
     "@arco-design/color": "^0.4.0",
+    "@arco-design/web-vue": "^2.57.0",
     "@arco-themes/vue-gi-demo": "^0.0.51",
     "@codemirror/lang-javascript": "^6.2.1",
     "@codemirror/lang-vue": "^0.1.2",
@@ -27,7 +28,7 @@
     "@vueuse/core": "^10.5.0",
     "aieditor": "^1.0.13",
     "animate.css": "^4.1.1",
-    "axios": "^0.27.2",
+    "axios": "^1.7.9",
     "cron-parser": "^4.9.0",
     "crypto-js": "^4.2.0",
     "dayjs": "^1.11.4",
@@ -61,7 +62,6 @@
   },
   "devDependencies": {
     "@antfu/eslint-config": "^2.16.3",
-    "@arco-design/web-vue": "^2.57.0",
     "@tailwindcss/vite": "^4.3.1",
     "@types/crypto-js": "^4.2.2",
     "@types/leaflet": "^1.9.21",

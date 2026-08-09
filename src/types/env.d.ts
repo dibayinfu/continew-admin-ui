@@ -8,6 +8,8 @@ interface ImportMetaEnv {
   readonly VITE_APP_SETTING: string
   readonly VITE_CLIENT_ID: string
   readonly VITE_AMAP_KEY: string
+  readonly VITE_AMAP_JS_KEY?: string
+  readonly VITE_AMAP_SECURITY_JS_CODE?: string
   readonly VITE_API_WS_URL: string
   readonly VITE_PROTOTYPE_MODE?: string
   readonly VITE_PROTOTYPE_HOME?: string

@@ -3,6 +3,34 @@
     <div class="resolution-switch">
       <button :class="{ active: resolutionMode === 'formal' }" @click="resolutionMode = 'formal'">正式分辨率</button>
       <button :class="{ active: resolutionMode === 'test' }" @click="resolutionMode = 'test'">测试分辨率</button>
+      <button :class="{ active: showPrd }" @click="showPrd = !showPrd">产品需求</button>
+      <button :class="{ active: showLayoutMetrics }" @click="showLayoutMetrics = !showLayoutMetrics">布局标注</button>
+      <span v-if="showLayoutMetrics" class="layout-spacing-note">
+        外边距 14px × 2 + 区间距 14px × 3 = <strong>{{ layoutSpacingMetric.width }}px</strong> · {{ layoutSpacingMetric.ratio }}%
+      </span>
+    </div>
+
+    <div v-if="showPrd" class="prd-mask" @click.self="showPrd = false">
+      <section class="prd-board" role="dialog" aria-modal="true" aria-label="数字大屏指挥中心V2产品需求文档">
+        <header class="prd-head">
+          <div><span>产品需求文档 · PRD</span><h2>数字大屏指挥中心 V2</h2><p>生活垃圾收运监控、告警处置与调度指挥一体化大屏</p></div>
+          <button class="prd-close" aria-label="关闭产品需求文档" @click="showPrd = false">×</button>
+        </header>
+        <div class="prd-meta"><span>文档版本：开发数据口径版 V2.0</span><span>适用角色：产品、前端、后端、测试、运营</span><span>数据形态：当前 Mock / 生产聚合接口</span><span>页面目标：发现风险 → 快速研判 → 调度处置 → 过程追踪 → 闭环复盘</span></div>
+        <div class="prd-body">
+          <section v-for="section in prdSections" :key="section.title" class="prd-section">
+            <h3>{{ section.title }}</h3>
+            <p v-if="section.desc" class="prd-desc">{{ section.desc }}</p>
+            <div class="prd-table-wrap">
+              <table class="prd-table">
+                <colgroup><col class="prd-col-name" /><col class="prd-col-source" /><col class="prd-col-logic" /><col class="prd-col-acceptance" /></colgroup>
+                <thead><tr><th scope="col">数据 / 功能</th><th scope="col">数据来源与关联键</th><th scope="col">计算、筛选与排序逻辑</th><th scope="col">展示及验收口径</th></tr></thead>
+                <tbody><tr v-for="item in section.items" :key="item.label"><th scope="row">{{ item.label }}</th><td>{{ item.source }}</td><td>{{ item.logic }}</td><td>{{ item.acceptance }}</td></tr></tbody>
+              </table>
+            </div>
+          </section>
+        </div>
+      </section>
     </div>
 
     <div ref="stageViewportRef" class="stage-viewport" :class="`mode-${resolutionMode}`" :style="stageViewportStyle">
@@ -18,17 +46,18 @@
           </div>
           <h1>安阳龙安区生活垃圾收运监控指挥中心</h1>
           <div class="header-actions">
-            <button class="ai-btn">AI小犀</button>
-            <button>大屏模式</button>
-            <button>全屏</button>
-            <button>刷新</button>
-            <button>设置</button>
+            <button class="ai-btn" @click="notifyHeader('AI小犀正在成长中，智能助手即将上线，敬请期待！')" title="AI小犀智能体"><i class="ai-orbit"><b /><b /><b /></i><span>AI小犀</span></button>
+            <button class="header-icon-btn" title="全屏" @click="toggleFullscreen">⛶</button>
+            <button class="header-icon-btn" title="刷新" @click="refreshDashboard">↻</button>
+            <button class="header-icon-btn" title="设置" @click="settingsOpen = !settingsOpen">⚙</button>
+            <div v-if="settingsOpen" class="header-settings"><label>当前机构<select v-model="selectedOrganization"><option v-for="item in organizations" :key="item" :value="item">{{ item }}</option></select></label><button @click="saveOrganization">保存</button></div>
           </div>
+          <div v-if="headerNotice" class="header-notice">✓ {{ headerNotice }}</div>
         </header>
 
-        <div class="dashboard-grid">
+        <div class="dashboard-grid" :style="dashboardLayoutStyle">
           <aside class="left-rail">
-            <PanelCard title="静态基础档案" class="archive-card">
+            <PanelCard title="基础档案" class="archive-card">
               <div class="archive-list">
                 <div v-for="item in archiveStats" :key="item.label" class="archive-row">
                   <span class="row-icon">{{ item.icon }}</span>
@@ -39,7 +68,7 @@
               </div>
             </PanelCard>
 
-            <PanelCard title="累计任务 256 单" class="result-card">
+            <PanelCard title="累计数据" class="result-card">
               <div class="operation-list">
                 <div v-for="item in operationStats" :key="item.label" class="operation-row">
                   <span class="row-icon">{{ item.icon }}</span>
@@ -49,26 +78,36 @@
                 </div>
               </div>
             </PanelCard>
+
+            <PanelCard title="资产设备监控" class="asset-health-card">
+              <div class="asset-health-grid">
+                <div v-for="item in assetHealthStats" :key="item.key" class="asset-health-row">
+                  <img class="asset-art" :class="item.key" :src="item.asset" :alt="`${item.label}图标`" />
+                  <span class="asset-copy"><strong>{{ item.label }}</strong><em>{{ item.count }}{{ item.unit }}</em><b :class="item.tone">健康度 <i>{{ item.health }}%</i></b></span>
+                </div>
+              </div>
+            </PanelCard>
           </aside>
 
           <section class="analysis-column">
             <PanelCard title="昨日垃圾量乡镇排行（吨）" class="chart-card">
-              <VChart class="analysis-chart" :option="townWasteChartOption" :autoresize="false" :init-options="chartInitOptions" />
+              <VChart :key="`town-${resolutionMode}`" class="analysis-chart" :option="townWasteChartOption" :autoresize="false" :init-options="chartInitOptions" />
             </PanelCard>
             <PanelCard title="近7日清运走势（吨）" class="chart-card">
-              <VChart class="analysis-chart" :option="wasteTrendChartOption" :autoresize="false" :init-options="chartInitOptions" />
+              <VChart :key="`trend-${resolutionMode}`" class="analysis-chart" :option="wasteTrendChartOption" :autoresize="false" :init-options="chartInitOptions" />
             </PanelCard>
             <PanelCard title="昨日司机排行（按任务量）" class="chart-card">
-              <VChart class="analysis-chart" :option="driverRankChartOption" :autoresize="false" :init-options="chartInitOptions" />
+              <VChart :key="`driver-${resolutionMode}`" class="analysis-chart" :option="driverRankChartOption" :autoresize="false" :init-options="chartInitOptions" />
             </PanelCard>
             <PanelCard title="任务准点率（单/日）" class="chart-card">
-              <VChart class="analysis-chart" :option="ontimeTaskChartOption" :autoresize="false" :init-options="chartInitOptions" />
+              <VChart :key="`ontime-${resolutionMode}`" class="analysis-chart" :option="ontimeTaskChartOption" :autoresize="false" :init-options="chartInitOptions" />
             </PanelCard>
           </section>
 
           <main class="map-panel">
             <div class="map-stage" :class="`map-theme-${activeMapTheme}`" @wheel.prevent="onMapWheel">
               <div ref="v2MapBaseRef" class="v2-map-base" />
+              <div v-if="mapEngineError" class="map-engine-error">{{ mapEngineError }}</div>
 
               <div class="map-kpis">
                 <div v-for="item in mapKpis" :key="item.label" class="map-kpi">
@@ -82,21 +121,26 @@
                 <button @click="zoomMap(0.2)">+</button>
                 <button @click="zoomMap(-0.2)">−</button>
                 <button @click="resetMapZoom">1:1</button>
-                <span>{{ Math.round(mapZoom * 100) }}%</span>
               </div>
 
-              <div class="map-theme-switcher" aria-label="地图主题切换">
-                <span>底图主题</span>
-                <button
-                  v-for="theme in mapThemes"
-                  :key="theme.key"
-                  :class="{ active: activeMapTheme === theme.key }"
-                  :title="`切换为${theme.label}`"
-                  @click.stop="activeMapTheme = theme.key"
-                >
-                  <i :style="{ background: theme.color }" />
-                  {{ theme.label }}
+              <div class="map-theme-switcher" :class="{ open: mapThemeMenuOpen }" aria-label="地图主题切换">
+                <button class="theme-trigger" :title="`当前底图：${currentMapTheme.label}`" @click.stop="mapThemeMenuOpen = !mapThemeMenuOpen">
+                  <i :style="{ background: currentMapTheme.color }" />
+                  <span>{{ currentMapTheme.label }}</span>
+                  <b>⌄</b>
                 </button>
+                <div v-if="mapThemeMenuOpen" class="theme-menu">
+                  <button
+                    v-for="theme in mapThemes"
+                    :key="theme.key"
+                    :class="{ active: activeMapTheme === theme.key }"
+                    :title="`切换为${theme.label}`"
+                    @click.stop="selectMapTheme(theme.key)"
+                  >
+                    <i :style="{ background: theme.color }" />
+                    {{ theme.label }}
+                  </button>
+                </div>
               </div>
               <div class="map-zoom-layer" :style="{ transform: `scale(${mapZoom})` }">
                 <div class="region-shape">
@@ -134,42 +178,203 @@
 
             <aside v-if="detailPanelVisible" class="detail-panel">
               <div class="panel-title">
-                统一详情
+                {{ selectedEntity.name === '豫E606' ? selectedEntity.name : `${selectedProfile.title}详情` }}
                 <button class="detail-close" @click="detailPanelVisible = false">×</button>
               </div>
-              <div class="entity-tabs">
-                <button v-for="tab in entityTabs" :key="tab" :class="{ active: currentEntityType === tab }">{{ tab }}</button>
-              </div>
-              <div class="entity-summary">
-                <div>
-                  <span>当前选中：</span>
-                  <strong>{{ selectedEntity.name }}</strong>
-                </div>
-                <p>
-                  <i :class="selectedEntity.status" /> {{ selectedEntity.onlineText }}
+              <div class="entity-summary" :class="{ 'has-image': Boolean(selectedEntity.image) && selectedEntity.type !== '车辆' }">
+                <p v-if="entityStatusInfo" class="entity-status-line">
+                  <i :class="entityStatusInfo.tone" />
+                  <strong>{{ entityStatusInfo.label }}</strong>
+                  <em v-for="tag in entityStatusInfo.tags" :key="tag" :class="tag">{{ tag }}</em>
                 </p>
-                <img v-if="selectedEntity.image" :src="selectedEntity.image" alt="" />
+                <img v-if="selectedEntity.image && selectedEntity.type !== '车辆'" :src="selectedEntity.image" alt="" />
               </div>
-              <div class="detail-list">
-                <div v-for="item in selectedEntity.details" :key="item.label">
-                  <span>{{ item.label }}</span>
-                  <strong>{{ item.value }}</strong>
+              <section class="detail-section">
+                <div class="section-title">基本信息</div>
+                <div class="detail-list">
+                  <div v-for="item in selectedProfile.basic" :key="item.label" :class="{ wide: ['当前位置', '具体地址'].includes(item.label) }">
+                    <span>{{ item.label }}</span>
+                    <strong>{{ item.value }}</strong>
+                  </div>
                 </div>
+              </section>
+              <div v-if="selectedProfile.actions.length" class="quick-actions action-row">
+                <button v-for="action in selectedProfile.actions" :key="action" @click="openEntityAction(action)">{{ action }}</button>
               </div>
-              <div class="relation-card">
-                <div class="section-title">关联信息</div>
-                <div v-for="item in selectedEntity.relations" :key="item.label" class="relation-row">
-                  <span>{{ item.label }}</span>
-                  <strong>{{ item.value }}</strong>
-                  <i>›</i>
+              <section v-if="selectedProfile.task" class="relation-card task-card">
+                <div class="section-title">任务信息</div>
+                <div class="task-name">{{ selectedProfile.task.name }}</div>
+                <div class="task-route">
+                  <div class="task-stop start"><span>始发地</span><strong>{{ taskInfoValue('始发地') }}</strong></div>
+                  <i>→</i>
+                  <div class="task-stop end"><span>目的地</span><strong>{{ taskInfoValue('目的地') }}</strong></div>
                 </div>
+                <div class="task-meta">
+                  <span>时效 <strong>{{ taskInfoValue('时效') }}</strong></span>
+                  <span>状态 <em>{{ taskInfoValue('当前状态') }}</em></span>
+                </div>
+                <button class="task-detail-btn" @click="openEntityAction('查看任务详情')">查看任务详情</button>
+              </section>
+              <section v-if="selectedProfile.statistics.length" class="statistics-card">
+                <div class="section-title">统计信息</div>
+                <div class="statistics-grid">
+                  <div v-for="item in selectedProfile.statistics" :key="item.label">
+                    <strong>{{ item.value }}</strong><span>{{ item.label }}</span>
+                  </div>
+                </div>
+              </section>
+            </aside>
+
+            <aside v-if="activeEntityAction" class="entity-action-panel">
+              <div class="panel-title">{{ activeEntityAction }} · {{ selectedEntity.name }}<button class="detail-close" @click="activeEntityAction = ''">×</button></div>
+              <template v-if="activeEntityAction === '查看任务详情'">
+                <div class="action-task-title">{{ selectedProfile.task?.name }}</div>
+                <div class="detail-list action-content">
+                  <div v-for="item in selectedProfile.task?.items" :key="item.label"><span>{{ item.label }}</span><strong>{{ item.value }}</strong></div>
+                  <div><span>任务编号</span><strong>RW-20260616-{{ selectedEntity.id.toUpperCase() }}</strong></div>
+                  <div><span>执行进度</span><strong>65%</strong></div>
+                </div>
+              </template>
+              <template v-else-if="activeEntityAction === '轨迹' || activeEntityAction === '跟踪'">
+                <div class="track-map" :class="{ live: activeEntityAction === '跟踪' }">
+                  <div class="track-map-label start">起</div><div class="track-map-label end">终</div>
+                  <svg viewBox="0 0 620 300" preserveAspectRatio="none" aria-label="车辆模拟轨迹">
+                    <path class="track-route-shadow" d="M52 236 L124 236 L124 72 L258 72 L258 150 L388 150 L388 52 L540 52 L540 242 L446 242 L446 190 L320 190 L320 258 L180 258" />
+                    <path class="track-route" :style="trackRouteStyle" d="M52 236 L124 236 L124 72 L258 72 L258 150 L388 150 L388 52 L540 52 L540 242 L446 242 L446 190 L320 190 L320 258 L180 258" />
+                    <circle class="track-car-glow" :cx="trackPosition.x" :cy="trackPosition.y" r="16" />
+                    <circle class="track-car" :cx="trackPosition.x" :cy="trackPosition.y" r="8" />
+                  </svg>
+                  <span class="track-place a">文明大道</span><span class="track-place b">龙泉镇</span><span class="track-place c">马家乡</span>
+                </div>
+                <template v-if="activeEntityAction === '轨迹'">
+                  <div class="track-toolbar">
+                    <span>播放速度：</span>
+                    <button v-for="speed in trackSpeeds" :key="speed" :class="{ active: trackSpeed === speed }" @click="selectTrackSpeed(speed)">{{ speed === 1 ? '正常' : `${speed}X` }}</button>
+                    <strong>里程: <em>{{ (trackProgress * 61).toFixed(2) }}km</em></strong>
+                  </div>
+                  <div class="track-player">
+                    <button class="track-play" @click="toggleTrackPlayback">{{ trackPlaying ? 'Ⅱ' : '▶' }}</button>
+                    <div class="track-timeline" @click="seekTrack"><i :style="{ width: `${trackProgress * 100}%` }"><b /></i></div>
+                  </div>
+                  <div class="track-time"><span>开始时间: {{ trackDay }} 00:00:00</span><strong>{{ trackCurrentTime }}</strong><span>结束时间: {{ trackDay }} 23:59:59</span></div>
+                </template>
+                <template v-else>
+                  <div class="live-track-info"><span><i />实时跟踪中</span><strong>速度 42km/h</strong><em>定位 {{ liveLocationTime }}</em></div>
+                  <p class="action-hint">车辆位置与尾部轨迹每 2 秒自动刷新，展示最近一段行驶路径。</p>
+                </template>
+              </template>
+              <template v-else-if="activeEntityAction === '视频'">
+                <div class="video-grid">
+                  <article v-for="camera in vehicleCameras" :key="camera.id" class="video-camera" :class="{ main: camera.id === 1 }">
+                    <div class="video-feed"><i /><span>● LIVE</span><b>{{ camera.id === 1 ? '▶' : '▣' }}</b></div>
+                    <footer><strong>{{ camera.name }}</strong><em>{{ camera.quality }} · 在线</em></footer>
+                  </article>
+                </div>
+                <p class="action-hint">{{ selectedEntity.name }} · 5 路车载摄像头 · 4G 在线 · 实时预览</p>
+              </template>
+              <template v-else-if="activeEntityAction === '对讲'">
+                <div class="video-placeholder" :class="{ connected: intercomConnected }">{{ intercomConnected ? '◉  正在与驾驶员对讲' : '◉  车辆对讲待接通' }}</div>
+                <p class="action-hint">{{ intercomConnected ? `已接通 ${selectedProfile.driver || '驾驶员'}，语音通话中。` : `点击下方“对讲”接通 ${selectedProfile.driver || '驾驶员'}。` }}</p>
+                <button class="talk-button" :class="{ connected: intercomConnected }" @click="toggleIntercom">{{ intercomConnected ? '结束对讲' : '对讲' }}</button>
+              </template>
+              <template v-else>
+                <p class="action-hint">通过设备向 {{ selectedEntity.name }} 下发调度指令。</p>
+                <div class="command-list"><button>立即前往任务点</button><button>更新任务状态</button><button>返回所属站点</button></div>
+              </template>
+            </aside>
+
+            <aside v-if="selectedAlarmRow" class="alarm-detail-panel">
+              <div class="panel-title">告警详细信息<button class="detail-close" @click="selectedAlarmRow = null">×</button></div>
+              <div class="alarm-detail-head"><i :class="selectedAlarmRow.level" />{{ selectedAlarmRow.name }}<em>{{ selectedAlarmRow.read ? '已读' : '未读' }}</em></div>
+              <div class="alarm-detail-grid">
+                <div><span>告警时间</span><strong>{{ trackDay }} {{ selectedAlarmRow.time }}:00</strong></div><div><span>告警等级</span><strong>{{ selectedAlarmRow.level === 'danger' ? '严重' : '一般' }}</strong></div>
+                <div><span>告警位置</span><strong>{{ selectedAlarmRow.place }}</strong></div><div><span>关联任务</span><strong>{{ selectedAlarmRow.taskNo || '暂未创建' }}</strong></div>
+                <div><span>告警对象</span><strong>{{ selectedAlarmRow.boxNo }}</strong></div><div><span>触发规则</span><strong>{{ selectedAlarmRow.rule }}</strong></div>
+                <div class="wide"><span>告警描述</span><strong>{{ selectedAlarmRow.description }}</strong></div>
               </div>
-              <div class="quick-actions">
-                <button>轨迹回放</button>
-                <button>实时视频</button>
-                <button>派单处置</button>
-                <button>导航定位</button>
+              <div class="alarm-detail-actions"><button @click="alarmTaskFormVisible = true">基于此快速创建收运单</button><button @click="toggleAlarmStar">{{ selectedAlarmRow.star ? '取消星标' : '添加星标' }}</button></div>
+            </aside>
+
+            <aside v-if="alarmTaskFormVisible && selectedAlarmRow" class="alarm-task-panel">
+              <div class="panel-title">基于此消息快速创建任务单<button class="detail-close" @click="alarmTaskFormVisible = false">×</button></div>
+              <div class="task-form-grid">
+                <label>驾驶员<select v-model="alarmTaskForm.driver"><option v-for="driver in alarmDrivers" :key="driver" :value="driver">{{ driver }}</option></select></label>
+                <label>车辆<select v-model="alarmTaskForm.vehicle"><option v-for="vehicle in alarmVehicles" :key="vehicle" :value="vehicle">{{ vehicle }}</option></select></label>
+                <label>目的地<select v-model="alarmTaskForm.destination"><option v-for="destination in alarmDestinations" :key="destination" :value="destination">{{ destination }}</option></select></label>
+                <label>时效要求<select v-model="alarmTaskForm.sla"><option v-for="sla in [30, 60, 90, 120]" :key="sla" :value="sla">{{ sla }}分钟</option></select></label>
+                <label>优先级<select v-model="alarmTaskForm.priority"><option value="一般">一般</option><option value="紧急">紧急</option></select></label>
               </div>
+              <button class="create-task-btn" @click="createTaskFromAlarm">确认创建收运单</button>
+            </aside>
+            <div v-if="taskCreatedNotice" class="task-created-toast">✓ 任务单创建好了：{{ taskCreatedNotice }}</div>
+
+            <aside v-if="selectedTaskMonitor" class="task-detail-panel">
+              <div class="panel-title">收运任务详情<button class="detail-close" @click="selectedTaskMonitor = null">×</button></div>
+              <div class="task-detail-header">
+                <div><strong>{{ selectedTaskMonitor.name }}</strong><span>{{ selectedTaskMonitor.id }} · {{ selectedTaskMonitor.orderNo }}</span></div>
+                <em :class="selectedTaskMonitor.tone">{{ selectedTaskMonitor.status }}</em>
+              </div>
+              <section class="task-route-map">
+                <svg viewBox="0 0 480 122" preserveAspectRatio="none" aria-label="任务收运路线">
+                  <template v-if="selectedTaskMonitor.status === '收运中'">
+                    <path class="completed" d="M54 92 C125 25, 197 108, 250 61" />
+                    <path class="pending" d="M250 61 S360 24, 427 48" />
+                  </template>
+                  <path v-else :class="selectedTaskMonitor.status === '已完成' ? 'completed' : 'pending'" d="M54 92 C125 25, 197 108, 250 61 S360 24, 427 48" />
+                  <circle class="route-start-dot" cx="54" cy="92" r="9" /><circle v-if="selectedTaskMonitor.status !== '收运中'" class="route-mid-dot" cx="250" cy="61" r="7" /><circle class="route-end-dot" cx="427" cy="48" r="10" />
+                  <g v-if="selectedTaskMonitor.status === '收运中'" class="route-live-vehicle" transform="translate(250 61) rotate(-15)">
+                    <rect class="truck-box" x="-18" y="-10" width="19" height="16" rx="2" /><rect class="truck-cab" x="1" y="-7" width="13" height="13" rx="2" />
+                    <rect class="truck-window" x="8" y="-4" width="5" height="4" rx="1" /><circle cx="-12" cy="8" r="3" /><circle cx="11" cy="8" r="3" />
+                  </g>
+                </svg>
+                <span class="route-start">始发地<br><b>{{ selectedTaskMonitor.origin }}</b></span>
+                <span class="route-end">目的地<br><b>{{ selectedTaskMonitor.destination }}</b></span>
+              </section>
+              <section class="task-info-cards">
+                <div><span>始发地</span><strong>{{ selectedTaskMonitor.origin }}</strong></div>
+                <div><span>目的地</span><strong>{{ selectedTaskMonitor.destination }}</strong></div>
+                <div><span>时效</span><strong>{{ selectedTaskMonitor.duration }}分钟 <em>要求 {{ selectedTaskMonitor.sla }}分钟</em></strong></div>
+                <div><span>驾驶员 / 车辆</span><strong>{{ selectedTaskMonitor.driver }} / {{ selectedTaskMonitor.vehicle }}</strong></div>
+                <div><span>称重</span><strong>{{ selectedTaskMonitor.weight }} 吨</strong></div>
+              </section>
+              <section class="task-detail-section">
+                <h4>运单重点</h4>
+                <div class="task-focus"><span>当前状态<b>{{ selectedTaskMonitor.status }}</b></span><span>满溢率<b class="danger">{{ selectedTaskMonitor.fillRate }}%</b></span><span>时效要求<b>{{ selectedTaskMonitor.sla }}分钟 / {{ selectedTaskMonitor.duration }}分钟</b></span></div>
+              </section>
+              <section class="task-detail-section">
+                <h4>关键事件</h4>
+                <ol class="task-timeline"><li v-for="event in selectedTaskMonitor.events" :key="event.time"><b>{{ event.name }}</b><span>{{ event.place }}</span><em>{{ event.time }}</em></li></ol>
+              </section>
+              <section class="task-detail-section">
+                <h4>辅助信息</h4>
+                <div class="task-assist-grid"><span>来源告警<strong>{{ selectedTaskMonitor.alarmNo }}</strong></span><span>箱体<strong>{{ selectedTaskMonitor.box }}</strong></span><span>所属乡镇<strong>{{ selectedTaskMonitor.town }}</strong></span><span>司机电话<strong>{{ selectedTaskMonitor.phone }}</strong></span></div>
+              </section>
+              <section v-if="selectedTaskMonitor.status !== '已完成'" class="task-operation-section">
+                <button class="force-complete-btn" @click="forceCompleteTask">强制完成</button>
+                <button class="transfer-task-btn" @click="openTaskTransfer">转单</button>
+              </section>
+              <section v-if="taskTransferVisible" class="task-transfer-form">
+                <span>转交至</span><select v-model="taskTransferTarget"><option v-for="item in taskTransferTargets" :key="item.name" :value="item.name">{{ item.name }} · {{ item.vehicle }}</option></select>
+                <button @click="confirmTaskTransfer">确认转单</button><button class="cancel" @click="taskTransferVisible = false">取消</button>
+              </section>
+            </aside>
+            <div v-if="taskActionNotice" class="task-action-toast">✓ {{ taskActionNotice }}</div>
+            <aside v-if="selectedBoxMonitor" class="box-detail-panel">
+              <div class="panel-title">{{ selectedBoxMonitor.type === 'small' ? '小勾臂箱' : '大勾臂箱' }}详情<button class="detail-close" @click="selectedBoxMonitor = null">×</button></div>
+              <div class="box-detail-title"><strong>{{ selectedBoxMonitor.name }}</strong><span>{{ selectedBoxMonitor.code }}</span></div>
+              <div class="box-detail-grid">
+                <div><span>在线状态</span><strong :class="selectedBoxMonitor.online === '在线' ? 'success' : 'danger'">{{ selectedBoxMonitor.online }}</strong></div><div><span>满溢状态</span><strong :class="selectedBoxMonitor.overflow === '满溢' ? 'danger' : 'success'">{{ selectedBoxMonitor.overflow }}</strong></div>
+                <div v-if="selectedBoxMonitor.type === 'small'"><span>电量状态</span><strong :class="selectedBoxMonitor.batteryStatus === '低电量' ? 'warning' : 'success'">{{ selectedBoxMonitor.batteryStatus }}</strong></div><div v-if="selectedBoxMonitor.type === 'small'"><span>温度状态</span><strong :class="selectedBoxMonitor.temperatureStatus === '高温' ? 'danger' : 'success'">{{ selectedBoxMonitor.temperatureStatus }}</strong></div>
+                <div class="wide"><span>匹配对象</span><strong>{{ selectedBoxMonitor.match }}</strong></div><div class="wide"><span>当前位置</span><strong>{{ selectedBoxMonitor.location }}</strong></div>
+                <div><span>垃圾占比</span><strong :class="{ danger: selectedBoxMonitor.fillRate >= 90 }">{{ selectedBoxMonitor.fillRate }}%</strong></div><div v-if="selectedBoxMonitor.type === 'small'"><span>温度 / 电量</span><strong>{{ selectedBoxMonitor.temperature }}℃ / {{ selectedBoxMonitor.battery }}%</strong></div>
+              </div>
+            </aside>
+            <aside v-if="selectedSafetyMonitor" class="safety-detail-panel">
+              <div class="panel-title">主动安全告警详情<button class="detail-close" @click="selectedSafetyMonitor = null">×</button></div>
+              <div class="safety-detail-title"><strong>{{ selectedSafetyMonitor.type }}</strong><span>{{ selectedSafetyMonitor.time }} · {{ selectedSafetyMonitor.vehicle }} · {{ selectedSafetyMonitor.driver }}</span></div>
+              <section class="safety-location-map"><i>●</i><span>{{ selectedSafetyMonitor.place }}</span><em>告警位置</em></section>
+              <section class="safety-attachment"><div class="attachment-title">告警附件 <span>{{ activeSafetyAttachment.kind === 'video' ? '视频' : '图片' }} · {{ safetyAttachmentIndex + 1 }}/{{ safetyAttachments.length }}</span></div><div class="attachment-stage" :class="[activeSafetyAttachment.kind, { playing: safetyVideoPlaying }]"><button class="attachment-nav prev" @click="changeSafetyAttachment(-1)">‹</button><div class="attachment-content" @click="activeSafetyAttachment.kind === 'video' && (safetyVideoPlaying = !safetyVideoPlaying)"><span>{{ activeSafetyAttachment.kind === 'video' ? (safetyVideoPlaying ? '▮▮ 视频播放中' : '▶ 点击播放视频') : '▣ 现场抓拍图片' }}</span><b>{{ activeSafetyAttachment.label }}</b></div><button class="attachment-nav next" @click="changeSafetyAttachment(1)">›</button></div><div class="attachment-dots"><i v-for="(item, index) in safetyAttachments" :key="`${item.kind}-${index}`" :class="{ active: index === safetyAttachmentIndex }" @click="safetyAttachmentIndex = index" /></div></section>
+              <div class="safety-detail-grid"><div><span>车速</span><strong>{{ selectedSafetyMonitor.speed }} km/h</strong></div><div><span>告警等级</span><strong :class="selectedSafetyMonitor.tone">{{ selectedSafetyMonitor.level }}</strong></div><div class="wide"><span>告警地址</span><strong>{{ selectedSafetyMonitor.place }}</strong></div></div>
             </aside>
           </main>
 
@@ -180,93 +385,88 @@
               </button>
             </div>
 
-            <PanelCard v-if="activeRightTab === 'alarm'" title="实时告警" class="right-card">
+            <PanelCard v-if="activeRightTab === 'alarm'" title="" class="right-card">
               <div class="alarm-stats">
-                <div v-for="item in alarmStats" :key="item.label">
+                <button v-for="item in alarmStats" :key="item.label" :class="{ active: activeAlarmFilter === item.key }" @click="activeAlarmFilter = item.key">
                   <span>{{ item.label }}</span>
                   <strong :class="item.tone">{{ item.value }}</strong>
-                </div>
+                </button>
               </div>
-              <div class="alarm-filters">
-                <button class="active">全部 · 36</button>
-                <button>严重 8</button>
-                <button>未读 8</button>
-                <button>星标 12</button>
-              </div>
-              <div class="table-title">告警列表（实时）</div>
               <div class="alarm-table">
                 <div class="table-head">
-                  <span>时间</span><span>类型</span><span>位置</span><span>状态</span><span />
+                  <span>时间</span><span>类型</span><span>位置</span><span>星标</span><span>关联任务</span>
                 </div>
-                <div v-for="item in alarmRows" :key="`${item.time}-${item.name}`" class="alarm-row">
-                  <span><i :class="item.level" />{{ item.time }}</span>
+                <div v-for="item in filteredAlarmRows" :key="item.id" class="alarm-row clickable" @click="openAlarmDetail(item)">
+                  <span><i :class="item.level" />{{ formatAlarmTime(item) }}</span>
                   <span>{{ item.name }}</span>
                   <span>{{ item.place }}</span>
-                  <strong :class="item.stateTone">{{ item.state }}</strong>
                   <em>{{ item.star ? '★' : '☆' }}</em>
+                  <span>{{ item.taskNo || '-' }}</span>
                 </div>
               </div>
             </PanelCard>
 
-            <PanelCard v-else :title="activeRightTitle" class="right-card">
+            <PanelCard v-else title="" class="right-card">
               <template v-if="activeRightTab === 'task'">
                 <div class="tab-stats-grid">
-                  <div v-for="item in taskMonitorStats" :key="item.label">
+                  <button v-for="item in taskMonitorStats" :key="item.key" :class="{ active: activeTaskFilter === item.key }" @click="activeTaskFilter = item.key">
                     <span>{{ item.label }}</span>
                     <strong :class="item.tone">{{ item.value }}</strong>
-                  </div>
+                  </button>
                 </div>
                 <div class="monitor-list">
-                  <div v-for="item in taskMonitorRows" :key="item.id" class="monitor-row">
-                    <div><strong>{{ item.name }}</strong><span>{{ item.route }}</span></div>
-                    <em :class="item.tone">{{ item.status }}</em>
-                  </div>
+                  <button v-for="item in filteredTaskMonitorRows" :key="item.id" class="monitor-row task-monitor-row clickable" @click="openTaskMonitorDetail(item)">
+                    <div><strong>{{ item.name }}</strong><div class="task-row-second"><span>{{ item.route }}</span><span class="task-row-meta">{{ item.vehicle }} · {{ item.vehicleType }} · {{ item.driver }}</span></div></div>
+                    <div class="task-row-tags"><em :class="item.tone">{{ item.status }}</em><em v-if="item.overtimeStatus === '已超时'" :class="item.overtimeTone">{{ item.overtimeStatus }}</em></div>
+                  </button>
                 </div>
               </template>
               <template v-else-if="activeRightTab === 'box'">
-                <div class="tab-stats-grid">
-                  <div v-for="item in boxMonitorStats" :key="item.label">
+                <div class="tab-stats-grid box-stats-grid">
+                  <button v-for="item in boxMonitorStats" :key="item.key" :class="{ active: activeBoxType === item.key }" @click="activeBoxType = item.key">
                     <span>{{ item.label }}</span>
                     <strong :class="item.tone">{{ item.value }}</strong>
-                  </div>
+                  </button>
                 </div>
-                <div class="monitor-list">
-                  <div v-for="item in boxMonitorRows" :key="item.id" class="monitor-row">
-                    <div><strong>{{ item.name }}</strong><span>{{ item.place }} · 满溢率 {{ item.fillRate }}%</span></div>
-                    <em :class="item.tone">{{ item.status }}</em>
-                  </div>
+                <div class="box-monitor-table" :class="activeBoxType">
+                  <div class="box-table-head"><span>箱体名称</span><span>编号</span><span>在线</span><span>满溢</span><span v-if="activeBoxType === 'small'">电量</span><span v-if="activeBoxType === 'small'">温度</span><span>垃圾占比</span></div>
+                  <button v-for="item in filteredBoxMonitorRows" :key="item.id" class="box-table-row" @click="openBoxMonitorDetail(item)">
+                    <span>{{ item.name }}</span><span>{{ item.code }}</span><em :class="item.online === '在线' ? 'success' : 'danger'">{{ item.online }}</em><em :class="item.overflow === '满溢' ? 'danger' : 'success'">{{ item.overflow }}</em><em v-if="activeBoxType === 'small'" :class="item.batteryStatus === '低电量' ? 'warning' : 'success'">{{ item.batteryStatus }}</em><em v-if="activeBoxType === 'small'" :class="item.temperatureStatus === '高温' ? 'danger' : 'success'">{{ item.temperatureStatus }}</em><strong :class="{ danger: item.fillRate >= 90 }">{{ item.fillRate }}%</strong>
+                  </button>
                 </div>
               </template>
               <template v-else-if="activeRightTab === 'vehicle'">
-                <div class="tab-stats-grid">
-                  <div v-for="item in vehicleMonitorStats" :key="item.label">
+                <div class="vehicle-plate-search"><span>车牌号</span><input v-model="vehiclePlateSearch" list="vehicle-plate-options" placeholder="输入或选择车牌号" /><datalist id="vehicle-plate-options"><option v-for="item in vehicleMonitorRows" :key="item.id" :value="item.plate" /></datalist></div>
+                <div class="tab-stats-grid vehicle-type-stats">
+                  <button v-for="item in vehicleTypeStats" :key="item.key" :class="{ active: activeVehicleType === item.key }" @click="activeVehicleType = item.key">
                     <span>{{ item.label }}</span>
                     <strong :class="item.tone">{{ item.value }}</strong>
-                  </div>
+                  </button>
+                </div>
+                <div class="vehicle-status-filters">
+                  <button v-for="item in vehicleStatusFilters" :key="item.key" :class="{ active: activeVehicleStatus === item.key }" @click="activeVehicleStatus = item.key">{{ item.label }}</button>
                 </div>
                 <div class="monitor-list">
-                  <div v-for="item in vehicleMonitorRows" :key="item.id" class="monitor-row">
-                    <div><strong>{{ item.plate }}</strong><span>{{ item.driver }} · {{ item.speed }}km/h · {{ item.task }}</span></div>
-                    <em :class="item.tone">{{ item.status }}</em>
-                  </div>
+                  <button v-for="item in filteredVehicleMonitorRows" :key="item.id" class="monitor-row vehicle-monitor-row clickable" @click="openVehicleMonitorDetail(item)">
+                    <div><strong>{{ item.plate }}</strong><span class="vehicle-row-meta"> · {{ item.driver }} · {{ item.type }}</span></div>
+                    <div class="vehicle-row-tags"><em :class="item.tone">{{ item.status }}</em><em v-if="item.collecting" class="collecting">收运中</em></div>
+                  </button>
                 </div>
               </template>
               <template v-else>
-                <div class="tab-stats-grid">
-                  <div v-for="item in safetyMonitorStats" :key="item.label">
-                    <span>{{ item.label }}</span>
-                    <strong :class="item.tone">{{ item.value }}</strong>
-                  </div>
-                </div>
-                <div class="monitor-list">
-                  <div v-for="item in safetyMonitorRows" :key="item.id" class="monitor-row">
-                    <div><strong>{{ item.type }}</strong><span>{{ item.vehicle }} · {{ item.place }}</span></div>
-                    <em :class="item.tone">{{ item.level }}</em>
-                  </div>
+                <div class="safety-table">
+                  <div class="safety-table-head"><span>告警类型</span><span>时间</span><span>车牌号</span><span>地址</span><span>驾驶员</span><span>车速</span></div>
+                  <button v-for="item in safetyMonitorRows" :key="item.id" class="safety-table-row" @click="openSafetyDetail(item)"><span><i :class="item.tone" />{{ item.type }}</span><span>{{ item.time }}</span><span>{{ item.vehicle }}</span><span>{{ item.place }}</span><span>{{ item.driver }}</span><strong>{{ item.speed }}km/h</strong></button>
                 </div>
               </template>
             </PanelCard>
           </aside>
+
+          <div v-if="showLayoutMetrics" class="layout-guide-layer" aria-hidden="true">
+            <div v-for="(item, index) in layoutMetrics" :key="item.key" class="layout-guide-cell">
+              <span><b>{{ index + 1 }}</b>{{ item.label }} · {{ item.width }}px · {{ item.ratio }}%</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -274,36 +474,54 @@
 </template>
 
 <script setup lang="ts">
-import { type EChartsOption, graphic } from 'echarts'
-import L from 'leaflet'
-import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { type CSSProperties, computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import VChart from 'vue-echarts'
-import 'leaflet/dist/leaflet.css'
-import { longanVillageArchives, wgs84ToGcj02 } from './data/longan-archive'
+import { commandCenterPrdSections } from './data/command-center-july-v2-prd'
+import assetHealthBox from '@/assets/images/command-center/asset-health-box.png'
+import assetHealthVehicle from '@/assets/images/command-center/asset-health-vehicle.png'
+import assetHealthTricycle from '@/assets/images/command-center/asset-health-tricycle.png'
+import { useCommandCenterCharts } from './data/command-center-v2-charts'
+import { createGeneratedMapEntities, initialMapEntities, LONGAN_BOUNDS, mapLayerIconMap, type MapEntity } from './data/command-center-v2-map-data'
+import { alarmDestinations, alarmDrivers, alarmVehicles, boxMonitorRows, boxMonitorStats, rightTabs, safetyAttachments, safetyMonitorRows, simulatedTrackPoints, taskMonitorDetailMap, taskMonitorRows, taskMonitorStats, taskTransferTargets, trackSpeeds, vehicleCameras, vehicleMonitorRows, vehicleStatusFilters, vehicleTypeStats, type BoxMonitorRow, type BoxType, type SafetyMonitorRow, type TaskMonitorDetail, type TaskMonitorRow, type VehicleMonitorRow } from './data/command-center-v2-panel-data'
 
 defineOptions({ name: 'SanitationCommandCenterJulyV2' })
 
-interface MapEntity {
-  id: string
-  type: '车辆' | '箱体' | '告警' | '任务' | '收集点' | '中转站' | '焚烧厂'
-  layer: string
-  kind: string
-  status: string
-  icon: string
-  name: string
-  lng: number
-  lat: number
-  alarm?: boolean
-  pulse?: boolean
-  onlineText: string
-  image?: string
-  details: Array<{ label: string, value: string }>
-  relations: Array<{ label: string, value: string }>
-}
 
 const DESIGN_WIDTH = 4784
 const DESIGN_HEIGHT = 1560
+const LAYOUT_PADDING = 14
+const LAYOUT_GAP = 14
+const LAYOUT_STATISTICS_WIDTH = 520
+const LAYOUT_CHARTS_WIDTH = 800
+const LAYOUT_DISPATCH_WIDTH = 900
+const LAYOUT_FIXED_WIDTH = LAYOUT_STATISTICS_WIDTH + LAYOUT_CHARTS_WIDTH + LAYOUT_DISPATCH_WIDTH
+const LAYOUT_SPACING_WIDTH = LAYOUT_PADDING * 2 + LAYOUT_GAP * 3
+const LAYOUT_MAP_WIDTH = DESIGN_WIDTH - LAYOUT_FIXED_WIDTH - LAYOUT_SPACING_WIDTH
+const formatLayoutRatio = (width: number) => ((width / DESIGN_WIDTH) * 100).toFixed(2)
 const resolutionMode = ref<'formal' | 'test'>('test')
+const showPrd = ref(false)
+const showLayoutMetrics = ref(true)
+const layoutMetrics = [
+  { key: 'statistics', label: '最左侧数据统计区', width: LAYOUT_STATISTICS_WIDTH, ratio: formatLayoutRatio(LAYOUT_STATISTICS_WIDTH) },
+  { key: 'charts', label: '左中侧图表区', width: LAYOUT_CHARTS_WIDTH, ratio: formatLayoutRatio(LAYOUT_CHARTS_WIDTH) },
+  { key: 'map', label: '中间地图区', width: LAYOUT_MAP_WIDTH, ratio: formatLayoutRatio(LAYOUT_MAP_WIDTH) },
+  { key: 'dispatch', label: '右侧调度区', width: LAYOUT_DISPATCH_WIDTH, ratio: formatLayoutRatio(LAYOUT_DISPATCH_WIDTH) },
+]
+const layoutSpacingMetric = { width: LAYOUT_SPACING_WIDTH, ratio: formatLayoutRatio(LAYOUT_SPACING_WIDTH) }
+const dashboardLayoutStyle = {
+  '--layout-statistics-width': `${LAYOUT_STATISTICS_WIDTH}px`,
+  '--layout-charts-width': `${LAYOUT_CHARTS_WIDTH}px`,
+  '--layout-dispatch-width': `${LAYOUT_DISPATCH_WIDTH}px`,
+} as CSSProperties
+const prdSections = commandCenterPrdSections
+const settingsOpen = ref(false)
+const organizations = ['龙安区环卫中心', '马投涧镇环卫站', '龙泉镇环卫站', '文明大道街道办']
+const selectedOrganization = ref(organizations[0])
+const headerNotice = ref('')
+function notifyHeader(message: string) { headerNotice.value = message; window.setTimeout(() => { headerNotice.value = '' }, 2200) }
+async function toggleFullscreen() { if (!document.fullscreenElement) await document.documentElement.requestFullscreen?.(); else await document.exitFullscreen?.() }
+function refreshDashboard() { notifyHeader('数据已刷新') }
+function saveOrganization() { settingsOpen.value = false; notifyHeader(`已切换至${selectedOrganization.value}`) }
 const stageViewportRef = ref<HTMLElement>()
 const autoTestScale = ref(0.35)
 const screenScale = computed(() => resolutionMode.value === 'formal' ? 1 : autoTestScale.value)
@@ -312,42 +530,115 @@ const stageViewportStyle = computed(() => ({
   height: `${DESIGN_HEIGHT * screenScale.value}px`,
 }))
 
+type MapThemeKey = 'darkblue' | 'dark' | 'blue'
+interface MapTheme {
+  key: MapThemeKey
+  label: string
+  color: string
+}
+
+const activeMapTheme = ref<MapThemeKey>('blue')
+const mapThemeMenuOpen = ref(false)
+const mapThemes: MapTheme[] = [
+  { key: 'darkblue', label: '极夜蓝', color: 'linear-gradient(135deg, #031525, #075b91)' },
+  { key: 'dark', label: '幻影黑', color: 'linear-gradient(135deg, #02050a, #293543)' },
+  { key: 'blue', label: '靛青蓝', color: 'linear-gradient(135deg, #062849, #1686c7)' },
+]
+const currentMapTheme = computed(() => mapThemes.find((theme) => theme.key === activeMapTheme.value) || mapThemes[0])
+
+function selectMapTheme(theme: MapThemeKey) {
+  activeMapTheme.value = theme
+  mapThemeMenuOpen.value = false
+}
+
+interface AMapInstance {
+  destroy: () => void
+  getZoom: () => number
+  setMapStyle: (style: string) => void
+  setZoom: (zoom: number, immediately?: boolean) => void
+}
+
+interface AMapNamespace {
+  Map: new (container: HTMLElement, options: Record<string, unknown>) => AMapInstance
+}
+
 let resizeObserver: ResizeObserver | undefined
 const v2MapBaseRef = ref<HTMLDivElement>()
-let v2BaseMap: L.Map | null = null
+const mapEngineError = ref('')
+let v2BaseMap: AMapInstance | null = null
 let wheelZoomTimer: number | undefined
 let pendingWheelZoom = 0
+let amapLoader: Promise<AMapNamespace> | undefined
 
-function initV2BaseMap() {
-  if (!v2MapBaseRef.value) return
-  if (v2BaseMap) {
-    v2BaseMap.remove()
-    v2BaseMap = null
+function amapStyle(theme: MapThemeKey) {
+  return `amap://styles/${theme}`
+}
+
+function getAmapNamespace() {
+  return window as typeof window & {
+    AMap?: AMapNamespace
+    _AMapSecurityConfig?: { securityJsCode?: string }
+  }
+}
+
+function loadAmapJsApi() {
+  const amapWindow = getAmapNamespace()
+  if (amapWindow.AMap) return Promise.resolve(amapWindow.AMap)
+  if (amapLoader) return amapLoader
+
+  const env = import.meta.env as Record<string, string | undefined>
+  const key = env.VITE_AMAP_JS_KEY || env.VITE_AMAP_KEY
+  if (!key) return Promise.reject(new Error('缺少 VITE_AMAP_JS_KEY 高德 JS API Key'))
+
+  if (env.VITE_AMAP_SECURITY_JS_CODE) {
+    amapWindow._AMapSecurityConfig = { securityJsCode: env.VITE_AMAP_SECURITY_JS_CODE }
   }
 
-  v2BaseMap = L.map(v2MapBaseRef.value, {
-    center: [36.07, 114.30],
-    zoom: 13,
-    zoomControl: false,
-    attributionControl: false,
-    dragging: true,
-    scrollWheelZoom: false,
-    doubleClickZoom: false,
-    zoomAnimation: false,
-    fadeAnimation: false,
-    markerZoomAnimation: false,
-    inertia: false,
-    minZoom: 11,
-    maxZoom: 18,
+  amapLoader = new Promise<AMapNamespace>((resolve, reject) => {
+    const script = document.createElement('script')
+    const timeout = window.setTimeout(() => reject(new Error('高德 JS API 加载超时')), 12000)
+    script.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}`
+    script.async = true
+    script.onload = () => {
+      window.clearTimeout(timeout)
+      const amap = getAmapNamespace().AMap
+      if (amap) resolve(amap)
+      else reject(new Error('高德 JS API 未初始化'))
+    }
+    script.onerror = () => {
+      window.clearTimeout(timeout)
+      reject(new Error('高德 JS API 加载失败'))
+    }
+    document.head.appendChild(script)
   })
 
-  L.tileLayer(
-    'https://wprd0{s}.is.autonavi.com/appmaptile?x={x}&y={y}&z={z}&lang=zh_cn&size=1&scl=1&style=7',
-    {
-      subdomains: ['1', '2', '3', '4'],
-      maxZoom: 18,
-    },
-  ).addTo(v2BaseMap)
+  return amapLoader
+}
+
+async function initV2BaseMap() {
+  if (!v2MapBaseRef.value) return
+  try {
+    const AMap = await loadAmapJsApi()
+    v2BaseMap?.destroy()
+    v2BaseMap = new AMap.Map(v2MapBaseRef.value, {
+      center: [114.30, 36.07],
+      zoom: 13,
+      zooms: [11, 18],
+      viewMode: '2D',
+      mapStyle: amapStyle(activeMapTheme.value),
+      animateEnable: false,
+      jogEnable: false,
+      resizeEnable: true,
+      zoomEnable: false,
+      doubleClickZoom: false,
+      keyboardEnable: false,
+      scrollWheel: false,
+      showIndoorMap: false,
+    })
+    mapEngineError.value = ''
+  } catch {
+    mapEngineError.value = '高德官方主题加载失败：请配置 JS API Key，并在控制台绑定当前访问域名。'
+  }
 }
 
 function updateTestScale() {
@@ -375,8 +666,11 @@ onBeforeUnmount(() => {
   if (wheelZoomTimer !== undefined) {
     window.clearTimeout(wheelZoomTimer)
   }
+  if (trackTimer !== undefined) {
+    window.clearInterval(trackTimer)
+  }
   if (v2BaseMap) {
-    v2BaseMap.remove()
+    v2BaseMap.destroy()
     v2BaseMap = null
   }
 })
@@ -401,313 +695,14 @@ const operationStats = [
   { icon: '◷', label: '平均响应', value: '18.6', unit: '分钟' },
   { icon: '◇', label: '安全运行', value: '128', unit: '天' },
 ]
-
-const townWasteRank = [
-  { name: '龙泉镇', value: 186 },
-  { name: '马家乡', value: 168 },
-  { name: '彰武街道', value: 151 },
-  { name: '东风乡', value: 136 },
-  { name: '罗庄镇', value: 118 },
-  { name: '善应镇', value: 96 },
-  { name: '太行街道', value: 84 },
-  { name: '文明大道街道', value: 72 },
+const assetHealthStats = [
+  { key: 'box', asset: assetHealthBox, label: '箱体', count: 382, unit: '个', health: 98, abnormal: 8, tone: 'success', exceptions: [{ name: '徐家口村小勾臂箱', code: 'XB-DF-008', location: '东风乡徐家口村', lastOnline: '2026-07-10 08:16', days: 3 }, { name: '马投涧大勾臂箱', code: 'DB-MTJ-005', location: '马投涧镇工业路', lastOnline: '2026-07-09 19:42', days: 4 }] },
+  { key: 'vehicle', asset: assetHealthVehicle, label: '车辆', count: 26, unit: '台', health: 97, abnormal: 1, tone: 'warning', exceptions: [{ name: '豫E5Q381', code: 'ADAS-E5Q381', location: '龙泉镇南街', lastOnline: '2026-07-10 07:32', days: 3 }] },
+  { key: 'tricycle', asset: assetHealthTricycle, label: '小三轮', count: 540, unit: '辆', health: 95, abnormal: 27, tone: 'danger', exceptions: [{ name: '豫E9T266', code: 'TRI-E9T266', location: '善应镇北村', lastOnline: '2026-07-09 16:20', days: 4 }, { name: '豫E7L126', code: 'TRI-E7L126', location: '文明大道街道', lastOnline: '2026-07-10 09:55', days: 3 }] },
 ]
 
-const wasteTrend = [
-  { date: '06-19', value: 210 },
-  { date: '06-20', value: 238 },
-  { date: '06-21', value: 196 },
-  { date: '06-22', value: 265 },
-  { date: '06-23', value: 228 },
-  { date: '06-24', value: 252 },
-  { date: '06-25', value: 241 },
-]
+const { townWasteChartOption, wasteTrendChartOption, driverRankChartOption, ontimeTaskChartOption, chartInitOptions } = useCommandCenterCharts(resolutionMode)
 
-const driverRank = [
-  { name: '张师傅', tasks: 42, rate: 98 },
-  { name: '李师傅', tasks: 39, rate: 97 },
-  { name: '王师傅', tasks: 36, rate: 96 },
-  { name: '赵师傅', tasks: 34, rate: 95 },
-  { name: '陈师傅', tasks: 31, rate: 94 },
-  { name: '郑师傅', tasks: 28, rate: 93 },
-  { name: '孙师傅', tasks: 26, rate: 92 },
-]
-
-const ontimeTaskTrend = [
-  { date: '06-19', tasks: 188, rate: 94 },
-  { date: '06-20', tasks: 205, rate: 96 },
-  { date: '06-21', tasks: 176, rate: 93 },
-  { date: '06-22', tasks: 232, rate: 98 },
-  { date: '06-23', tasks: 218, rate: 95 },
-  { date: '06-24', tasks: 246, rate: 99 },
-  { date: '06-25', tasks: 226, rate: 96 },
-]
-
-const chartTextColor = '#b8d8f2'
-const chartGridColor = 'rgba(72, 174, 255, 0.14)'
-const axisLabel = {
-  color: chartTextColor,
-  fontSize: 11,
-}
-const formalAxisLabel = {
-  color: chartTextColor,
-  fontSize: 18,
-}
-
-function chartFontSize(testSize: number, formalSize: number) {
-  return resolutionMode.value === 'formal' ? formalSize : testSize
-}
-
-const townWasteChartOption = computed<EChartsOption>(() => ({
-  grid: { top: 12, right: 52, bottom: 8, left: 78 },
-  tooltip: {
-    trigger: 'axis',
-    axisPointer: { type: 'shadow' },
-    backgroundColor: 'rgba(4, 19, 33, 0.92)',
-    borderColor: 'rgba(69, 196, 255, 0.38)',
-    textStyle: { color: '#dff7ff', fontSize: chartFontSize(12, 22) },
-    formatter: '{b}<br/>昨日垃圾量：{c} 吨',
-  },
-  xAxis: {
-    type: 'value',
-    splitLine: { lineStyle: { color: chartGridColor } },
-    axisLine: { show: false },
-    axisTick: { show: false },
-    axisLabel: { ...(resolutionMode.value === 'formal' ? formalAxisLabel : axisLabel) },
-  },
-  yAxis: {
-    type: 'category',
-    inverse: true,
-    data: townWasteRank.map((item) => item.name),
-    axisLine: { show: false },
-    axisTick: { show: false },
-    axisLabel: { color: '#d7ecff', fontSize: chartFontSize(12, 24), margin: 10 },
-  },
-  series: [{
-    type: 'bar',
-    data: townWasteRank.map((item) => item.value),
-    barWidth: '48%',
-    showBackground: true,
-    backgroundStyle: { color: 'rgba(55, 126, 180, 0.14)', borderRadius: 8 },
-    itemStyle: {
-      borderRadius: [0, 8, 8, 0],
-      color: new graphic.LinearGradient(0, 0, 1, 0, [
-        { offset: 0, color: 'rgba(36, 107, 255, 0.72)' },
-        { offset: 0.55, color: '#24d6ff' },
-        { offset: 1, color: '#83fff1' },
-      ]),
-      shadowBlur: 14,
-      shadowColor: 'rgba(36, 214, 255, 0.35)',
-    },
-    label: {
-      show: true,
-      position: 'right',
-      color: '#e5fbff',
-      fontSize: chartFontSize(11, 22),
-      formatter: '{c} 吨',
-    },
-  }],
-  animation: false,
-}))
-
-const wasteTrendChartOption = computed<EChartsOption>(() => ({
-  grid: { top: 22, right: 20, bottom: 26, left: 42 },
-  tooltip: {
-    trigger: 'axis',
-    backgroundColor: 'rgba(4, 19, 33, 0.92)',
-    borderColor: 'rgba(69, 196, 255, 0.38)',
-    textStyle: { color: '#dff7ff', fontSize: chartFontSize(12, 22) },
-    formatter: '{b}<br/>清运量：{c} 吨',
-  },
-  xAxis: {
-    type: 'category',
-    boundaryGap: false,
-    data: wasteTrend.map((item) => item.date),
-    axisLine: { lineStyle: { color: 'rgba(96, 164, 220, 0.2)' } },
-    axisTick: { show: false },
-    axisLabel: { color: chartTextColor, fontSize: chartFontSize(11, 20) },
-  },
-  yAxis: {
-    type: 'value',
-    splitLine: { lineStyle: { color: chartGridColor } },
-    axisLine: { show: false },
-    axisTick: { show: false },
-    axisLabel: { color: chartTextColor, fontSize: chartFontSize(11, 20) },
-  },
-  series: [{
-    type: 'line',
-    data: wasteTrend.map((item) => item.value),
-    smooth: true,
-    symbol: 'circle',
-    symbolSize: chartFontSize(7, 14),
-    lineStyle: {
-      width: chartFontSize(3, 6),
-      color: '#38f58b',
-      shadowBlur: 14,
-      shadowColor: 'rgba(56, 245, 139, 0.45)',
-    },
-    itemStyle: { color: '#eafff2', borderColor: '#38f58b', borderWidth: 2 },
-    areaStyle: {
-      color: new graphic.LinearGradient(0, 0, 0, 1, [
-        { offset: 0, color: 'rgba(56, 245, 139, 0.34)' },
-        { offset: 1, color: 'rgba(56, 245, 139, 0.02)' },
-      ]),
-    },
-    label: {
-      show: true,
-      color: '#c8ffd9',
-      fontSize: chartFontSize(10, 19),
-      formatter: '{c}',
-    },
-  }],
-  animation: false,
-}))
-
-const driverRankChartOption = computed<EChartsOption>(() => ({
-  grid: { top: 12, right: 76, bottom: 10, left: 70 },
-  tooltip: {
-    trigger: 'axis',
-    axisPointer: { type: 'shadow' },
-    backgroundColor: 'rgba(4, 19, 33, 0.92)',
-    borderColor: 'rgba(69, 196, 255, 0.38)',
-    textStyle: { color: '#dff7ff', fontSize: chartFontSize(12, 22) },
-  },
-  xAxis: {
-    type: 'value',
-    splitLine: { lineStyle: { color: chartGridColor } },
-    axisLine: { show: false },
-    axisTick: { show: false },
-    axisLabel: { color: chartTextColor, fontSize: chartFontSize(11, 20) },
-  },
-  yAxis: {
-    type: 'category',
-    inverse: true,
-    data: driverRank.map((item) => item.name),
-    axisLine: { show: false },
-    axisTick: { show: false },
-    axisLabel: { color: '#d7ecff', fontSize: chartFontSize(12, 24), margin: 10 },
-  },
-  series: [
-    {
-      name: '任务量',
-      type: 'bar',
-      data: driverRank.map((item) => item.tasks),
-      barWidth: '46%',
-      itemStyle: {
-        borderRadius: [0, 8, 8, 0],
-        color: new graphic.LinearGradient(0, 0, 1, 0, [
-          { offset: 0, color: 'rgba(22, 103, 255, 0.68)' },
-          { offset: 1, color: '#20e7ff' },
-        ]),
-        shadowBlur: 14,
-        shadowColor: 'rgba(32, 231, 255, 0.35)',
-      },
-      label: {
-        show: true,
-        position: 'right',
-        color: '#e7f7ff',
-        fontSize: chartFontSize(11, 22),
-        formatter: '{c} 单',
-      },
-    },
-    {
-      name: '准点率',
-      type: 'scatter',
-      data: driverRank.map((item) => [item.tasks + 4, item.name, item.rate]),
-      symbolSize: chartFontSize(1, 1),
-      label: {
-        show: true,
-        position: 'right',
-        color: '#43f08f',
-        fontSize: chartFontSize(11, 22),
-        formatter: (params: any) => `${params.value[2]}%`,
-      },
-      tooltip: { show: false },
-    },
-  ],
-  animation: false,
-}))
-
-const ontimeTaskChartOption = computed<EChartsOption>(() => ({
-  grid: { top: 32, right: 46, bottom: 28, left: 42 },
-  legend: {
-    top: 0,
-    right: 4,
-    itemWidth: chartFontSize(12, 22),
-    itemHeight: chartFontSize(8, 14),
-    textStyle: { color: '#aac9e5', fontSize: chartFontSize(10, 20) },
-  },
-  tooltip: {
-    trigger: 'axis',
-    backgroundColor: 'rgba(4, 19, 33, 0.92)',
-    borderColor: 'rgba(69, 196, 255, 0.38)',
-    textStyle: { color: '#dff7ff', fontSize: chartFontSize(12, 22) },
-  },
-  xAxis: {
-    type: 'category',
-    data: ontimeTaskTrend.map((item) => item.date),
-    axisLine: { lineStyle: { color: 'rgba(96, 164, 220, 0.2)' } },
-    axisTick: { show: false },
-    axisLabel: { color: chartTextColor, fontSize: chartFontSize(11, 20) },
-  },
-  yAxis: [
-    {
-      type: 'value',
-      name: '单',
-      splitLine: { lineStyle: { color: chartGridColor } },
-      axisLine: { show: false },
-      axisTick: { show: false },
-      axisLabel: { color: chartTextColor, fontSize: chartFontSize(11, 20) },
-      nameTextStyle: { color: chartTextColor, fontSize: chartFontSize(10, 18) },
-    },
-    {
-      type: 'value',
-      name: '%',
-      min: 90,
-      max: 100,
-      splitLine: { show: false },
-      axisLine: { show: false },
-      axisTick: { show: false },
-      axisLabel: { color: chartTextColor, fontSize: chartFontSize(11, 20), formatter: '{value}%' },
-      nameTextStyle: { color: chartTextColor, fontSize: chartFontSize(10, 18) },
-    },
-  ],
-  series: [
-    {
-      name: '任务数',
-      type: 'bar',
-      data: ontimeTaskTrend.map((item) => item.tasks),
-      barWidth: '32%',
-      itemStyle: {
-        borderRadius: [6, 6, 0, 0],
-        color: new graphic.LinearGradient(0, 0, 0, 1, [
-          { offset: 0, color: '#2ee7ff' },
-          { offset: 1, color: 'rgba(27, 99, 255, 0.38)' },
-        ]),
-        shadowBlur: 14,
-        shadowColor: 'rgba(46, 231, 255, 0.32)',
-      },
-    },
-    {
-      name: '准点率',
-      type: 'line',
-      yAxisIndex: 1,
-      data: ontimeTaskTrend.map((item) => item.rate),
-      smooth: true,
-      symbol: 'circle',
-      symbolSize: chartFontSize(7, 14),
-      lineStyle: { width: chartFontSize(3, 6), color: '#43f08f' },
-      itemStyle: { color: '#f4fff7', borderColor: '#43f08f', borderWidth: 2 },
-      label: {
-        show: true,
-        color: '#caffdc',
-        fontSize: chartFontSize(10, 18),
-        formatter: '{c}%',
-      },
-    },
-  ],
-  animation: false,
-}))
 
 const mapKpis = [
   { label: '今日垃圾量', value: '1,280', unit: '吨' },
@@ -718,371 +713,229 @@ const mapKpis = [
   { label: '已超时', value: '20', unit: '单' },
 ]
 
-const MAP_ICON_BASE = '/static/images/command-center-v2/map-icons'
-const mapLayerIconMap: Record<string, string> = {
-  smallTruck: `${MAP_ICON_BASE}/tricycle.png`,
-  hookTruck: `${MAP_ICON_BASE}/hook-truck.png`,
-  largeTruck: `${MAP_ICON_BASE}/large-hook-truck.png`,
-  smallBox: `${MAP_ICON_BASE}/small-box.png`,
-  largeBox: `${MAP_ICON_BASE}/large-box.png`,
-  collectionPoint: `${MAP_ICON_BASE}/collection-point.png`,
-  station: `${MAP_ICON_BASE}/transfer-station.png`,
-  plant: `${MAP_ICON_BASE}/incineration-plant.png`,
-  alarm: `${MAP_ICON_BASE}/alarm-beacon.png`,
-}
 
-type MapThemeKey = 'darkblue' | 'dark' | 'blue'
-const activeMapTheme = ref<MapThemeKey>('blue')
-const mapThemes: Array<{ key: MapThemeKey, label: string, color: string }> = [
-  { key: 'darkblue', label: '极夜蓝', color: 'linear-gradient(135deg, #031525, #075b91)' },
-  { key: 'dark', label: '幻影黑', color: 'linear-gradient(135deg, #02050a, #293543)' },
-  { key: 'blue', label: '靛青蓝', color: 'linear-gradient(135deg, #062849, #1686c7)' },
-]
-
-const chartInitOptions = computed(() => ({
-  renderer: 'canvas' as const,
-  // 测试模式会整体缩放 4784px 画布，降低像素比可显著减少四张图表的绘制面积。
-  devicePixelRatio: resolutionMode.value === 'test' ? 1 : Math.min(window.devicePixelRatio || 1, 1.5),
-}))
-
-const LONGAN_BOUNDS = {
-  west: 113.985,
-  east: 114.365,
-  south: 35.955,
-  north: 36.115,
-}
-
-const vehicleImage
-  = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 210 130"><rect x="32" y="45" width="128" height="48" rx="8" fill="%23dff7ef" stroke="%2325d36f" stroke-width="5"/><rect x="150" y="60" width="38" height="33" rx="5" fill="%23e8fff7" stroke="%2325d36f" stroke-width="5"/><rect x="48" y="56" width="34" height="20" fill="%239bd7ff"/><rect x="92" y="56" width="36" height="20" fill="%239bd7ff"/><circle cx="66" cy="98" r="14" fill="%2320262e"/><circle cx="160" cy="98" r="14" fill="%2320262e"/><path d="M36 42h122l-10-18H52z" fill="%2325d36f"/></svg>'
-
-const mapEntities = ref<MapEntity[]>([
-  {
-    id: 'v1',
-    type: '车辆',
-    layer: 'smallTruck',
-    kind: 'truck-small',
-    status: 'online',
-    icon: '▣',
-    name: '豫E01622D',
-    lng: 114.2986,
-    lat: 36.0952,
-    onlineText: '在线  运行中',
-    image: vehicleImage,
-    details: [
-      { label: '车辆类型', value: '小三轮车' },
-      { label: '车牌号', value: '豫E01622D' },
-      { label: '司机', value: '张师傅 138****6622' },
-      { label: '速度', value: '35 km/h' },
-      { label: '方向', value: '东北' },
-      { label: '任务', value: '乡镇A-村庄3-收运' },
-      { label: '位置', value: '文明大道与龙安路交叉口' },
-      { label: '上报时间', value: '10:30:30' },
-    ],
-    relations: [
-      { label: '正在服务箱体', value: '2 个' },
-      { label: '附近告警', value: '1 条未处理' },
-      { label: '当前任务进度', value: '65%' },
-    ],
-  },
-  { id: 'v2', type: '车辆', layer: 'hookTruck', kind: 'truck-hook', status: 'online', icon: '▣', name: '豫E3G516', lng: 114.3268, lat: 36.0724, onlineText: '在线  收运中', details: [{ label: '车辆类型', value: '小勾臂车' }, { label: '司机', value: '李师傅' }, { label: '速度', value: '42 km/h' }, { label: '任务', value: '箱体满溢收运' }], relations: [{ label: '关联箱体', value: 'XB-龙泉-008' }] },
-  { id: 'v3', type: '车辆', layer: 'largeTruck', kind: 'truck-large', status: 'online', icon: '▣', name: '豫E6N109', lng: 114.2442, lat: 36.0648, onlineText: '在线  转运中', details: [{ label: '车辆类型', value: '大勾臂车' }, { label: '司机', value: '孙师傅' }, { label: '速度', value: '48 km/h' }, { label: '载重', value: '13.8 吨' }], relations: [{ label: '目的地', value: '焚烧厂' }] },
-  { id: 'b1', type: '箱体', layer: 'smallBox', kind: 'small-box', status: 'warning', icon: '▥', name: 'XB-012', lng: 114.3098, lat: 36.0872, alarm: true, onlineText: '在线  满溢预警', details: [{ label: '箱体类型', value: '小勾臂箱' }, { label: '满溢率', value: '92%' }, { label: '电量', value: '68%' }, { label: '位置', value: '马投涧镇牛家窑村' }], relations: [{ label: '待处理告警', value: '满溢告警' }] },
-  { id: 'b2', type: '箱体', layer: 'largeBox', kind: 'large-box', status: 'danger', icon: '▤', name: 'DB-005', lng: 114.2796, lat: 36.0544, alarm: true, onlineText: '在线  严重满溢', details: [{ label: '箱体类型', value: '大勾臂箱' }, { label: '满溢率', value: '96%' }, { label: '所属站点', value: '马投涧中转站' }], relations: [{ label: '建议任务', value: '大勾臂车转运' }] },
-  { id: 'c1', type: '任务', layer: 'collectionPoint', kind: 'collection', status: 'online', icon: '●', name: '收集点', lng: 114.3568, lat: 36.0676, onlineText: '运行正常', details: [{ label: '收集点', value: '文明大道收集点' }, { label: '服务范围', value: '3 个村庄' }, { label: '今日投放', value: '4.8 吨' }], relations: [{ label: '附近车辆', value: '2 辆' }] },
-  { id: 's1', type: '箱体', layer: 'station', kind: 'station', status: 'online', icon: '⌂', name: '中转站', lng: 114.3245, lat: 36.0462, onlineText: '运行正常', details: [{ label: '站点名称', value: '文明大道中转站' }, { label: '在站箱体', value: '4 个' }, { label: '今日进站', value: '28 趟' }], relations: [{ label: '关联车辆', value: '6 辆' }] },
-  { id: 'p1', type: '任务', layer: 'plant', kind: 'plant', status: 'online', icon: '▰', name: '焚烧厂', lng: 114.3842, lat: 36.0265, onlineText: '运行正常', details: [{ label: '今日处理', value: '218.5 吨' }, { label: '日处理能力', value: '600 吨' }], relations: [{ label: '入厂车辆', value: '12 辆' }] },
-  { id: 'a1', type: '告警', layer: 'alarm', kind: 'alarm', status: 'danger', icon: '!', name: '告警', lng: 114.3475, lat: 36.0928, alarm: true, onlineText: '严重  未处理', details: [{ label: '告警类型', value: '箱体满溢' }, { label: '位置', value: '龙泉镇白龙庙村' }, { label: '触发时间', value: '10:28' }], relations: [{ label: '关联任务', value: '待派单' }] },
-  { id: 'a2', type: '告警', layer: 'alarm', kind: 'alarm', status: 'warning', icon: '!', name: '告警', lng: 114.2278, lat: 36.0302, alarm: true, onlineText: '重要  处理中', details: [{ label: '告警类型', value: '车辆超速' }, { label: '位置', value: '马家乡北街' }, { label: '触发时间', value: '10:12' }], relations: [{ label: '关联车辆', value: '豫E3G516' }] },
-])
-
-const villageGeoArchives = longanVillageArchives.map((item) => {
-  const point = wgs84ToGcj02(item.lng, item.lat)
-  return { ...item, amapLng: point.lng, amapLat: point.lat }
+watch(activeMapTheme, (theme) => {
+  v2BaseMap?.setMapStyle(amapStyle(theme))
 })
-const driverNames = ['张师傅', '李师傅', '王师傅', '赵师傅', '陈师傅', '郑师傅', '孙师傅', '刘师傅', '周师傅', '郭师傅']
 
-function padCode(value: number) {
-  return String(value).padStart(3, '0')
+
+
+
+const mapEntities = ref<MapEntity[]>([...initialMapEntities])
+
+// 完整保留地图对象数据：20 小勾臂车、6 大勾臂车、30 小三轮、36 箱体、
+// 18 收集点、12 中转站、8 告警和 1 焚烧厂。
+try {
+  mapEntities.value = createGeneratedMapEntities()
+} catch (error) {
+  const message = error instanceof Error ? error.message : String(error)
+  mapEngineError.value = `地图点位生成失败：${message}`
+  console.error('[command-center-v2] 地图点位生成失败：', error)
 }
-
-function seededRatio(seed: number) {
-  const value = Math.sin(seed * 12.9898) * 43758.5453
-  return value - Math.floor(value)
-}
-
-function pickVillage(index: number, offset: number) {
-  return villageGeoArchives[Math.abs(index * 17 + offset * 7) % villageGeoArchives.length]
-}
-
-function simulatedLngLat(index: number, offset: number, jitterScale = 1) {
-  const village = pickVillage(index, offset)
-  const lngJitter = (seededRatio(index + offset) - 0.5) * 0.006 * jitterScale
-  const latJitter = (seededRatio(index * 1.37 + offset * 2.11) - 0.5) * 0.004 * jitterScale
-  return {
-    lng: +clamp(village.amapLng + lngJitter, LONGAN_BOUNDS.west + 0.004, LONGAN_BOUNDS.east - 0.004).toFixed(6),
-    lat: +clamp(village.amapLat + latJitter, LONGAN_BOUNDS.south + 0.004, LONGAN_BOUNDS.north - 0.004).toFixed(6),
-  }
-}
-
-function createMapEntity(entity: Omit<MapEntity, 'lng' | 'lat'>, index: number, offset: number, jitterScale = 1): MapEntity {
-  return {
-    ...entity,
-    ...simulatedLngLat(index, offset, jitterScale),
-  }
-}
-
-function createGeneratedMapEntities(): MapEntity[] {
-  const list: MapEntity[] = []
-
-  for (let i = 1; i <= 20; i += 1) {
-    const village = pickVillage(i, 10)
-    const town = village.town
-    list.push(createMapEntity({
-      id: `hook-${i}`,
-      type: '车辆',
-      layer: 'hookTruck',
-      kind: 'truck-hook',
-      status: i % 9 === 0 ? 'warning' : 'online',
-      icon: '▣',
-      name: `小勾臂${padCode(i)}`,
-      onlineText: i % 9 === 0 ? '在线  等待接单' : '在线  收运中',
-      image: i === 1 ? vehicleImage : undefined,
-      details: [
-        { label: '车辆类型', value: '小勾臂车' },
-        { label: '车牌号', value: `豫E${padCode(600 + i)}` },
-        { label: '司机', value: driverNames[i % driverNames.length] },
-        { label: '当前乡镇', value: town },
-        { label: '速度', value: `${28 + (i % 18)} km/h` },
-        { label: '任务', value: `${town}箱体收运` },
-      ],
-      relations: [
-        { label: '关联箱体', value: `${2 + (i % 4)} 个` },
-        { label: '今日任务', value: `${6 + (i % 7)} 单` },
-      ],
-    }, i, 10, 1.3))
-  }
-
-  for (let i = 1; i <= 6; i += 1) {
-    const village = pickVillage(i, 30)
-    const town = village.town
-    list.push(createMapEntity({
-      id: `large-truck-${i}`,
-      type: '车辆',
-      layer: 'largeTruck',
-      kind: 'truck-large',
-      status: 'online',
-      icon: '▣',
-      name: `大勾臂${padCode(i)}`,
-      onlineText: '在线  转运中',
-      details: [
-        { label: '车辆类型', value: '大勾臂车' },
-        { label: '车牌号', value: `豫E${padCode(800 + i)}` },
-        { label: '司机', value: driverNames[(i + 3) % driverNames.length] },
-        { label: '当前乡镇', value: town },
-        { label: '载重', value: `${10 + i}.6 吨` },
-        { label: '目的地', value: '龙安生活垃圾焚烧厂' },
-      ],
-      relations: [
-        { label: '关联中转站', value: `${town}中转站` },
-        { label: '今日转运', value: `${4 + i} 趟` },
-      ],
-    }, i, 30, 1.6))
-  }
-
-  for (let i = 1; i <= 30; i += 1) {
-    const village = pickVillage(i, 60)
-    const town = village.town
-    list.push(createMapEntity({
-      id: `tricycle-${i}`,
-      type: '车辆',
-      layer: 'smallTruck',
-      kind: 'truck-small',
-      status: i % 17 === 0 ? 'warning' : 'online',
-      icon: '▣',
-      name: `三轮${padCode(i)}`,
-      onlineText: i % 17 === 0 ? '在线  低电量' : '在线  巡回清运',
-      details: [
-        { label: '车辆类型', value: '小三轮车' },
-        { label: '车辆编号', value: `TR-${padCode(i)}` },
-        { label: '驾驶员', value: driverNames[i % driverNames.length] },
-        { label: '服务区域', value: town },
-        { label: '今日里程', value: `${18 + (i % 24)} 公里` },
-        { label: '今日任务', value: `${3 + (i % 6)} 单` },
-      ],
-      relations: [
-        { label: '服务村庄', value: village.name },
-        { label: '附近收集点', value: `${1 + (i % 3)} 个` },
-      ],
-    }, i, 60, 1.2))
-  }
-
-  for (let i = 1; i <= 12; i += 1) {
-    const village = pickVillage(i, 110)
-    const town = village.town
-    const alarm = i <= 3
-    list.push(createMapEntity({
-      id: `large-box-${i}`,
-      type: '箱体',
-      layer: 'largeBox',
-      kind: 'large-box',
-      status: alarm ? 'danger' : 'online',
-      icon: '▤',
-      name: `大箱${padCode(i)}`,
-      alarm,
-      onlineText: alarm ? '在线  严重告警' : '在线  正常',
-      details: [
-        { label: '箱体类型', value: '大勾臂箱' },
-        { label: '箱体编号', value: `DB-${town.slice(0, 2)}-${padCode(i)}` },
-        { label: '所属乡镇', value: town },
-        { label: '邻近村庄', value: village.name },
-        { label: '满溢率', value: `${alarm ? 91 + (i % 8) : 42 + (i % 35)}%` },
-        { label: '称重', value: `${6 + (i % 5)}.${i % 9} 吨` },
-      ],
-      relations: [
-        { label: '关联任务', value: alarm ? '待派大勾臂车' : '暂无待办' },
-        { label: '最近中转站', value: `${town}中转站` },
-      ],
-    }, i, 110, 0.45))
-  }
-
-  for (let i = 1; i <= 24; i += 1) {
-    const village = pickVillage(i, 150)
-    const town = village.town
-    const alarm = i <= 10
-    list.push(createMapEntity({
-      id: `small-box-${i}`,
-      type: '箱体',
-      layer: 'smallBox',
-      kind: 'small-box',
-      status: alarm ? 'warning' : 'online',
-      icon: '▥',
-      name: `小箱${padCode(i)}`,
-      alarm,
-      onlineText: alarm ? '在线  满溢预警' : '在线  正常',
-      details: [
-        { label: '箱体类型', value: '小勾臂箱' },
-        { label: '箱体编号', value: `XB-${town.slice(0, 2)}-${padCode(i)}` },
-        { label: '所属乡镇', value: town },
-        { label: '所在村庄', value: village.name },
-        { label: '满溢率', value: `${alarm ? 82 + (i % 15) : 24 + (i % 48)}%` },
-        { label: '电量', value: `${58 + (i % 39)}%` },
-      ],
-      relations: [
-        { label: '建议车辆', value: `小勾臂${padCode((i % 20) + 1)}` },
-        { label: '最近任务', value: alarm ? '待派单' : '正常巡检' },
-      ],
-    }, i, 150, 0.4))
-  }
-
-  for (let i = 1; i <= 18; i += 1) {
-    const village = pickVillage(i, 210)
-    const town = village.town
-    list.push(createMapEntity({
-      id: `collection-${i}`,
-      type: '收集点',
-      layer: 'collectionPoint',
-      kind: 'collection',
-      status: 'online',
-      icon: '●',
-      name: `收集点${padCode(i)}`,
-      onlineText: '运行正常',
-      details: [
-        { label: '点位类型', value: '收集点' },
-        { label: '点位名称', value: `${town}${village.name}收集点` },
-        { label: '服务范围', value: `${2 + (i % 5)} 个村庄` },
-        { label: '昨日垃圾量', value: `${Math.max(0.3, village.wasteTons).toFixed(2)} 吨` },
-      ],
-      relations: [
-        { label: '附近车辆', value: `${2 + (i % 5)} 辆` },
-        { label: '关联箱体', value: `${1 + (i % 4)} 个` },
-      ],
-    }, i, 210, 0.25))
-  }
-
-  for (let i = 1; i <= 12; i += 1) {
-    const village = pickVillage(i, 280)
-    const town = village.town
-    list.push(createMapEntity({
-      id: `station-${i}`,
-      type: '中转站',
-      layer: 'station',
-      kind: 'station',
-      status: i % 6 === 0 ? 'warning' : 'online',
-      icon: '⌂',
-      name: `${town}中转站`,
-      onlineText: i % 6 === 0 ? '运行中  接近满载' : '运行正常',
-      details: [
-        { label: '站点类型', value: '垃圾中转站' },
-        { label: '在站箱体', value: `${2 + (i % 6)} 个` },
-        { label: '今日进站', value: `${18 + (i % 19)} 趟` },
-        { label: '压缩量', value: `${18 + i}.5 吨` },
-      ],
-      relations: [
-        { label: '关联车辆', value: `${4 + (i % 7)} 辆` },
-        { label: '出站去向', value: '龙安生活垃圾焚烧厂' },
-      ],
-    }, i, 280, 0.85))
-  }
-
-  for (let i = 1; i <= 8; i += 1) {
-    const village = pickVillage(i, 340)
-    const tone = i <= 3 ? 'danger' : 'warning'
-    list.push(createMapEntity({
-      id: `alarm-${i}`,
-      type: '告警',
-      layer: 'alarm',
-      kind: 'alarm',
-      status: tone,
-      icon: '!',
-      name: i <= 3 ? '严重告警' : '重要告警',
-      alarm: true,
-      pulse: i <= 3,
-      onlineText: i <= 3 ? '严重  未处理' : '重要  处理中',
-      details: [
-        { label: '告警类型', value: i % 2 === 0 ? '车辆主动安全告警' : '箱体满溢告警' },
-        { label: '所属乡镇', value: village.town },
-        { label: '所在村庄', value: village.name },
-        { label: '触发时间', value: `10:${String(10 + i * 2).padStart(2, '0')}` },
-      ],
-      relations: [
-        { label: '处置状态', value: i <= 3 ? '待派单' : '处置中' },
-        { label: '附近车辆', value: `${1 + (i % 4)} 辆` },
-      ],
-    }, i, 340, 0.55))
-  }
-
-  list.push({
-    id: 'plant-1',
-    type: '焚烧厂',
-    layer: 'plant',
-    kind: 'plant',
-    status: 'online',
-    icon: '▰',
-    name: '龙安生活垃圾焚烧厂',
-    lng: 114.3892,
-    lat: 36.0238,
-    onlineText: '运行正常',
-    details: [
-      { label: '设施类型', value: '焚烧厂' },
-      { label: '今日入厂', value: '218.5 吨' },
-      { label: '处理能力', value: '600 吨/日' },
-      { label: '排队车辆', value: '4 辆' },
-    ],
-    relations: [
-      { label: '关联中转站', value: '12 个' },
-      { label: '今日转运任务', value: '46 单' },
-    ],
-  })
-
-  return list
-}
-
-mapEntities.value = createGeneratedMapEntities()
 
 const selectedEntity = ref<MapEntity>(mapEntities.value[0])
 const detailPanelVisible = ref(false)
-const currentEntityType = computed(() => selectedEntity.value.type)
-const entityTabs = ['车辆', '箱体', '告警', '任务']
+const activeEntityAction = ref('')
+const intercomConnected = ref(false)
+const trackPlaying = ref(false)
+const trackSpeed = ref(1)
+const trackProgress = ref(0.38)
+let trackTimer: number | undefined
+const trackDay = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()).replaceAll('/', '-')
+const trackPosition = computed(() => {
+  const point = trackProgress.value * (simulatedTrackPoints.length - 1)
+  const index = Math.min(simulatedTrackPoints.length - 2, Math.floor(point))
+  const ratio = point - index
+  const from = simulatedTrackPoints[index]
+  const to = simulatedTrackPoints[index + 1]
+  return { x: from.x + (to.x - from.x) * ratio, y: from.y + (to.y - from.y) * ratio }
+})
+const trackCurrentTime = computed(() => {
+  const seconds = Math.floor(trackProgress.value * (24 * 60 * 60 - 1))
+  const hours = String(Math.floor(seconds / 3600)).padStart(2, '0')
+  const minutes = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0')
+  const secs = String(seconds % 60).padStart(2, '0')
+  return `${trackDay} ${hours}:${minutes}:${secs}`
+})
+const liveLocationTime = computed(() => trackCurrentTime.value.slice(-8))
+const trackRouteStyle = computed(() => {
+  const offset = 1090 - trackProgress.value * 1090
+  return activeEntityAction.value === '跟踪'
+    ? { strokeDasharray: '150 940', strokeDashoffset: offset }
+    : { strokeDasharray: '1090', strokeDashoffset: offset }
+})
+
+function stopTrackPlayback() {
+  trackPlaying.value = false
+  if (trackTimer !== undefined) window.clearInterval(trackTimer)
+  trackTimer = undefined
+}
+
+function toggleTrackPlayback() {
+  if (trackPlaying.value) return stopTrackPlayback()
+  trackPlaying.value = true
+  if (trackProgress.value >= 1) trackProgress.value = 0
+  trackTimer = window.setInterval(() => {
+    trackProgress.value = Math.min(1, trackProgress.value + 0.0025 * trackSpeed.value)
+    if (trackProgress.value >= 1) stopTrackPlayback()
+  }, 180)
+}
+
+function selectTrackSpeed(speed: number) {
+  trackSpeed.value = speed
+}
+
+function startLiveTracking() {
+  stopTrackPlayback()
+  trackPlaying.value = true
+  trackTimer = window.setInterval(() => {
+    trackProgress.value += 0.008
+    if (trackProgress.value > 1) trackProgress.value = 0
+  }, 420)
+}
+
+function seekTrack(event: MouseEvent) {
+  const timeline = event.currentTarget as HTMLElement
+  const bounds = timeline.getBoundingClientRect()
+  trackProgress.value = Math.max(0, Math.min(1, (event.clientX - bounds.left) / bounds.width))
+}
+
+watch(activeEntityAction, (action) => {
+  if (action !== '轨迹' && action !== '跟踪') stopTrackPlayback()
+})
+
+const entityStatusInfo = computed(() => {
+  const entity = selectedEntity.value
+  // 收集点、中转站、焚烧厂不展示运行状态。
+  if (entity.kind === 'collection' || entity.kind === 'station' || entity.kind === 'plant') return null
+
+  if (entity.kind === 'small-box' || entity.kind === 'large-box') {
+    const offline = entity.status === 'offline'
+    const tags = offline ? [] : (entity.statusTags || (entity.alarm ? ['满溢'] : []))
+    return { label: offline ? '离线' : '在线', tone: offline ? 'offline' : 'online', tags }
+  }
+
+  if (entity.kind === 'truck-small') {
+    const offline = entity.status === 'offline'
+    return { label: offline ? '离线' : '在线', tone: offline ? 'offline' : 'online', tags: [] }
+  }
+
+  if (entity.kind === 'truck-hook' || entity.kind === 'truck-large') {
+    const label = entity.status === 'charging' ? '充电' : entity.status === 'offline' ? '离线' : '在线'
+    return { label, tone: entity.status === 'charging' ? 'charging' : entity.status === 'offline' ? 'offline' : 'online', tags: [] }
+  }
+
+  return null
+})
+
+type InfoItem = { label: string, value: string }
+interface EntityProfile {
+  title: string
+  basic: InfoItem[]
+  actions: string[]
+  task?: { name: string, items: InfoItem[] }
+  statistics: InfoItem[]
+  relations: InfoItem[]
+  driver?: string
+}
+
+function detailValue(entity: MapEntity, label: string, fallback = '—') {
+  return entity.details.find((item) => item.label === label)?.value || fallback
+}
+
+function entityTask(entity: MapEntity) {
+  const taskName = detailValue(entity, '任务', `${entity.name}收运任务`)
+  return {
+    name: taskName,
+    items: [
+      { label: '任务名称', value: taskName },
+      { label: '始发地', value: detailValue(entity, '所在村庄', detailValue(entity, '当前乡镇', '龙安区收集点')) },
+      { label: '目的地', value: detailValue(entity, '目的地', '龙安生活垃圾焚烧厂') },
+      { label: '时效', value: '120 分钟' },
+      { label: '当前状态', value: entity.onlineText.replace('在线', '').trim() || '收运中' },
+    ],
+  }
+}
+
+function taskInfoValue(label: string) {
+  return selectedProfile.value.task?.items.find((item) => item.label === label)?.value || '—'
+}
+
+const selectedProfile = computed<EntityProfile>(() => {
+  const entity = selectedEntity.value
+  const commonRelations = entity.relations
+  const driver = detailValue(entity, '驾驶员', detailValue(entity, '司机', '张师傅'))
+  const location = detailValue(entity, '位置', `${detailValue(entity, '当前乡镇', detailValue(entity, '所属乡镇', '龙安区'))}${detailValue(entity, '所在村庄', '')}`)
+
+  if (entity.kind === 'truck-small') {
+    return {
+      title: '小三轮', driver,
+      basic: [
+        { label: '车牌号', value: detailValue(entity, '车牌号', entity.name) }, { label: '所属机构', value: detailValue(entity, '服务区域', '龙安区环卫中心') },
+        { label: '设备号', value: detailValue(entity, '车辆编号', `TR-${entity.id}`) }, { label: '车型', value: '小三轮' },
+        { label: '详细车型', value: '电动密闭保洁三轮车' }, { label: '定位时间', value: '2026-06-16 10:30:30' },
+        { label: '当前位置', value: location }, { label: '今日里程', value: detailValue(entity, '今日里程', '26 公里') },
+        { label: '驾驶员', value: driver }, { label: '联系方式', value: '138****6622' },
+      ], actions: ['轨迹', '跟踪'], statistics: [], relations: commonRelations,
+    }
+  }
+  if (entity.kind === 'truck-hook' || entity.kind === 'truck-large') {
+    const isLarge = entity.kind === 'truck-large'
+    return {
+      title: isLarge ? '大勾臂车' : '小勾臂车', driver,
+      basic: [
+        { label: '车牌号', value: detailValue(entity, '车牌号', entity.name) }, { label: '所属机构', value: '龙安区环卫中心' },
+        { label: 'VIN码', value: `LAA${entity.id.toUpperCase()}20260616` }, { label: '设备号', value: `GPS-${entity.id.toUpperCase()}` },
+        { label: '车型', value: isLarge ? '大勾臂车' : '小勾臂车' }, { label: '详细车型', value: isLarge ? '18 吨勾臂式垃圾车' : '8 吨勾臂式垃圾车' },
+        { label: '定位时间', value: '2026-06-16 10:30:30' }, { label: '当前位置', value: location },
+        { label: '今日里程', value: `${42 + Number(entity.id.match(/\d+/)?.[0] || 0)} 公里` }, { label: '电量', value: isLarge ? '82%' : '76%' },
+        { label: '称重', value: detailValue(entity, '载重', isLarge ? '13.8 吨' : '4.6 吨') }, { label: '驾驶员', value: driver }, { label: '联系方式', value: '138****6622' },
+      ],
+      actions: ['轨迹', '视频', '对讲', '跟踪'], task: entityTask(entity),
+      statistics: [{ label: '今日完成单', value: `${6 + Number(entity.id.match(/\d+/)?.[0] || 0) % 8} 单` }, { label: '超时单', value: `${Number(entity.id.match(/\d+/)?.[0] || 0) % 2} 单` }, { label: '运输垃圾', value: isLarge ? '38.6 吨' : '16.8 吨' }], relations: commonRelations,
+    }
+  }
+  if (entity.kind === 'small-box') {
+    return {
+      title: '小勾臂箱',
+      basic: [
+        { label: '箱体名称', value: entity.name }, { label: '箱体编号', value: detailValue(entity, '箱体编号', entity.id) }, { label: '在线状态', value: entity.onlineText },
+        { label: '上报时间', value: '2026-06-16 10:29:38' }, { label: '满溢状态', value: detailValue(entity, '满溢率') }, { label: '电量状态', value: '正常' },
+        { label: '温度状态', value: '正常' }, { label: '匹配对象', value: detailValue(entity, '建议车辆', '小勾臂001') }, { label: '当前位置', value: location },
+        { label: '垃圾占比', value: detailValue(entity, '满溢率') }, { label: '温度', value: '28℃' }, { label: '电量', value: detailValue(entity, '电量') },
+      ], actions: [], statistics: [], relations: commonRelations,
+    }
+  }
+  if (entity.kind === 'large-box') {
+    return {
+      title: '大勾臂箱',
+      basic: [
+        { label: '箱体名称', value: entity.name }, { label: '箱体编号', value: detailValue(entity, '箱体编号', entity.id) }, { label: '在线状态', value: entity.onlineText },
+        { label: '上报时间', value: '2026-06-16 10:29:38' }, { label: '满溢状态', value: detailValue(entity, '满溢率') }, { label: '匹配对象', value: detailValue(entity, '最近中转站', '龙安生活垃圾焚烧厂') }, { label: '当前位置', value: location }, { label: '垃圾占比', value: detailValue(entity, '满溢率') },
+      ], actions: [], task: entityTask(entity), statistics: [{ label: '今日完成单', value: '4 单' }, { label: '运输垃圾', value: detailValue(entity, '称重', '12.4 吨') }], relations: commonRelations,
+    }
+  }
+  if (entity.kind === 'collection') {
+    return {
+      title: '收集点',
+      basic: [{ label: '点位名称', value: detailValue(entity, '点位名称', entity.name) }, { label: '所属乡镇', value: detailValue(entity, '当前乡镇', '龙安区') }, { label: '所属村庄', value: detailValue(entity, '所在村庄', '—') }, { label: '联系人', value: '王建国' }, { label: '联系电话', value: '139****2688' }, { label: '容量数量', value: detailValue(entity, '关联箱体', '3 个') }, { label: '具体地址', value: location }, { label: '服务半径', value: '2.5 公里' }],
+      actions: [], statistics: [{ label: '今日完成单', value: '8 单' }, { label: '运输垃圾', value: '5.8 吨' }], relations: commonRelations,
+    }
+  }
+  if (entity.kind === 'station' || entity.kind === 'plant') {
+    const plant = entity.kind === 'plant'
+    return {
+      title: plant ? '焚烧厂' : '中转站',
+      basic: [{ label: plant ? '焚烧厂名称' : '站点名称', value: entity.name }, { label: '编号', value: `${plant ? 'FC' : 'ZZ'}-${entity.id.toUpperCase()}` }, { label: '所属乡镇', value: plant ? '龙安区' : detailValue(entity, '当前乡镇', '龙安区') }, { label: '联系人', value: '刘建军' }, { label: '联系电话', value: '137****8910' }, { label: '机位数量', value: plant ? '6 个' : '4 个' }, { label: '具体地址', value: location }, { label: '服务半径', value: plant ? '30 公里' : '8 公里' }],
+      actions: [], statistics: [{ label: '今日完成单', value: plant ? '46 单' : '18 单' }, { label: '运输垃圾', value: plant ? '218.5 吨' : '36.8 吨' }], relations: commonRelations,
+    }
+  }
+  return {
+    title: '箱体告警',
+    basic: [{ label: '箱体名称', value: detailValue(entity, '箱体名称', '龙泉镇白龙庙村小勾臂箱') }, { label: '告警描述', value: detailValue(entity, '告警类型', '箱体满溢告警') }, { label: '箱体编号', value: detailValue(entity, '箱体编号', 'XB-LQ-008') }, { label: '触发规则', value: detailValue(entity, '告警类型').includes('高温') ? '箱体温度 ≥ 65℃' : '垃圾占比 ≥ 90%' }, { label: '具体地址', value: location }, { label: '触发时间', value: detailValue(entity, '触发时间', '2026-06-16 10:28:00') }, { label: '关联任务', value: detailValue(entity, '处置状态', '待派单') }],
+    actions: [], statistics: [], relations: commonRelations,
+  }
+})
 
 const mapLayers = [
   { key: 'largeTruck', label: '大勾臂车', icon: mapLayerIconMap.largeTruck },
@@ -1159,7 +1012,25 @@ function mapEntityIcon(entity: MapEntity) {
 
 function selectMapEntity(entity: MapEntity) {
   selectedEntity.value = entity
+  activeEntityAction.value = ''
   detailPanelVisible.value = true
+}
+
+function openEntityAction(action: string) {
+  activeEntityAction.value = action
+  if (action === '对讲') intercomConnected.value = false
+  if (action === '跟踪') startLiveTracking()
+  else if (action !== '轨迹') stopTrackPlayback()
+}
+
+function toggleIntercom() {
+  intercomConnected.value = !intercomConnected.value
+}
+
+function selectAlarmFromList(name: string) {
+  const alarms = mapEntities.value.filter((entity) => entity.kind === 'alarm')
+  const alarm = alarms[name.length % Math.max(alarms.length, 1)] || alarms[0]
+  if (alarm) selectMapEntity(alarm)
 }
 
 function toggleLayer(key: string) {
@@ -1170,100 +1041,158 @@ function toggleLayer(key: string) {
   }
 }
 
-const rightTabs = [
-  { key: 'alarm', label: '实时告警' },
-  { key: 'task', label: '任务监控' },
-  { key: 'box', label: '箱体监控' },
-  { key: 'vehicle', label: '车辆监控' },
-  { key: 'safety', label: '主动安全' },
-]
 const activeRightTab = ref('alarm')
 const activeRightTitle = computed(() => rightTabs.find((tab) => tab.key === activeRightTab.value)?.label || '监控')
 
-const alarmStats = [
-  { label: '今日告警', value: 36, tone: 'danger' },
-  { label: '未读', value: 8, tone: 'warning' },
-  { label: '星标', value: 12, tone: 'info' },
-]
+type AlarmFilter = 'today' | 'recent3Days' | 'starred'
+interface AlarmRow { id: string, date: string, time: string, name: string, place: string, level: string, star: boolean, read: boolean, taskNo: string, boxNo: string, rule: string, description: string }
+const activeAlarmFilter = ref<AlarmFilter>('today')
+const selectedAlarmRow = ref<AlarmRow | null>(null)
+const alarmTaskFormVisible = ref(false)
+const taskCreatedNotice = ref('')
+const alarmTaskForm = ref({ driver: alarmDrivers[0], vehicle: alarmVehicles[0], destination: alarmDestinations[0], sla: 120, priority: '紧急' })
+function dateBefore(days: number) {
+  const date = new Date(`${trackDay}T00:00:00`)
+  date.setDate(date.getDate() - days)
+  return new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(date).replaceAll('/', '-')
+}
+const alarmRows = ref<AlarmRow[]>([
+  { id: 'AL-001', date: trackDay, time: '10:31', name: '箱体满溢', place: '马投涧镇牛家窑村', level: 'danger', star: false, read: false, taskNo: 'RW-20260713-001', boxNo: 'XB-MT-012', rule: '垃圾占比 ≥ 90%', description: '小勾臂箱垃圾占比达到 96%，请及时安排车辆清运。' },
+  { id: 'AL-002', date: trackDay, time: '10:28', name: '箱体高温', place: '龙泉镇白龙庙村', level: 'danger', star: true, read: false, taskNo: '', boxNo: 'DB-LQ-003', rule: '箱体温度 ≥ 65℃', description: '大勾臂箱温度持续升高，当前温度 68℃，请优先处置。' },
+  { id: 'AL-003', date: trackDay, time: '10:25', name: '箱体低电量', place: '善应镇南善应村', level: 'warning', star: false, read: false, taskNo: '', boxNo: 'XB-SY-021', rule: '设备电量 ≤ 15%', description: '箱体设备电量仅剩 12%，请安排巡检或更换电池。' },
+  { id: 'AL-004', date: trackDay, time: '10:19', name: '箱体满溢', place: '东风乡徐家口村', level: 'danger', star: true, read: true, taskNo: 'RW-20260713-004', boxNo: 'XB-DF-008', rule: '垃圾占比 ≥ 90%', description: '箱体已满溢，关联收运单正在执行。' },
+  { id: 'AL-005', date: trackDay, time: '10:12', name: '箱体高温', place: '马家乡李家庄村', level: 'warning', star: false, read: true, taskNo: 'RW-20260713-005', boxNo: 'DB-MJ-005', rule: '箱体温度 ≥ 65℃', description: '箱体温度异常，等待现场核查。' },
+  { id: 'AL-006', date: trackDay, time: '09:58', name: '箱体满溢', place: '文明大道街道文明村', level: 'warning', star: true, read: true, taskNo: '', boxNo: 'XB-WM-018', rule: '垃圾占比 ≥ 90%', description: '箱体满溢告警已确认，尚未创建收运单。' },
+  { id: 'AL-007', date: dateBefore(1), time: '16:42', name: '箱体低电量', place: '马家乡西高平村', level: 'warning', star: false, read: true, taskNo: '', boxNo: 'XB-MJ-016', rule: '设备电量 ≤ 15%', description: '箱体设备电量低于阈值，请安排巡检。' },
+  { id: 'AL-008', date: dateBefore(2), time: '08:17', name: '箱体满溢', place: '善应镇北善应村', level: 'danger', star: true, read: true, taskNo: 'RW-20260711-008', boxNo: 'DB-SY-006', rule: '垃圾占比 ≥ 90%', description: '大勾臂箱满溢，已关联收运任务。' },
+])
+const alarmStats = computed(() => [
+  { key: 'today' as const, label: '今日告警', value: alarmRows.value.filter((row) => row.date === trackDay).length, tone: 'danger' },
+  { key: 'recent3Days' as const, label: '近3日告警', value: alarmRows.value.filter((row) => row.date >= dateBefore(2) && row.date <= trackDay).length, tone: 'warning' },
+  { key: 'starred' as const, label: '星标', value: alarmRows.value.filter((row) => row.star).length, tone: 'info' },
+])
+const filteredAlarmRows = computed(() => alarmRows.value.filter((row) => {
+  if (activeAlarmFilter.value === 'today') return row.date === trackDay
+  if (activeAlarmFilter.value === 'recent3Days') return row.date >= dateBefore(2) && row.date <= trackDay
+  return row.star
+}))
 
-const alarmRows = [
-  { time: '10:31', name: '箱体满溢', place: '乡镇A-村庄1', state: '未读', stateTone: 'warning', level: 'danger', star: false },
-  { time: '10:28', name: '车辆超速', place: '乡镇B-路段3', state: '处理中', stateTone: 'warning', level: 'danger', star: true },
-  { time: '10:25', name: '箱体低电量', place: '乡镇C-村庄5', state: '未读', stateTone: 'warning', level: 'danger', star: false },
-  { time: '10:22', name: '线路偏离', place: '乡镇D-中转线', state: '已派单', stateTone: 'info', level: 'info', star: true },
-  { time: '10:19', name: '箱体倾倒', place: '乡镇E-路口7', state: '严重', stateTone: 'danger', level: 'danger', star: true },
-  { time: '10:16', name: '车辆离线', place: '乡镇F-清运线', state: '未读', stateTone: 'warning', level: 'danger', star: false },
-  { time: '10:12', name: '中转站满载', place: '中转站1号', state: '处理中', stateTone: 'warning', level: 'warning', star: false },
-  { time: '10:08', name: '收集点溢出', place: '乡镇G-收集点2', state: '已派单', stateTone: 'info', level: 'info', star: true },
-  { time: '10:03', name: '焚烧厂排队', place: '焚烧厂入口', state: '关注', stateTone: 'success', level: 'info', star: false },
-  { time: '09:58', name: '箱体满溢', place: '乡镇H-村庄9', state: '已处理', stateTone: 'success', level: 'warning', star: false },
-]
+function formatAlarmTime(row: AlarmRow) {
+  return activeAlarmFilter.value === 'today' ? row.time : `${row.date.slice(5)} ${row.time}`
+}
 
-const taskMonitorStats = [
-  { label: '今日总任务', value: '256', tone: 'info' },
-  { label: '待接单', value: '32', tone: 'warning' },
-  { label: '收运中', value: '128', tone: 'success' },
-  { label: '已超时', value: '20', tone: 'danger' },
-]
+function openAlarmDetail(row: AlarmRow) {
+  row.read = true
+  selectedAlarmRow.value = row
+  alarmTaskFormVisible.value = false
+  taskCreatedNotice.value = ''
+}
 
-const taskMonitorRows = [
-  { id: 'T001', name: '牛家窑2号小勾臂箱收运', route: '马投涧镇 -> 马投涧中转站', status: '收运中', tone: 'success' },
-  { id: 'T002', name: '龙泉压缩箱C转运', route: '龙泉中转站 -> 焚烧厂', status: '待接单', tone: 'warning' },
-  { id: 'T003', name: '文明大道收集点清运', route: '文明大道街道 -> 中转站', status: '已完成', tone: 'info' },
-  { id: 'T004', name: '东风乡箱体满溢处置', route: '东风乡 -> 东风中转站', status: '已超时', tone: 'danger' },
-  { id: 'T005', name: '善应镇日常巡回清运', route: '善应镇 -> 善应中转站', status: '收运中', tone: 'success' },
-]
+function toggleAlarmStar() {
+  if (selectedAlarmRow.value) selectedAlarmRow.value.star = !selectedAlarmRow.value.star
+}
 
-const boxMonitorStats = [
-  { label: '小勾臂箱', value: '370', tone: 'success' },
-  { label: '大勾臂箱', value: '12', tone: 'info' },
-  { label: '满溢预警', value: '18', tone: 'warning' },
-  { label: '设备离线', value: '6', tone: 'danger' },
-]
+function createTaskFromAlarm() {
+  if (!selectedAlarmRow.value) return
+  selectedAlarmRow.value.taskNo ||= `RW-${trackDay.replaceAll('-', '')}-${selectedAlarmRow.value.id.slice(-3)}`
+  alarmTaskFormVisible.value = false
+  taskCreatedNotice.value = selectedAlarmRow.value.taskNo
+  window.setTimeout(() => { taskCreatedNotice.value = '' }, 2600)
+}
 
-const boxMonitorRows = [
-  { id: 'B001', name: 'XB-马投-012', place: '牛家窑村', fillRate: 92, status: '满溢', tone: 'danger' },
-  { id: 'B002', name: 'DB-龙泉-003', place: '龙泉中转站', fillRate: 76, status: '预警', tone: 'warning' },
-  { id: 'B003', name: 'XB-善应-021', place: '善应北村', fillRate: 63, status: '正常', tone: 'success' },
-  { id: 'B004', name: 'XB-东风-008', place: '徐家口村', fillRate: 0, status: '离线', tone: 'danger' },
-  { id: 'B005', name: 'DB-马投-005', place: '马投涧中转站', fillRate: 96, status: '严重', tone: 'danger' },
-]
 
-const vehicleMonitorStats = [
-  { label: '在线车辆', value: '486', tone: 'success' },
-  { label: '收运中', value: '128', tone: 'info' },
-  { label: '充电', value: '31', tone: 'warning' },
-  { label: '离线', value: '23', tone: 'danger' },
-]
 
-const vehicleMonitorRows = [
-  { id: 'V001', plate: '豫E01622D', driver: '张师傅', speed: 35, task: '乡镇A-村庄3-收运', status: '运行中', tone: 'success' },
-  { id: 'V002', plate: '豫E3G516', driver: '李师傅', speed: 42, task: '箱体满溢收运', status: '收运中', tone: 'success' },
-  { id: 'V003', plate: '豫E6N109', driver: '孙师傅', speed: 48, task: '大箱转运', status: '转运中', tone: 'info' },
-  { id: 'V004', plate: '豫E2M883', driver: '赵师傅', speed: 0, task: '待命', status: '充电', tone: 'warning' },
-  { id: 'V005', plate: '豫E8K270', driver: '王师傅', speed: 0, task: '无', status: '离线', tone: 'danger' },
-]
+type TaskMonitorFilter = 'all' | 'pending' | 'collecting' | 'overtime'
+const activeTaskFilter = ref<TaskMonitorFilter>('all')
+const filteredTaskMonitorRows = computed(() => taskMonitorRows.filter((task) => {
+  if (activeTaskFilter.value === 'all') return true
+  if (activeTaskFilter.value === 'pending') return task.status === '待接单'
+  if (activeTaskFilter.value === 'collecting') return task.status === '收运中'
+  return task.overtimeStatus === '已超时'
+}))
 
-const safetyMonitorStats = [
-  { label: '今日安全告警', value: '21', tone: 'danger' },
-  { label: '严重', value: '8', tone: 'danger' },
-  { label: '处理中', value: '6', tone: 'warning' },
-  { label: '已闭环', value: '13', tone: 'success' },
-]
 
-const safetyMonitorRows = [
-  { id: 'S001', type: '分神驾驶', vehicle: '豫E3G516', place: '龙泉镇南街', level: '严重', tone: 'danger' },
-  { id: 'S002', type: '疲劳驾驶', vehicle: '豫E6N109', place: '马投涧工业路', level: '严重', tone: 'danger' },
-  { id: 'S003', type: '接打电话', vehicle: '豫E01622D', place: '文明大道', level: '重要', tone: 'warning' },
-  { id: 'S004', type: '车道偏离', vehicle: '豫E2R012', place: '龙泉镇陈家庄', level: '已处理', tone: 'success' },
-  { id: 'S005', type: '行人碰撞预警', vehicle: '豫E0D789', place: '善应镇中城村', level: '关注', tone: 'info' },
-]
+const selectedTaskMonitor = ref<TaskMonitorDetail | null>(null)
+const taskTransferVisible = ref(false)
+const taskActionNotice = ref('')
+const taskTransferTarget = ref(taskTransferTargets[0].name)
+function openTaskMonitorDetail(task: TaskMonitorRow) {
+  selectedTaskMonitor.value = { ...task, ...taskMonitorDetailMap[task.id] }
+  selectedAlarmRow.value = null
+  alarmTaskFormVisible.value = false
+  detailPanelVisible.value = false
+  taskTransferVisible.value = false
+}
+
+function showTaskActionNotice(message: string) {
+  taskActionNotice.value = message
+  window.setTimeout(() => { taskActionNotice.value = '' }, 2600)
+}
+
+function forceCompleteTask() {
+  if (!selectedTaskMonitor.value || selectedTaskMonitor.value.status === '已完成') return
+  const task = selectedTaskMonitor.value
+  task.status = '已完成'
+  task.tone = 'info'
+  task.events.push({ name: '强制完成', place: '运营人员手动强制完成，待补充凭证', time: new Date().toTimeString().slice(0, 5) })
+  const source = taskMonitorRows.find((item) => item.id === task.id)
+  if (source) { source.status = '已完成'; source.tone = 'info' }
+  taskTransferVisible.value = false
+  showTaskActionNotice(`任务 ${task.orderNo} 已强制完成`)
+}
+
+function openTaskTransfer() {
+  if (!selectedTaskMonitor.value || selectedTaskMonitor.value.status === '已完成') return
+  const candidate = taskTransferTargets.find((item) => item.name !== selectedTaskMonitor.value?.driver) || taskTransferTargets[0]
+  taskTransferTarget.value = candidate.name
+  taskTransferVisible.value = true
+}
+
+function confirmTaskTransfer() {
+  if (!selectedTaskMonitor.value) return
+  const target = taskTransferTargets.find((item) => item.name === taskTransferTarget.value)
+  if (!target) return
+  const task = selectedTaskMonitor.value
+  task.driver = target.name
+  task.vehicle = target.vehicle
+  task.events.push({ name: '转单', place: `已转交 ${target.name} · ${target.vehicle}`, time: new Date().toTimeString().slice(0, 5) })
+  taskTransferVisible.value = false
+  showTaskActionNotice(`任务已转单至 ${target.name}（${target.vehicle}）`)
+}
+
+
+const activeBoxType = ref<BoxType>('small')
+const selectedBoxMonitor = ref<BoxMonitorRow | null>(null)
+const filteredBoxMonitorRows = computed(() => boxMonitorRows.filter((box) => box.type === activeBoxType.value).sort((a, b) => b.fillRate - a.fillRate))
+function openBoxMonitorDetail(box: BoxMonitorRow) {
+  selectedBoxMonitor.value = box
+  selectedTaskMonitor.value = null
+  detailPanelVisible.value = false
+}
+
+const activeVehicleType = ref('小勾臂车')
+const activeVehicleStatus = ref('all')
+const vehiclePlateSearch = ref('')
+const filteredVehicleMonitorRows = computed(() => vehicleMonitorRows.filter((row) => row.type === activeVehicleType.value && (activeVehicleStatus.value === 'all' || row.status === activeVehicleStatus.value) && (!vehiclePlateSearch.value || row.plate.includes(vehiclePlateSearch.value))))
+function openVehicleMonitorDetail(row: VehicleMonitorRow) {
+  const fallback = mapEntities.value.find((item) => item.kind.startsWith('truck')) || mapEntities.value[0]
+  const entity = mapEntities.value.find((item) => item.name === row.plate) || { ...fallback, name: row.plate, onlineText: `${row.status}${row.collecting ? '  收运中' : ''}`, details: [{ label: '车辆类型', value: row.type }, { label: '司机', value: row.driver }, { label: '车辆状态', value: row.status }, { label: '当前任务', value: row.collecting ? '收运任务执行中' : '暂无未完成任务' }] }
+  selectMapEntity(entity)
+  selectedTaskMonitor.value = null
+}
+
+const selectedSafetyMonitor = ref<SafetyMonitorRow | null>(null)
+const safetyVideoPlaying = ref(false)
+const safetyAttachmentIndex = ref(0)
+const activeSafetyAttachment = computed(() => safetyAttachments[safetyAttachmentIndex.value])
+function changeSafetyAttachment(direction: number) { safetyAttachmentIndex.value = (safetyAttachmentIndex.value + direction + safetyAttachments.length) % safetyAttachments.length; safetyVideoPlaying.value = false }
+function openSafetyDetail(item: SafetyMonitorRow) { selectedSafetyMonitor.value = item; safetyVideoPlaying.value = false; safetyAttachmentIndex.value = 0; detailPanelVisible.value = false }
 
 const PanelCard = {
   props: { title: String },
   setup(props: { title: string }, { slots }: any) {
     return () => h('section', { class: 'panel-card' }, [
-      h('div', { class: 'panel-title' }, props.title),
+      props.title ? h('div', { class: 'panel-title' }, props.title) : null,
       slots.default?.(),
     ])
   },
@@ -1271,1944 +1200,5 @@ const PanelCard = {
 </script>
 
 <style scoped lang="scss">
-.command-v2-page {
-  min-height: calc(100vh - 84px);
-  overflow: auto;
-  padding: 48px 8px 12px;
-  background: #020813;
-}
-
-.resolution-switch {
-  position: sticky;
-  z-index: 30;
-  top: 0;
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  margin: -40px 0 8px;
-
-  button {
-    height: 32px;
-    padding: 0 18px;
-    color: #bfdbfe;
-    cursor: pointer;
-    background: rgba(15, 31, 52, 0.9);
-    border: 1px solid rgba(56, 189, 248, 0.34);
-    border-radius: 4px;
-
-    &.active {
-      color: #031321;
-      background: #67e8f9;
-      box-shadow: 0 0 18px rgba(34, 211, 238, 0.45);
-    }
-  }
-}
-
-.stage-viewport {
-  position: relative;
-  margin: 0 auto;
-  overflow: hidden;
-  transition: width 0.28s ease, height 0.28s ease;
-
-  &.mode-formal {
-    overflow: auto;
-  }
-}
-
-.screen-shell {
-  position: relative;
-  width: 4784px;
-  height: 1560px;
-  transform-origin: left top;
-  color: #dbeeff;
-  background:
-    radial-gradient(circle at 50% 30%, rgba(0, 164, 255, 0.18), transparent 38%),
-    linear-gradient(90deg, rgba(23, 95, 145, 0.13) 1px, transparent 1px),
-    linear-gradient(rgba(23, 95, 145, 0.12) 1px, transparent 1px),
-    #04101e;
-  background-size: 100% 100%, 48px 48px, 48px 48px, 100% 100%;
-  transition: transform 0.28s ease;
-
-  &::before {
-    position: absolute;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    content: "";
-    background: linear-gradient(180deg, transparent 0, rgba(67, 214, 255, 0.08) 48%, transparent 100%);
-    opacity: 0.48;
-  }
-}
-
-.screen-header {
-  position: relative;
-  display: grid;
-  grid-template-columns: 1fr 1.45fr 1fr;
-  align-items: center;
-  height: 92px;
-  padding: 0 34px;
-  border-bottom: 1px solid rgba(31, 175, 255, 0.25);
-
-  &::before {
-    position: absolute;
-    inset: 8px 33.5% auto;
-    height: 42px;
-    content: "";
-    border: 1px solid rgba(31, 175, 255, 0.55);
-    border-top: 0;
-    transform: skewX(-28deg);
-    box-shadow: 0 0 20px rgba(31, 175, 255, 0.22) inset;
-  }
-
-  h1 {
-    position: relative;
-    margin: 0;
-    color: #f2fbff;
-    font-size: 42px;
-    font-weight: 800;
-    letter-spacing: 0;
-    text-align: center;
-    text-shadow: 0 0 18px rgba(57, 215, 255, 0.88);
-  }
-}
-
-.header-left,
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 22px;
-  color: #a8c8e8;
-  font-size: 20px;
-  white-space: nowrap;
-}
-
-.header-actions {
-  justify-content: flex-end;
-
-  button {
-    height: 40px;
-    padding: 0 18px;
-    color: #bcd8f5;
-    cursor: pointer;
-    background: transparent;
-    border: 0;
-  }
-
-  .ai-btn {
-    min-width: 84px;
-    color: #e9f8ff;
-    background: rgba(21, 103, 157, 0.45);
-    border: 1px solid rgba(44, 182, 255, 0.34);
-    border-radius: 4px;
-    box-shadow: 0 0 16px rgba(34, 179, 255, 0.18) inset;
-  }
-}
-
-.weather {
-  color: #f7d77f;
-}
-
-.dashboard-grid {
-  display: grid;
-  grid-template-columns: 620px 760px minmax(0, 1fr) 0 900px;
-  gap: 14px;
-  height: calc(100% - 92px);
-  padding: 14px;
-}
-
-:deep(.panel-card),
-.map-panel {
-  position: relative;
-  overflow: hidden;
-  background: linear-gradient(180deg, rgba(11, 31, 48, 0.88), rgba(7, 23, 37, 0.92));
-  border: 1px solid rgba(58, 145, 206, 0.38);
-  box-shadow: 0 0 0 1px rgba(8, 39, 62, 0.8) inset, 0 0 28px rgba(0, 149, 255, 0.08);
-
-  &::before {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    content: "";
-    background: linear-gradient(90deg, rgba(36, 198, 255, 0.18), transparent 24%, transparent 76%, rgba(36, 198, 255, 0.12));
-    opacity: 0.45;
-  }
-}
-
-:deep(.panel-title),
-.panel-title {
-  position: relative;
-  z-index: 1;
-  height: 34px;
-  padding: 8px 12px 0;
-  color: #66dcff;
-  font-size: 15px;
-  font-weight: 800;
-  text-shadow: 0 0 10px rgba(61, 206, 255, 0.42);
-}
-
-.left-rail,
-.analysis-column {
-  display: grid;
-  gap: 8px;
-  min-height: 0;
-}
-
-.left-rail {
-  grid-column: 1;
-  grid-template-rows: 1fr 0.92fr;
-  animation: panelEnterLeft 0.7s ease both;
-}
-
-.analysis-column {
-  grid-column: 2;
-  grid-template-rows: repeat(4, minmax(0, 1fr));
-  animation: panelEnterLeft 0.82s ease 0.05s both;
-}
-
-.archive-list,
-.operation-list {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: 4px;
-  padding: 4px 14px 14px;
-}
-
-.archive-row,
-.operation-row {
-  display: grid;
-  grid-template-columns: 24px 70px 30px 1fr;
-  align-items: center;
-  min-height: 32px;
-  color: #c8dcf2;
-  border-bottom: 1px solid rgba(120, 180, 230, 0.1);
-
-  strong {
-    color: #e7f5ff;
-    font-size: 18px;
-    font-family: DINPro, Arial, sans-serif;
-    font-weight: 800;
-  }
-
-  em {
-    color: #a4bdd4;
-    font-style: normal;
-  }
-}
-
-.operation-row {
-  grid-template-columns: 24px 1fr 70px 40px;
-
-  strong {
-    text-align: right;
-  }
-}
-
-.row-icon {
-  color: #bde7ff;
-  font-size: 18px;
-  text-align: center;
-  text-shadow: 0 0 10px rgba(59, 204, 255, 0.38);
-}
-
-.chart-card {
-  min-height: 0;
-}
-
-.analysis-chart {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  height: calc(100% - 36px);
-  padding: 4px 8px 8px;
-}
-
-.rank-chart,
-.driver-chart,
-.trend-chart,
-.ontime-chart {
-  position: relative;
-  z-index: 1;
-  height: calc(100% - 36px);
-  padding: 6px 12px 12px;
-}
-
-.rank-chart,
-.driver-chart {
-  display: grid;
-  align-content: space-evenly;
-  gap: 3px;
-}
-
-.rank-row,
-.driver-row {
-  display: grid;
-  grid-template-columns: 22px 78px 1fr 54px;
-  align-items: center;
-  gap: 8px;
-  min-height: 22px;
-  color: #b7d3ec;
-  font-size: 12px;
-}
-
-.driver-row {
-  grid-template-columns: 22px 64px 1fr 50px 38px;
-
-  em {
-    color: #45df85;
-    font-style: normal;
-    text-align: right;
-  }
-}
-
-.rank-index {
-  color: #7fa4c1;
-  font-family: DINPro, Arial, sans-serif;
-  text-align: center;
-}
-
-.rank-name {
-  overflow: hidden;
-  color: #d7ebff;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.rank-track {
-  height: 10px;
-  overflow: hidden;
-  background: rgba(57, 118, 174, 0.22);
-  border-radius: 999px;
-
-  i {
-    display: block;
-    height: 100%;
-    background: linear-gradient(90deg, #486dff, #22ddff);
-    border-radius: inherit;
-    box-shadow: 0 0 12px rgba(37, 201, 255, 0.36);
-  }
-}
-
-.driver-row .rank-track i {
-  background: linear-gradient(90deg, #1588ff, #19e4ff);
-}
-
-.rank-row strong,
-.driver-row strong {
-  color: #e2f4ff;
-  font-size: 12px;
-  font-family: DINPro, Arial, sans-serif;
-  font-weight: 700;
-  text-align: right;
-}
-
-.trend-chart {
-  display: grid;
-  grid-template-rows: 1fr 20px;
-  gap: 2px;
-
-  svg {
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-  }
-
-  text {
-    fill: #c8f7d9;
-    font-size: 10px;
-  }
-}
-
-.ontime-chart {
-  display: grid;
-  grid-template-rows: 1fr 18px 18px;
-  gap: 0;
-
-  svg {
-    width: 100%;
-    height: 100%;
-    min-height: 0;
-  }
-
-  text {
-    font-size: 10px;
-  }
-}
-
-.trend-grid {
-  stroke: rgba(74, 162, 255, 0.14);
-  stroke-width: 1;
-}
-
-.trend-area {
-  fill: rgba(46, 221, 118, 0.13);
-}
-
-.trend-line {
-  fill: none;
-  stroke: #32de79;
-  stroke-width: 3;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  filter: drop-shadow(0 0 5px rgba(50, 222, 121, 0.42));
-}
-
-.trend-dot {
-  fill: #32de79;
-  stroke: #dfffe8;
-  stroke-width: 1.4;
-}
-
-.ontime-bar {
-  fill: url("#ontimeBarGradient");
-}
-
-.ontime-chart svg {
-  .ontime-bar {
-    fill: #166dd6;
-    filter: drop-shadow(0 0 5px rgba(25, 133, 255, 0.45));
-  }
-}
-
-.ontime-line {
-  fill: none;
-  stroke: #42f08f;
-  stroke-width: 2.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  filter: drop-shadow(0 0 5px rgba(66, 240, 143, 0.42));
-}
-
-.ontime-dot {
-  fill: #42f08f;
-  stroke: #e6fff0;
-  stroke-width: 1.3;
-}
-
-.ontime-task-label {
-  fill: #cfe8ff;
-}
-
-.ontime-rate-label {
-  fill: #bfffd5;
-}
-
-.ontime-legend {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  color: #9db9d5;
-  font-size: 11px;
-
-  span {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
-
-  i {
-    display: inline-block;
-    width: 14px;
-    height: 7px;
-    border-radius: 2px;
-  }
-
-  .bar-mark {
-    background: #166dd6;
-  }
-
-  .line-mark {
-    height: 2px;
-    background: #42f08f;
-  }
-}
-
-.trend-axis {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  color: #9db9d5;
-  font-size: 11px;
-  text-align: center;
-}
-
-.map-panel {
-  grid-column: 3 / 5;
-  display: flex;
-  flex-direction: column;
-  padding: 4px;
-  animation: mapEnter 0.86s ease 0.08s both;
-}
-
-.map-stage {
-  --map-tile-opacity: 0.78;
-  --map-theme-tint: rgba(0, 55, 105, 0.52);
-
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-  background: #081220;
-
-  // 雷达扫描装饰环 — 仅边缘微弱光晕，不遮挡地图
-  &::after {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    pointer-events: none;
-    content: "";
-    background:
-      radial-gradient(ellipse at 50% 50%, transparent 58%, rgba(10, 40, 64, 0.35) 84%, rgba(4, 20, 36, 0.65) 100%);
-  }
-}
-
-.map-stage.map-theme-darkblue {
-  --map-tile-opacity: 0.66;
-  --map-theme-tint: rgba(0, 23, 48, 0.66);
-}
-
-.map-stage.map-theme-dark {
-  --map-tile-opacity: 0.58;
-  --map-theme-tint: rgba(1, 5, 12, 0.68);
-}
-
-.map-stage.map-theme-blue {
-  --map-tile-opacity: 0.78;
-  --map-theme-tint: rgba(0, 55, 105, 0.52);
-}
-
-.v2-map-base {
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background: radial-gradient(circle at 50% 42%, #0b2d42, #040c17 68%);
-
-  &::after {
-    position: absolute;
-    inset: 0;
-    z-index: 400;
-    pointer-events: none;
-    content: "";
-    background: var(--map-theme-tint);
-    transition: background 0.28s ease;
-  }
-
-  :deep(.leaflet-container) {
-    width: 100%;
-    height: 100%;
-    background: #050d18 !important;
-  }
-
-  :deep(.leaflet-tile-pane) {
-    opacity: var(--map-tile-opacity);
-    transition: opacity 0.22s ease;
-  }
-
-  :deep(.leaflet-control-attribution) {
-    display: none;
-  }
-}
-
-.map-zoom-layer {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  transform-origin: center center;
-  transition: transform 0.22s ease;
-  pointer-events: none;
-
-  &::before,
-  &::after {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    pointer-events: none;
-    content: "";
-  }
-
-  &::before {
-    background:
-      linear-gradient(90deg, rgba(64, 212, 255, 0.08) 1px, transparent 1px),
-      linear-gradient(rgba(64, 212, 255, 0.08) 1px, transparent 1px);
-    background-size: 44px 44px;
-    mask-image: radial-gradient(circle at 50% 50%, #000 0 56%, transparent 78%);
-  }
-
-  &::after {
-    background:
-      radial-gradient(circle at 28% 32%, rgba(51, 230, 255, 0.16), transparent 12%),
-      radial-gradient(circle at 68% 58%, rgba(65, 255, 169, 0.12), transparent 14%);
-  }
-
-  > * {
-    pointer-events: auto;
-  }
-}
-
-.map-zoom-controls {
-  position: absolute;
-  z-index: 12;
-  top: 68px;
-  right: 16px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 5px;
-  color: rgba(196, 223, 243, 0.78);
-  font-size: 12px;
-  background: rgba(4, 18, 31, 0.72);
-  border: 1px solid rgba(86, 170, 230, 0.28);
-  border-radius: 4px;
-
-  button {
-    min-width: 28px;
-    height: 24px;
-    padding: 0 7px;
-    color: rgba(215, 240, 255, 0.86);
-    cursor: pointer;
-    background: rgba(20, 57, 82, 0.72);
-    border: 1px solid rgba(94, 174, 232, 0.24);
-    border-radius: 3px;
-  }
-
-  span {
-    min-width: 38px;
-    text-align: center;
-  }
-}
-
-.map-theme-switcher {
-  position: absolute;
-  z-index: 12;
-  top: 96px;
-  right: 34px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 9px 12px;
-  color: rgba(172, 210, 236, 0.78);
-  font-size: 22px;
-  background: rgba(3, 15, 27, 0.82);
-  border: 1px solid rgba(78, 169, 232, 0.3);
-  border-radius: 8px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.32);
-
-  > span {
-    margin: 0 4px;
-    white-space: nowrap;
-  }
-
-  button {
-    display: flex;
-    align-items: center;
-    gap: 9px;
-    height: 44px;
-    padding: 0 14px;
-    color: rgba(182, 211, 232, 0.72);
-    font-size: 21px;
-    white-space: nowrap;
-    cursor: pointer;
-    background: rgba(14, 43, 67, 0.66);
-    border: 1px solid rgba(81, 157, 211, 0.24);
-    border-radius: 6px;
-    transition: color 0.2s, background 0.2s, border-color 0.2s, box-shadow 0.2s;
-
-    i {
-      width: 24px;
-      height: 24px;
-      border: 1px solid rgba(181, 226, 255, 0.44);
-      border-radius: 50%;
-      box-shadow: 0 0 8px rgba(48, 186, 255, 0.34);
-    }
-
-    &:hover {
-      color: #e3f7ff;
-      border-color: rgba(73, 197, 255, 0.55);
-    }
-
-    &.active {
-      color: #e9fbff;
-      background: rgba(15, 102, 157, 0.58);
-      border-color: rgba(74, 213, 255, 0.7);
-      box-shadow: 0 0 14px rgba(37, 191, 255, 0.22) inset, 0 0 12px rgba(37, 191, 255, 0.16);
-    }
-  }
-}
-
-.region-shape {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  pointer-events: none;
-}
-
-.town-label {
-  position: absolute;
-  color: rgba(222, 244, 255, 0.75);
-  font-size: 15px;
-  font-weight: 700;
-  text-shadow: 0 0 10px rgba(0, 0, 0, 0.9);
-}
-
-.town-a { left: 10%; top: 25%; }
-.town-b { left: 58%; top: 19%; }
-.town-c { left: 28%; top: 31%; }
-.town-d { left: 40%; top: 53%; }
-.town-e { left: 57%; top: 64%; }
-.town-f { right: 7%; bottom: 11%; color: rgba(222, 244, 255, 0.42); }
-
-.map-entity {
-  position: absolute;
-  z-index: 3;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  color: #fff;
-  cursor: pointer;
-  background: transparent;
-  border: 0;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  filter: drop-shadow(0 0 8px rgba(31, 211, 255, 0.34));
-  box-shadow: none;
-  animation: mapPointIn 0.5s ease both, mapPointBreath 2.4s ease-in-out infinite;
-
-  .entity-icon {
-    position: relative;
-    display: block;
-    width: 24px;
-    height: 24px;
-    color: currentColor;
-
-    &::before,
-    &::after {
-      position: absolute;
-      content: "";
-    }
-  }
-
-  em {
-    position: absolute;
-    top: 30px;
-    left: 50%;
-    display: none;
-    padding: 1px 6px;
-    color: #e6f6ff;
-    font-size: 10px;
-    font-style: normal;
-    white-space: nowrap;
-    background: rgba(0, 10, 18, 0.72);
-    border-radius: 3px;
-    transform: translateX(-50%);
-  }
-
-  &:hover {
-    z-index: 10;
-    transform: translate(-50%, -50%) scale(1.18);
-
-    em {
-      display: block;
-    }
-  }
-
-  &.truck-small { color: #22aaff; }
-
-  &.truck-hook,
-  &.small-box { color: #36e889; }
-
-  &.truck-large,
-  &.large-box { color: #ffca38; }
-
-  &.collection { color: #b487ff; }
-
-  &.station { color: #20d5d2; }
-
-  &.plant,
-  &.alarm { color: #ff6647; }
-
-  &.truck-small,
-  &.truck-hook,
-  &.truck-large {
-    .entity-icon {
-      &::before {
-        left: 2px;
-        top: 7px;
-        width: 17px;
-        height: 10px;
-        background: linear-gradient(135deg, color-mix(in srgb, currentColor 85%, white 15%), currentColor);
-        border-radius: 4px 5px 3px 3px;
-        box-shadow: 0 0 10px currentColor;
-      }
-
-      &::after {
-        right: 1px;
-        top: 10px;
-        width: 8px;
-        height: 7px;
-        background: linear-gradient(135deg, rgba(235, 253, 255, 0.95), currentColor);
-        border-radius: 2px 4px 3px 1px;
-        box-shadow:
-          -12px 7px 0 -4px #07121e,
-          -12px 7px 0 -2px currentColor,
-          0 7px 0 -4px #07121e,
-          0 7px 0 -2px currentColor;
-      }
-    }
-  }
-
-  &.truck-large .entity-icon {
-    transform: scale(1.14);
-  }
-
-  &.small-box,
-  &.large-box {
-    .entity-icon {
-      &::before {
-        inset: 4px;
-        background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), currentColor 34%, color-mix(in srgb, currentColor 72%, #042138 28%));
-        border-radius: 4px;
-        transform: rotate(45deg);
-        box-shadow: 0 0 13px currentColor;
-      }
-
-      &::after {
-        left: 9px;
-        top: 5px;
-        width: 7px;
-        height: 14px;
-        border-right: 1px solid rgba(255, 255, 255, 0.45);
-        border-left: 1px solid rgba(3, 18, 31, 0.45);
-        transform: rotate(45deg);
-      }
-    }
-  }
-
-  &.large-box .entity-icon {
-    transform: scale(1.16);
-  }
-
-  &.collection {
-    .entity-icon {
-      width: 18px;
-      height: 18px;
-      background: radial-gradient(circle at 38% 34%, #fff, currentColor 42%, rgba(45, 20, 90, 0.95));
-      border-radius: 50%;
-      box-shadow: 0 0 16px currentColor;
-
-      &::before {
-        inset: -5px;
-        border: 1px solid currentColor;
-        border-radius: 50%;
-        opacity: 0.42;
-      }
-    }
-  }
-
-  &.station {
-    .entity-icon {
-      &::before {
-        left: 4px;
-        top: 8px;
-        width: 16px;
-        height: 12px;
-        background: linear-gradient(180deg, rgba(240, 255, 255, 0.92), currentColor);
-        clip-path: polygon(50% 0, 100% 38%, 100% 100%, 0 100%, 0 38%);
-        box-shadow: 0 0 13px currentColor;
-      }
-
-      &::after {
-        left: 9px;
-        top: 13px;
-        width: 6px;
-        height: 7px;
-        background: rgba(4, 20, 34, 0.72);
-        border-radius: 1px 1px 0 0;
-      }
-    }
-  }
-
-  &.plant {
-    .entity-icon {
-      &::before {
-        left: 4px;
-        bottom: 4px;
-        width: 17px;
-        height: 11px;
-        background: linear-gradient(145deg, rgba(255, 245, 224, 0.92), currentColor);
-        clip-path: polygon(0 36%, 24% 56%, 46% 30%, 66% 54%, 100% 20%, 100% 100%, 0 100%);
-        box-shadow: 0 0 14px currentColor;
-      }
-
-      &::after {
-        right: 3px;
-        top: 3px;
-        width: 5px;
-        height: 14px;
-        background: currentColor;
-        border-radius: 3px 3px 0 0;
-        box-shadow: -7px -2px 0 -2px rgba(255, 255, 255, 0.72);
-      }
-    }
-  }
-
-  &.online { filter: drop-shadow(0 0 8px rgba(40, 226, 113, 0.42)); }
-  &.warning { filter: drop-shadow(0 0 11px rgba(255, 191, 54, 0.58)); }
-  &.danger { filter: drop-shadow(0 0 13px rgba(255, 76, 65, 0.68)); }
-}
-
-/* ImageGen 生成的业务对象直接作为地图点位，保留真实轮廓而非抽象几何标记。 */
-.map-entity {
-  width: 52px;
-  height: 52px;
-  overflow: visible;
-
-  .entity-icon,
-  &.collection .entity-icon,
-  &.station .entity-icon,
-  &.plant .entity-icon {
-    position: relative;
-    display: grid;
-    place-items: center;
-    width: 48px;
-    height: 48px;
-    background: none;
-    border-radius: 0;
-    box-shadow: none;
-
-    &::before,
-    &::after {
-      display: none;
-    }
-
-    img {
-      display: block;
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-      pointer-events: none;
-      filter: drop-shadow(0 3px 4px rgba(0, 5, 12, 0.82)) drop-shadow(0 0 5px currentColor);
-      transform: translateZ(0);
-    }
-  }
-
-  &.truck-small .entity-icon { transform: scale(1.02); }
-  &.truck-hook .entity-icon { transform: scale(1.08); }
-  &.truck-large .entity-icon { transform: scale(1.2); }
-  &.small-box .entity-icon { transform: scale(0.92); }
-  &.large-box .entity-icon { transform: scale(1.08); }
-  &.collection .entity-icon { transform: scale(1.02); }
-  &.station .entity-icon { transform: scale(1.12); }
-  &.plant .entity-icon { transform: scale(1.28); }
-  &.alarm .entity-icon { transform: scale(0.84); }
-
-  em {
-    top: 54px;
-  }
-}
-
-.alarm-dot {
-  position: absolute;
-  top: -7px;
-  right: -7px;
-  width: 15px;
-  height: 15px;
-  color: #fff;
-  font-size: 10px;
-  font-style: normal;
-  line-height: 15px;
-  text-align: center;
-  background: #ff4a36;
-  border-radius: 50%;
-  box-shadow: 0 0 12px rgba(255, 74, 54, 0.8);
-
-  &.pulse {
-    animation: alarmPulse 1.2s ease-in-out infinite;
-  }
-}
-
-.map-kpis {
-  position: absolute;
-  z-index: 8;
-  top: 10px;
-  left: 50%;
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
-  width: 74%;
-  min-width: 640px;
-  overflow: hidden;
-  background: rgba(7, 20, 34, 0.78);
-  border: 1px solid rgba(84, 165, 229, 0.38);
-  border-radius: 6px;
-  transform: translateX(-50%);
-  box-shadow: 0 4px 28px rgba(0, 0, 0, 0.5), 0 0 24px rgba(16, 149, 255, 0.2);
-}
-
-.map-kpi {
-  padding: 10px 8px;
-  text-align: center;
-  border-right: 1px solid rgba(116, 165, 205, 0.18);
-
-  &:last-child {
-    border-right: 0;
-  }
-
-  span {
-    display: block;
-    color: #9db9d5;
-    font-size: 12px;
-  }
-
-  strong {
-    color: #e5f6ff;
-    font-size: 22px;
-    font-family: DINPro, Arial, sans-serif;
-  }
-
-  em {
-    margin-left: 4px;
-    color: #9ab5cf;
-    font-size: 12px;
-    font-style: normal;
-  }
-
-  &:last-child strong {
-    color: #ff594f;
-  }
-}
-
-.map-layer-bar {
-  position: absolute;
-  z-index: 8;
-  bottom: 12px;
-  left: 50%;
-  display: flex;
-  align-items: center;
-  flex-wrap: nowrap;
-  gap: 6px;
-  padding: 8px 18px;
-  color: rgba(190, 214, 232, 0.72);
-  font-size: 12px;
-  background: rgba(5, 18, 30, 0.82);
-  border: 1px solid rgba(84, 165, 229, 0.32);
-  border-radius: 8px;
-  transform: translateX(-50%);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-
-  > span {
-    color: rgba(140, 200, 240, 0.6);
-    margin-right: 4px;
-  }
-
-  button {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    height: 26px;
-    padding: 0 7px;
-    color: rgba(190, 214, 232, 0.64);
-    white-space: nowrap;
-    cursor: pointer;
-    background: transparent;
-    border: 0;
-    border-radius: 4px;
-    transition: background 0.2s, color 0.2s;
-
-    &:hover {
-      color: rgba(220, 240, 255, 0.9);
-      background: rgba(45, 135, 210, 0.18);
-    }
-
-    &.active {
-      color: #d7f0ff;
-      background: rgba(45, 135, 210, 0.28);
-      text-shadow: 0 0 8px rgba(120, 210, 255, 0.5);
-    }
-  }
-
-  i {
-    font-size: 16px;
-    font-style: normal;
-  }
-
-  .layer-icon {
-    flex: 0 0 auto;
-    width: 28px;
-    height: 28px;
-    object-fit: contain;
-    filter: drop-shadow(0 0 5px rgba(80, 210, 255, 0.42));
-    opacity: 0.46;
-    transition: opacity 0.2s, filter 0.2s, transform 0.2s;
-  }
-
-  button:hover .layer-icon,
-  button.active .layer-icon {
-    opacity: 1;
-    filter: drop-shadow(0 0 7px rgba(95, 221, 255, 0.72));
-  }
-
-  button:hover .layer-icon {
-    transform: translateY(-1px) scale(1.08);
-  }
-}
-
-.detail-panel {
-  position: absolute;
-  z-index: 10;
-  top: 0;
-  right: 0;
-  bottom: 0;
-  width: 480px;
-  overflow-y: auto;
-  padding: 0 12px 12px;
-  background: linear-gradient(180deg, rgba(11, 31, 48, 0.94), rgba(7, 23, 37, 0.96));
-  border: 1px solid rgba(58, 145, 206, 0.42);
-  border-right: 0;
-  box-shadow: -8px 0 32px rgba(0, 0, 0, 0.5), 0 0 28px rgba(0, 149, 255, 0.1);
-  animation: slideInDetail 0.24s ease both;
-
-  &::before {
-    position: absolute;
-    inset: 0;
-    pointer-events: none;
-    content: "";
-    background: linear-gradient(90deg, rgba(36, 198, 255, 0.18), transparent 60%);
-    opacity: 0.35;
-  }
-}
-
-.right-rail {
-  grid-column: 5;
-  min-width: 0;
-  animation: panelEnterRight 0.78s ease 0.08s both;
-}
-
-.left-rail,
-.analysis-column,
-.map-panel,
-.right-rail {
-  contain: layout style;
-}
-
-.detail-close {
-  position: absolute;
-  top: 6px;
-  right: 8px;
-  width: 28px;
-  height: 28px;
-  color: #9fc7e6;
-  cursor: pointer;
-  background: rgba(10, 34, 52, 0.9);
-  border: 1px solid rgba(84, 160, 224, 0.34);
-  border-radius: 4px;
-}
-
-.entity-tabs,
-.right-tabs {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  padding: 8px 0;
-
-  button {
-    height: 30px;
-    color: #b7ccea;
-    cursor: pointer;
-    background: rgba(16, 40, 63, 0.86);
-    border: 1px solid rgba(88, 154, 220, 0.32);
-    border-radius: 3px;
-
-    &.active {
-      color: #55ff91;
-      background: rgba(18, 94, 70, 0.56);
-      border-color: rgba(65, 225, 134, 0.42);
-    }
-  }
-}
-
-.entity-summary {
-  position: relative;
-  z-index: 1;
-  min-height: 136px;
-  padding: 8px 0 10px;
-  border-bottom: 1px solid rgba(84, 158, 213, 0.18);
-
-  div {
-    color: #a7bfd7;
-    font-size: 13px;
-  }
-
-  strong {
-    color: #e9f6ff;
-    font-size: 16px;
-  }
-
-  p {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: #56e985;
-    margin: 8px 0;
-    font-size: 13px;
-  }
-
-  i {
-    width: 9px;
-    height: 9px;
-    background: #32e676;
-    border-radius: 50%;
-    box-shadow: 0 0 10px #32e676;
-
-    &.danger {
-      background: #ff4a36;
-      box-shadow: 0 0 10px #ff4a36;
-    }
-  }
-
-  img {
-    position: absolute;
-    right: 6px;
-    bottom: 8px;
-    width: 118px;
-    height: auto;
-  }
-}
-
-.detail-list {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: 7px;
-  padding: 14px 0;
-
-  div {
-    display: grid;
-    grid-template-columns: 74px 1fr;
-    gap: 8px;
-    font-size: 13px;
-  }
-
-  span {
-    color: #8ea9c2;
-  }
-
-  strong {
-    color: #dceeff;
-    font-weight: 600;
-  }
-}
-
-.relation-card {
-  position: relative;
-  z-index: 1;
-  padding: 10px 0;
-  border-top: 1px solid rgba(84, 158, 213, 0.18);
-  border-bottom: 1px solid rgba(84, 158, 213, 0.18);
-}
-
-.section-title,
-.table-title {
-  color: #59d8ff;
-  font-size: 14px;
-  font-weight: 800;
-}
-
-.relation-row {
-  display: grid;
-  grid-template-columns: 1fr auto 18px;
-  align-items: center;
-  min-height: 30px;
-  color: #9cb8d3;
-  font-size: 13px;
-
-  strong {
-    color: #e3f1ff;
-  }
-
-  i {
-    color: #6baed9;
-    font-style: normal;
-    text-align: right;
-  }
-}
-
-.quick-actions {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 8px;
-  padding-top: 14px;
-
-  button {
-    height: 42px;
-    color: #bbdcff;
-    cursor: pointer;
-    background: rgba(18, 47, 76, 0.86);
-    border: 1px solid rgba(84, 160, 224, 0.34);
-    border-radius: 4px;
-  }
-}
-
-.right-rail {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-}
-
-.right-tabs {
-  grid-template-columns: repeat(5, 1fr);
-  gap: 0;
-  padding: 0;
-
-  button {
-    height: 42px;
-    border-radius: 0;
-  }
-}
-
-.right-card {
-  flex: 1;
-  min-height: 0;
-}
-
-.alarm-stats {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-  padding: 10px 12px;
-
-  div {
-    height: 72px;
-    padding-top: 12px;
-    text-align: center;
-    background: rgba(13, 34, 55, 0.86);
-    border: 1px solid rgba(84, 160, 224, 0.25);
-    border-radius: 5px;
-  }
-
-  span {
-    display: block;
-    color: #aec4d8;
-    font-size: 13px;
-  }
-
-  strong {
-    display: block;
-    margin-top: 6px;
-    font-size: 30px;
-    font-family: DINPro, Arial, sans-serif;
-  }
-}
-
-.danger { color: #ff5b56 !important; }
-.warning { color: #ffbe38 !important; }
-.info { color: #55a8ff !important; }
-.success { color: #45df85 !important; }
-
-.alarm-filters {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  padding: 0 12px 12px;
-
-  button {
-    height: 28px;
-    color: #a9c0d8;
-    cursor: pointer;
-    background: rgba(16, 39, 62, 0.86);
-    border: 1px solid rgba(75, 147, 214, 0.35);
-    border-radius: 4px;
-
-    &.active {
-      color: #d8eeff;
-      background: rgba(21, 84, 137, 0.72);
-    }
-  }
-}
-
-.table-title {
-  position: relative;
-  z-index: 1;
-  padding: 0 12px 8px;
-}
-
-.alarm-table {
-  position: relative;
-  z-index: 1;
-  padding: 0 12px 12px;
-}
-
-.table-head,
-.alarm-row {
-  display: grid;
-  grid-template-columns: 60px 86px 1fr 66px 24px;
-  align-items: center;
-  min-height: 34px;
-  gap: 8px;
-  font-size: 12px;
-}
-
-.table-head {
-  color: #8ca7bf;
-  border-bottom: 1px solid rgba(99, 159, 209, 0.16);
-}
-
-.alarm-row {
-  color: #b7cbe0;
-
-  span,
-  strong {
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  i {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    margin-right: 8px;
-    border-radius: 50%;
-
-    &.danger { background: #ff4b3d; }
-    &.warning { background: #ffbe38; }
-    &.info { background: #4a9dff; }
-  }
-
-  em {
-    color: #4a9dff;
-    font-style: normal;
-    text-align: center;
-  }
-}
-
-.tab-placeholder {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: 10px;
-  padding: 12px;
-}
-
-.tab-row {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: center;
-  height: 54px;
-  padding: 0 14px;
-  color: #a9c1d9;
-  background: rgba(13, 34, 55, 0.74);
-  border: 1px solid rgba(84, 160, 224, 0.2);
-  border-radius: 4px;
-
-  strong {
-    color: #e9f8ff;
-    font-size: 20px;
-    font-family: DINPro, Arial, sans-serif;
-  }
-}
-
-.screen-shell {
-  .panel-title {
-    height: 72px;
-    padding: 18px 28px 0;
-    font-size: 34px;
-  }
-
-  .archive-list,
-  .operation-list {
-    gap: 12px;
-    padding: 8px 30px 28px;
-  }
-
-  .archive-row,
-  .operation-row {
-    grid-template-columns: 56px 150px 70px 1fr;
-    min-height: 68px;
-    font-size: 28px;
-
-    strong {
-      font-size: 40px;
-    }
-  }
-
-  .operation-row {
-    grid-template-columns: 56px 1fr 150px 80px;
-  }
-
-  .row-icon {
-    font-size: 38px;
-  }
-
-  .rank-chart,
-  .driver-chart,
-  .trend-chart,
-  .ontime-chart {
-    height: calc(100% - 72px);
-    padding: 16px 30px 24px;
-  }
-
-  .analysis-chart {
-    height: calc(100% - 72px);
-    padding: 14px 24px 22px;
-  }
-
-  .rank-row,
-  .driver-row {
-    grid-template-columns: 48px 180px 1fr 128px;
-    min-height: 46px;
-    gap: 18px;
-    font-size: 28px;
-  }
-
-  .driver-row {
-    grid-template-columns: 48px 150px 1fr 120px 84px;
-  }
-
-  .rank-track {
-    height: 22px;
-  }
-
-  .rank-row strong,
-  .driver-row strong,
-  .driver-row em {
-    font-size: 26px;
-  }
-
-  .trend-axis,
-  .ontime-legend {
-    font-size: 24px;
-  }
-
-  .trend-chart text,
-  .ontime-chart text {
-    font-size: 24px;
-  }
-
-  .map-kpis {
-    min-width: 1680px;
-    margin-top: 30px;
-  }
-
-  .map-kpi {
-    padding: 24px 16px;
-
-    span,
-    em {
-      font-size: 26px;
-    }
-
-    strong {
-      font-size: 48px;
-    }
-  }
-
-  .town-label {
-    font-size: 34px;
-  }
-
-  .map-zoom-controls {
-    top: 30px;
-    right: 34px;
-    gap: 12px;
-    padding: 10px;
-    font-size: 26px;
-
-    button {
-      min-width: 58px;
-      height: 48px;
-      padding: 0 16px;
-      font-size: 26px;
-    }
-
-    span {
-      min-width: 86px;
-    }
-  }
-
-  .map-entity {
-    width: 46px;
-    height: 46px;
-
-    .entity-icon {
-      width: 38px;
-      height: 38px;
-    }
-
-    em {
-      top: 52px;
-      font-size: 22px;
-    }
-  }
-
-  .alarm-dot {
-    top: -13px;
-    right: -13px;
-    width: 30px;
-    height: 30px;
-    font-size: 20px;
-    line-height: 30px;
-  }
-
-  .map-layer-bar {
-    bottom: 24px;
-    gap: 12px;
-    padding: 16px 32px;
-    font-size: 26px;
-    border-radius: 14px;
-
-    > span {
-      margin-right: 8px;
-    }
-
-    button {
-      height: 52px;
-      padding: 0 14px;
-      gap: 12px;
-      font-size: 24px;
-      white-space: nowrap;
-    }
-
-    i {
-      font-size: 32px;
-    }
-  }
-
-  .entity-tabs button,
-  .right-tabs button {
-    height: 58px;
-    font-size: 26px;
-  }
-
-  .entity-summary,
-  .detail-list,
-  .relation-row,
-  .quick-actions button {
-    font-size: 26px;
-  }
-
-  .entity-summary {
-    min-height: 250px;
-
-    strong {
-      font-size: 30px;
-    }
-
-    img {
-      width: 260px;
-    }
-  }
-
-  .detail-list div {
-    grid-template-columns: 150px 1fr;
-    gap: 18px;
-  }
-
-  .quick-actions button {
-    height: 78px;
-  }
-
-  .alarm-stats {
-    gap: 18px;
-    padding: 18px 24px;
-
-    div {
-      height: 138px;
-      padding-top: 26px;
-    }
-
-    span {
-      font-size: 26px;
-    }
-
-    strong {
-      font-size: 58px;
-    }
-  }
-
-  .alarm-filters {
-    gap: 14px;
-    padding: 0 24px 22px;
-
-    button {
-      height: 52px;
-      font-size: 24px;
-    }
-  }
-
-  .table-title {
-    padding: 0 24px 16px;
-    font-size: 28px;
-  }
-
-  .alarm-table {
-    padding: 0 24px 24px;
-  }
-
-  .table-head,
-  .alarm-row {
-    grid-template-columns: 120px 170px 1fr 130px 46px;
-    min-height: 62px;
-    gap: 16px;
-    font-size: 24px;
-  }
-
-  .tab-stats-grid {
-    position: relative;
-    z-index: 1;
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 18px;
-    padding: 20px 24px;
-
-    div {
-      height: 120px;
-      padding-top: 22px;
-      text-align: center;
-      background: rgba(13, 34, 55, 0.86);
-      border: 1px solid rgba(84, 160, 224, 0.25);
-      border-radius: 5px;
-    }
-
-    span {
-      display: block;
-      color: #aec4d8;
-      font-size: 24px;
-    }
-
-    strong {
-      display: block;
-      margin-top: 8px;
-      font-size: 46px;
-      font-family: DINPro, Arial, sans-serif;
-    }
-  }
-
-  .monitor-list {
-    position: relative;
-    z-index: 1;
-    display: grid;
-    gap: 14px;
-    padding: 0 24px 24px;
-  }
-
-  .monitor-row {
-    display: grid;
-    grid-template-columns: 1fr 130px;
-    align-items: center;
-    min-height: 78px;
-    padding: 0 18px;
-    background: rgba(13, 34, 55, 0.62);
-    border: 1px solid rgba(84, 160, 224, 0.18);
-    border-radius: 6px;
-
-    strong,
-    span {
-      display: block;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    strong {
-      color: #e9f8ff;
-      font-size: 26px;
-    }
-
-    span {
-      margin-top: 6px;
-      color: #8faac4;
-      font-size: 22px;
-    }
-
-    em {
-      font-size: 24px;
-      font-style: normal;
-      text-align: right;
-    }
-  }
-}
-
-.rank-track i,
-.ontime-bar {
-  animation: chartGrow 0.8s ease both;
-  transform-origin: left center;
-}
-
-.trend-line,
-.ontime-line {
-  animation: lineDraw 1.4s ease both;
-  stroke-dasharray: 900;
-  stroke-dashoffset: 900;
-}
-
-.trend-dot,
-.ontime-dot {
-  animation: mapPointBreath 2s ease-in-out infinite;
-}
-
-/* 4784×1560 设计画布在测试模式会整体缩放，ICON 需保留足够的物理像素才能识别车型。 */
-.screen-shell .map-entity {
-  width: 72px;
-  height: 72px;
-  filter: none;
-  animation: mapPointIn 0.5s ease both;
-
-  .entity-icon,
-  &.collection .entity-icon,
-  &.station .entity-icon,
-  &.plant .entity-icon {
-    width: 64px;
-    height: 64px;
-  }
-
-  .entity-icon img {
-    filter: none;
-  }
-
-  em {
-    top: 70px;
-  }
-}
-
-.screen-shell .map-entity.collection { z-index: 3; }
-.screen-shell .map-entity.small-box,
-.screen-shell .map-entity.large-box { z-index: 4; }
-.screen-shell .map-entity.station,
-.screen-shell .map-entity.plant { z-index: 5; }
-.screen-shell .map-entity.truck-small,
-.screen-shell .map-entity.truck-hook,
-.screen-shell .map-entity.truck-large { z-index: 6; }
-.screen-shell .map-entity.alarm { z-index: 7; }
-
-.screen-shell .map-entity.warning,
-.screen-shell .map-entity.danger,
-.screen-shell .map-entity.alarm {
-  filter: none;
-  animation: none;
-}
-
-.screen-shell .map-entity.pulse {
-  animation: mapPointIn 0.5s ease both, mapPointBreath 2.2s ease-in-out infinite;
-}
-
-.screen-shell .map-layer-bar .layer-icon {
-  width: 42px;
-  height: 42px;
-}
-
-@keyframes chartGrow {
-  from { transform: scaleX(0); }
-  to { transform: scaleX(1); }
-}
-
-@keyframes lineDraw {
-  to { stroke-dashoffset: 0; }
-}
-
-@keyframes mapPointIn {
-  from {
-    opacity: 0;
-    transform: translate(-50%, -50%) scale(0.45);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%) scale(1);
-  }
-}
-
-@keyframes mapPointBreath {
-  0%, 100% { filter: brightness(1); }
-  50% { filter: brightness(1.35); }
-}
-
-@keyframes slideInDetail {
-  from {
-    opacity: 0;
-    transform: translateX(32px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes slideInRight {
-  from {
-    opacity: 0;
-    transform: translateX(24px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes panelEnterLeft {
-  from {
-    opacity: 0;
-    transform: translateX(-18px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes panelEnterRight {
-  from {
-    opacity: 0;
-    transform: translateX(18px);
-  }
-
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-@keyframes mapEnter {
-  from {
-    opacity: 0;
-    transform: scale(0.985);
-  }
-
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-@keyframes screenScan {
-  from {
-    transform: translateY(-100%);
-  }
-
-  to {
-    transform: translateY(100%);
-  }
-}
-
-@keyframes alarmPulse {
-  0%,
-  100% {
-    transform: scale(1);
-    box-shadow: 0 0 12px rgba(255, 74, 54, 0.75);
-  }
-
-  50% {
-    transform: scale(1.2);
-    box-shadow: 0 0 22px rgba(255, 74, 54, 0.95);
-  }
-}
+@import './command-center-july-v2.scss';
 </style>

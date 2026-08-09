@@ -57,7 +57,7 @@
         :data="rows"
         :columns="columns"
         :pagination="pagination"
-        :scroll="{ x: 1200 }"
+        :scroll="{ x: 1320 }"
         stripe
       >
         <template #containerNo="{ record }">
@@ -74,20 +74,73 @@
         <template #overflowStatus="{ record }">
           <a-tag :color="record.overflowStatus === 1 ? 'red' : 'green'">{{ record.overflowStatus === 1 ? '满溢' : '正常' }}</a-tag>
         </template>
-        <template #otherObjects="{ record }">
-          <a-tooltip v-if="record.otherObjects.length" :content="record.otherObjects.join('、')">
-            <span class="match-text">{{ record.otherObjects.join('、') }}</span>
-          </a-tooltip>
+        <template #matchedObjects="{ record }">
+          <span v-if="record.matchedObjects.length" class="match-tags">
+            <a-tag v-for="obj in record.matchedObjects.slice(0, 5)" :key="obj" size="small" color="arcoblue">{{ obj }}</a-tag>
+            <a-tooltip v-if="record.matchedObjects.length > 5" :content="record.matchedObjects.slice(5).join('、')">
+              <a-tag size="small">+{{ record.matchedObjects.length - 5 }}</a-tag>
+            </a-tooltip>
+          </span>
           <span v-else class="empty-text">-</span>
         </template>
         <template #fillLevel="{ record }">
-          <span :class="{ 'fill-high': (record.fillLevel ?? 0) >= 90 }">{{ record.fillLevel ?? 0 }}%</span>
+          <span :class="{ 'fill-high': (record.fillLevel ?? 0) >= 90 }">{{ Math.floor(record.fillLevel ?? 0) }}%</span>
         </template>
         <template #address="{ record }">
           <span :class="{ 'addr-loading': addressLoading[record.id], 'addr-fallback': !addressCache[record.id] && !addressLoading[record.id] }">{{ addressOf(record) }}</span>
         </template>
+        <template #action="{ record }">
+          <a-link @click="openDetail(record)">
+            <template #icon><icon-eye /></template>
+            详情
+          </a-link>
+        </template>
       </a-table>
     </div>
+
+    <a-drawer v-model:visible="detailVisible" :title="detailRow ? `箱体详情 - ${detailRow.containerNo}` : '箱体详情'" :width="640" unmount-on-close>
+      <template v-if="detailRow">
+        <div class="detail-heading">
+          <div>
+            <span class="detail-box-no">箱体编号 {{ detailRow.containerNo }}</span>
+            <h3>{{ detailRow.box.containerName }}</h3>
+          </div>
+          <a-tag :color="detailRow.overflowStatus === 1 ? 'red' : 'green'">{{ detailRow.overflowStatus === 1 ? '满溢' : '正常' }}</a-tag>
+        </div>
+        <a-descriptions :column="2" size="small" bordered :label-style="{ color: '#86909c', width: 90 }">
+          <a-descriptions-item label="所属乡镇">{{ detailRow.townships.join('、') || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="所属村庄">{{ detailRow.villages.join('、') || '-' }}</a-descriptions-item>
+          <a-descriptions-item label="在线状态">{{ detailRow.box.onlineStatus === 0 ? '在线' : '离线' }}</a-descriptions-item>
+          <a-descriptions-item label="上报时间">{{ detailRow.box.reportTime }}</a-descriptions-item>
+          <a-descriptions-item label="垃圾占比">{{ Math.floor(detailRow.box.fillLevel ?? 0) }}%</a-descriptions-item>
+          <a-descriptions-item label="容量">{{ detailRow.box.capacity }} 吨</a-descriptions-item>
+          <a-descriptions-item label="温度">{{ detailRow.box.temperature }} ℃</a-descriptions-item>
+          <a-descriptions-item label="电量">{{ detailRow.box.voltage }}%</a-descriptions-item>
+          <a-descriptions-item label="开关状态">{{ detailRow.box.switchStatus === '0' ? '关' : '开' }}</a-descriptions-item>
+          <a-descriptions-item label="设备号">{{ detailRow.box.deviceNo }}</a-descriptions-item>
+        </a-descriptions>
+        <div v-if="detailRow.matchedObjects.length" class="detail-match-block">
+          <div class="detail-match-label">匹配对象（{{ detailRow.matchedObjects.length }}）</div>
+          <div v-if="detailPointMatches.length" class="match-group">
+            <span class="match-group-label">收集点</span>
+            <span class="match-tags">
+              <a-tag v-for="obj in detailPointMatches" :key="obj" size="small" color="green">{{ obj }}</a-tag>
+            </span>
+          </div>
+          <div v-if="detailOtherMatches.length" class="match-group">
+            <span class="match-group-label">其它对象</span>
+            <span class="match-tags">
+              <a-tag v-for="obj in detailOtherMatches" :key="obj" size="small" color="arcoblue">{{ obj }}</a-tag>
+            </span>
+          </div>
+        </div>
+        <div class="detail-map-block">
+          <div class="detail-map-label">地图位置</div>
+          <div ref="detailMapRef" class="detail-amap"></div>
+          <div class="detail-coord">原始坐标（WGS84）：{{ detailRow.longitude }}, {{ detailRow.latitude }}</div>
+        </div>
+      </template>
+    </a-drawer>
 
     <a-modal v-model:visible="tokenModalVisible" title="手动配置 Token（兜底）" :width="640" @ok="saveToken">
       <p class="modal-tip">
@@ -103,10 +156,11 @@
 <script setup lang="ts">
 import type { TableColumnData } from '@arco-design/web-vue'
 import { Message } from '@arco-design/web-vue'
-import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { type AMapCircle, type AMapInstance, type AMapMarker, loadAmapJsApi } from '@/utils/amap'
 import ModuleHeader from './components/ModuleHeader.vue'
 import MetricGrid from './components/MetricGrid.vue'
-import { daasAuth, daasRequest, setDaasToken } from '@/utils/daas'
+import { daasAuth, daasRequest, getHiddenBoxIds, setDaasToken } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
 
 defineOptions({ name: 'SanitationSmallBoxMonitor' })
@@ -141,9 +195,13 @@ interface CollectionPoint {
   pointCode: string
   townshipName: string
   villageName: string
+  longitude: number
+  latitude: number
+  serviceRadius: number
 }
 interface Row {
   id: number
+  box: Box
   containerNo: string
   overflowStatus: number
   fillLevel: number
@@ -151,6 +209,7 @@ interface Row {
   latitude: number
   townships: string[]
   villages: string[]
+  matchedObjects: string[]
   otherObjects: string[]
 }
 
@@ -202,6 +261,13 @@ function otherObjectsOf(box: Box): string[] {
   return names.filter((name) => !points.value.some((pp) => pp.pointName === name || pp.pointCode === name || String(pp.id) === name))
 }
 
+/** 匹配对象：全部匹配对象（含收集点） */
+function matchedObjectsOf(box: Box): string[] {
+  let names: string[] = []
+  try { names = Object.keys(JSON.parse(box.matchObject || '{}')) } catch { return [] }
+  return names
+}
+
 const townshipOptions = computed(() => {
   const s = new Set<string>()
   for (const b of boxes.value) findPointsOf(b).forEach((p) => { if (p.townshipName) s.add(p.townshipName) })
@@ -223,8 +289,10 @@ function selectTownship(val: string) {
 
 const rows = computed<Row[]>(() => {
   const q = keyword.value.trim().toLowerCase()
+  const hidden = getHiddenBoxIds() // 遵循「数据隐藏配置」：隐藏的箱体不显示
   return boxes.value
-    .filter((b) => (!q || b.containerNo.toLowerCase().includes(q) || b.containerName.toLowerCase().includes(q))
+    .filter((b) => !hidden.has(b.id)
+      && (!q || b.containerNo.toLowerCase().includes(q) || b.containerName.toLowerCase().includes(q))
       && (!overflowOnly.value || b.overflowStatus === 1)
       && (!townshipFilter.value || findPointsOf(b).some((p) => p.townshipName === townshipFilter.value))
       && (!villageFilter.value || findPointsOf(b).some((p) => p.villageName === villageFilter.value)))
@@ -232,6 +300,7 @@ const rows = computed<Row[]>(() => {
       const hits = findPointsOf(b)
       return {
         id: b.id,
+        box: b,
         containerNo: b.containerNo,
         overflowStatus: b.overflowStatus,
         fillLevel: b.fillLevel,
@@ -239,16 +308,24 @@ const rows = computed<Row[]>(() => {
         latitude: b.latitude,
         townships: Array.from(new Set(hits.map((p) => p.townshipName).filter(Boolean))),
         villages: Array.from(new Set(hits.map((p) => p.villageName).filter(Boolean))),
+        matchedObjects: matchedObjectsOf(b),
         otherObjects: otherObjectsOf(b),
       }
     })
 })
-const overflowCount = computed(() => boxes.value.filter((b) => b.overflowStatus === 1).length)
-const metrics = computed(() => [
-  { label: '箱体总数', value: boxes.value.length, tone: 'processing' },
-  { label: '满溢预警', value: overflowCount.value, tone: 'danger' },
-  { label: '收集点总数', value: points.value.length },
-])
+const overflowCount = computed(() => {
+  const hidden = getHiddenBoxIds()
+  return boxes.value.filter((b) => !hidden.has(b.id) && b.overflowStatus === 1).length
+})
+const metrics = computed(() => {
+  const hidden = getHiddenBoxIds()
+  const visibleCount = boxes.value.filter((b) => !hidden.has(b.id)).length
+  return [
+    { label: '箱体总数', value: visibleCount, tone: 'processing' },
+    { label: '满溢预警', value: overflowCount.value, tone: 'danger' },
+    { label: '收集点总数', value: points.value.length },
+  ]
+})
 /** 响应式分页：每页条数可选 20/50/100/1000（onPageSizeChange 切换时回到第 1 页） */
 const pagination = reactive({
   current: 1,
@@ -261,14 +338,15 @@ const pagination = reactive({
   onPageSizeChange: (size: number) => { pagination.pageSize = size; pagination.current = 1 },
 })
 const columns: TableColumnData[] = [
-  { title: '序号', dataIndex: 'index', width: 70, align: 'center', render: ({ rowIndex }: any) => rowIndex + 1 + (pagination.current - 1) * pagination.pageSize },
+  { title: '序号', dataIndex: 'index', width: 70, align: 'center', fixed: 'left', render: ({ rowIndex }: any) => rowIndex + 1 + (pagination.current - 1) * pagination.pageSize },
   { title: '箱体编号', dataIndex: 'containerNo', slotName: 'containerNo', width: 110, fixed: 'left' },
   { title: '乡镇', dataIndex: 'townships', slotName: 'townships', width: 110 },
   { title: '村庄', dataIndex: 'villages', slotName: 'villages', width: 110 },
   { title: '满溢', dataIndex: 'overflowStatus', slotName: 'overflowStatus', width: 80, align: 'center' },
-  { title: '匹配对象', dataIndex: 'otherObjects', slotName: 'otherObjects', minWidth: 220 },
   { title: '垃圾占比', dataIndex: 'fillLevel', slotName: 'fillLevel', width: 100, align: 'center' },
-  { title: '当前位置', dataIndex: 'address', slotName: 'address', minWidth: 280 },
+  { title: '地址', dataIndex: 'address', slotName: 'address', minWidth: 280 },
+  { title: '匹配对象', dataIndex: 'matchedObjects', slotName: 'matchedObjects', minWidth: 220 },
+  { title: '操作', dataIndex: 'action', slotName: 'action', width: 100, align: 'center', fixed: 'right' },
 ]
 
 // ==================== 当前位置逆解析（WGS84 → GCJ02 → 高德 Web 服务逆地理编码） ====================
@@ -357,8 +435,83 @@ function addressOf(box: Pick<Box, 'id' | 'longitude' | 'latitude'>): string {
   return `${Number(box.longitude).toFixed(5)}, ${Number(box.latitude).toFixed(5)}`
 }
 
+function escapeHtml(value: string | number) {
+  return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!)
+}
+
 // 可视行变化 → 排队逆解析（懒加载 + 并发池 + 缓存）
 watch(rows, (list) => { list.forEach((r) => queueAddress(r)) }, { immediate: true })
+
+// ==================== 箱体详情抽屉（含地图定位） ====================
+const detailVisible = ref(false)
+const detailRow = ref<Row>()
+const detailMapRef = ref<HTMLDivElement>()
+let detailMap: AMapInstance | undefined
+let detailMarkers: AMapMarker[] = []
+let detailCircles: AMapCircle[] = []
+let detailAmap: Awaited<ReturnType<typeof loadAmapJsApi>> | undefined
+
+function openDetail(row: Row) {
+  detailRow.value = row
+  detailVisible.value = true
+}
+async function initDetailMap() {
+  if (!detailRow.value) return
+  // 等待抽屉内容渲染完成（detailMapRef 挂载）
+  for (let i = 0; i < 20; i++) {
+    if (detailMapRef.value) break
+    await new Promise((r) => setTimeout(r, 100))
+  }
+  if (!detailMapRef.value) return
+  try {
+    detailAmap = await loadAmapJsApi()
+    const box = detailRow.value.box
+    const gcj = toGcj(box.longitude, box.latitude)
+    detailMap = new detailAmap.Map(detailMapRef.value, { zoom: 15, center: [gcj.lng, gcj.lat], viewMode: '2D', mapStyle: 'amap://styles/light', resizeEnable: true, animateEnable: false, jogEnable: false })
+    // 箱体标记
+    const boxMarker = new detailAmap.Marker({ position: [gcj.lng, gcj.lat], title: box.containerNo, content: `<div class="detail-box-marker">${escapeHtml(box.containerNo)}</div>`, offset: new detailAmap.Pixel(-18, -34) })
+    boxMarker.setMap(detailMap)
+    detailMarkers.push(boxMarker)
+    // 匹配到的收集点：名称标记 + 服务半径圈 + 半径文字
+    findPointsOf(box).forEach((p) => {
+      if (!Number.isFinite(p.longitude) || !Number.isFinite(p.latitude)) return
+      const pgcj = toGcj(p.longitude, p.latitude)
+      const pm = new detailAmap.Marker({ position: [pgcj.lng, pgcj.lat], title: p.pointName, content: `<div class="detail-point-marker">${escapeHtml(p.pointName)}</div>`, offset: new detailAmap.Pixel(-20, -11) })
+      pm.setMap(detailMap!)
+      detailMarkers.push(pm)
+      const radius = p.serviceRadius || 100
+      const circle = new detailAmap.Circle({ center: new detailAmap.LngLat(pgcj.lng, pgcj.lat), radius, strokeColor: '#00b42a', strokeOpacity: 0.55, strokeWeight: 1.5, strokeStyle: 'dashed', fillColor: '#00b42a', fillOpacity: 0.08 })
+      circle.setMap(detailMap!)
+      detailCircles.push(circle)
+      const label = new detailAmap.Marker({ position: [pgcj.lng, pgcj.lat + radius / 111320], content: `<div class="detail-radius-label">${escapeHtml(radius)}m</div>`, offset: new detailAmap.Pixel(-30, -18) })
+      label.setMap(detailMap!)
+      detailMarkers.push(label)
+    })
+    if (detailMarkers.length) detailMap.setFitView(detailMarkers, false, [60, 60, 60, 60])
+  } catch { /* 地图加载失败忽略 */ }
+}
+function destroyDetailMap() {
+  detailMarkers.forEach((m) => m.setMap(null))
+  detailCircles.forEach((c) => c.setMap(null))
+  detailMap?.destroy()
+  detailMarkers = []
+  detailCircles = []
+  detailMap = undefined
+  detailAmap = undefined
+}
+// 抽屉开关时初始化/销毁地图
+watch(detailVisible, (visible) => {
+  if (visible) nextTick(() => initDetailMap())
+  else destroyDetailMap()
+})
+
+/** 详情抽屉匹配对象：收集点（matchedObjects 中属于收集点的）与其它对象（非收集点） */
+const detailPointMatches = computed(() => {
+  const row = detailRow.value
+  if (!row) return []
+  return row.matchedObjects.filter((m) => !row.otherObjects.includes(m))
+})
+const detailOtherMatches = computed(() => (detailRow.value ? detailRow.value.otherObjects : []))
 
 // ==================== 云端更新 ====================
 async function loadFromCloud(silent = false) {
@@ -402,6 +555,7 @@ onMounted(() => {
 onBeforeUnmount(() => {
   offBoxes?.()
   offPoints?.()
+  destroyDetailMap()
 })
 </script>
 
@@ -435,10 +589,26 @@ onBeforeUnmount(() => {
 
 .box-no-cell { color: rgb(var(--arcoblue-6)); font-weight: 600; }
 .empty-text { color: var(--color-text-4); }
-.match-text { display: inline-block; max-width: 360px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; color: var(--color-text-1); }
+.match-tags { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .addr-loading { color: var(--color-text-3); }
 .addr-fallback { color: var(--color-text-4); font-variant-numeric: tabular-nums; }
 .fill-high { color: rgb(var(--red-6)); font-weight: 600; }
+
+.detail-heading { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
+.detail-heading h3 { margin: 4px 0 0; color: var(--color-text-1); font-size: 17px; }
+.detail-box-no { color: var(--color-text-3); font-size: 12px; }
+.detail-match-block { margin-top: 16px; }
+.detail-match-label { margin-bottom: 8px; color: var(--color-text-2); font-size: 13px; }
+.match-group { display: flex; align-items: flex-start; gap: 8px; margin-top: 8px; }
+.match-group:first-of-type { margin-top: 0; }
+.match-group-label { flex-shrink: 0; color: var(--color-text-3); font-size: 12px; line-height: 22px; }
+.detail-map-block { margin-top: 16px; }
+.detail-map-label { margin-bottom: 8px; color: var(--color-text-2); font-size: 13px; }
+.detail-amap { width: 100%; height: 340px; border-radius: 4px; background: var(--color-fill-2); }
+.detail-coord { margin-top: 8px; color: var(--color-text-3); font-size: 12px; }
+:global(.detail-box-marker) { min-width: 36px; height: 26px; padding: 0 8px; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; border-radius: 4px; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 12px; font-weight: 600; }
+:global(.detail-point-marker) { max-width: 180px; height: 22px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #fff; border-radius: 11px; background: #00b42a; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+:global(.detail-radius-label) { padding: 2px 6px; border-radius: 3px; background: rgb(255 255 255 / 92%); box-shadow: 0 2px 6px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; white-space: nowrap; }
 
 .modal-tip { margin-top: 0; color: var(--color-text-2); }
 .modal-tip code { padding: 1px 4px; background: var(--color-fill-2); }

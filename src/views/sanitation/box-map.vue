@@ -125,6 +125,7 @@ import { Message } from '@arco-design/web-vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { type AMapInstance, type AMapMarker, loadAmapJsApi } from '@/utils/amap'
 import { daasAuth, daasRequest, getHiddenBoxIds, setDaasToken } from '@/utils/daas'
+import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
 
 defineOptions({ name: 'SanitationBoxMap' })
 
@@ -382,12 +383,29 @@ async function loadFromCloud(silent = false) {
   } catch { /* 单个失败不影响另一个 */ }
   // 先分配箱体归属，再赋值 boxes（避免渲染时 boxAreas 为空导致筛选选项缓存为空）
   if (boxList?.length && points.value.length) assignBoxAreas(boxList, points.value)
-  if (boxList) { boxes.value = boxList; gcjPoints = new WeakMap<Box, GcjPoint>(); selectedBox.value = undefined }
+  if (boxList) { boxes.value = boxList; gcjPoints = new WeakMap<Box, GcjPoint>(); selectedBox.value = undefined; saveCachedBoxes(boxList) }
+  if (points.value.length) saveCachedPoints(points.value)
   cloudLoading.value = false
   if (ok) { if (!silent) Message.success(`已从云端更新 ${boxes.value.length} 个箱体`) }
   else if (!silent) Message.warning('云端数据加载失败，请检查网络或稍后重试')
 }
+let offBoxes: () => void
+let offPoints: () => void
 onMounted(async () => {
+  // 先读共享缓存（其它页面已更新的数据），再静默刷新云端
+  const cachedBoxes = getCachedBoxes<Box>()
+  const cachedPoints = getCachedPoints<CollectionPoint>()
+  if (cachedBoxes.length || cachedPoints.length) {
+    if (cachedBoxes.length) boxes.value = cachedBoxes
+    if (cachedPoints.length) { points.value = cachedPoints; assignBoxAreas(boxes.value, points.value) }
+  }
+  // 其它页面更新数据时，本页同步刷新
+  offBoxes = subscribeBoxesUpdated((list) => {
+    if (Array.isArray(list) && list.length) { boxes.value = list as Box[]; gcjPoints = new WeakMap<Box, GcjPoint>(); if (points.value.length) assignBoxAreas(boxes.value, points.value); selectedBox.value = undefined }
+  })
+  offPoints = subscribePointsUpdated((list) => {
+    if (Array.isArray(list) && list.length) { points.value = list as CollectionPoint[]; assignBoxAreas(boxes.value, points.value) }
+  })
   if (!mapRef.value) return
   try {
     amap = await loadAmapJsApi()
@@ -396,7 +414,7 @@ onMounted(async () => {
     loadFromCloud(true)
   } catch (error) { mapError.value = error instanceof Error ? error.message : '高德地图加载失败，请检查地图配置' }
 })
-onBeforeUnmount(() => { markers.forEach((marker) => marker.setMap(null)); map?.destroy() })
+onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); markers.forEach((marker) => marker.setMap(null)); map?.destroy() })
 </script>
 
 <style scoped lang="scss">

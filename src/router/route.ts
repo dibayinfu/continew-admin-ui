@@ -221,6 +221,27 @@ export const systemRoutes: RouteRecordRaw[] = [
         ],
       },
 
+      // ===== 8月份阶段（子菜单） =====
+      {
+        path: '/sanitation/august-phase',
+        name: 'SanitationAugustPhase',
+        redirect: '/sanitation/augustAppBoxMonitor',
+        meta: { title: '8月份阶段', icon: 'calendar', hidden: false },
+        children: [
+          // ===== APP端（子菜单） =====
+          {
+            path: '/sanitation/august-app',
+            name: 'SanitationAugustApp',
+            redirect: '/sanitation/augustAppBoxMonitor',
+            meta: { title: 'APP端', icon: 'mobile', hidden: false, alwaysShow: true },
+            children: [
+              { path: '/sanitation/augustAppBoxMonitor', name: 'SanitationAugustAppBoxMonitor', component: () => import('@/views/sanitation/august-app-box-monitor.vue'), meta: { title: '箱体监控', icon: 'storage', hidden: false } },
+              { path: '/sanitation/augustBoxNavigation', name: 'SanitationAugustBoxNavigation', component: () => import('@/views/sanitation/august-box-navigation.vue'), meta: { title: '箱体导航', icon: 'nav', hidden: true } },
+            ],
+          },
+        ],
+      },
+
       // ===== 其它原型（子菜单） =====
       {
         path: '/sanitation/other-prototypes',

@@ -9,6 +9,20 @@
       "cwd": "${workspaceFolder}"
     },
     {
+      "name": "continew-ui: 打包（服务器版本）",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "VITE_BASE='/' VITE_COLLECTOR_API_BASE_URL='https://longan-api.mozi365.com' pnpm build:prototype",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "continew-ui: 打包并推送服务器发布分支",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "bash ./scripts/publish-server.sh",
+      "cwd": "${workspaceFolder}"
+    },
+    {
       "name": "continew-ui: Chrome Debug",
       "type": "chrome",
       "request": "launch",

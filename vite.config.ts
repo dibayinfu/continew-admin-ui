@@ -48,16 +48,12 @@ export default defineConfig(({ command, mode }) => {
     build: {
       chunkSizeWarningLimit: 2000, // 消除打包大小超过500kb警告
       outDir: 'dist', // 指定打包路径，默认为项目根目录下的dist目录
-      minify: 'terser', // Vite 2.6.x 以上需要配置 minify："terser"，terserOptions才能生效
-      terserOptions: {
-        compress: {
-          keep_infinity: true, // 防止 Infinity 被压缩成 1/0，这可能会导致 Chrome 上的性能问题
-          drop_console: true, // 生产环境去除 console
-          drop_debugger: true, // 生产环境去除 debugger
-        },
-        format: {
-          comments: false, // 删除注释
-        },
+      // esbuild 比 Terser 快得多，适合在 ECS 上执行发布构建。
+      // 保留原有的生产清理效果，避免为了压缩而让发布等待数分钟。
+      minify: 'esbuild',
+      esbuild: {
+        drop: ['console', 'debugger'],
+        legalComments: 'none',
       },
       // 静态资源打包到dist下的不同目录
       rollupOptions: {

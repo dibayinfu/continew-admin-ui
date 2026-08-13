@@ -14,9 +14,10 @@ CURRENT_LINK="/data/longan/frontend/current"
 API_BASE_URL="${API_BASE_URL:-https://longan-api.mozi365.com}"
 VITE_BASE_PATH="${VITE_BASE_PATH:-/}"
 BRANCH="${1:-main}"
-# 完整后台模板打包时 Vite 的默认 Node 堆（约 1.8GB）不足。
-# 可按服务器内存覆盖，例如 NODE_HEAP_MB=2560 ./deploy.sh。
-NODE_HEAP_MB="${NODE_HEAP_MB:-3072}"
+# 构建已大幅瘦身：原型模式下不再打包全量后台视图（import.meta.glob 已按模式收敛），
+# 单次 vite build 约 20s、内存占用显著下降，默认 2GB 堆即可满足。
+# 若服务器内存紧张可进一步降低，例如 NODE_HEAP_MB=1536 ./deploy.sh。
+NODE_HEAP_MB="${NODE_HEAP_MB:-2048}"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 die() { echo "[ERROR] $*" >&2; exit 1; }

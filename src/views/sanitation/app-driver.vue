@@ -8,92 +8,7 @@
       module="移动端"
     />
 
-    <!-- ========== 产品需求说明 ========== -->
-    <div class="prd-panel">
-      <a-collapse :bordered="false">
-        <a-collapse-item key="prd" header="📋 产品需求说明">
-          <div class="prd-body">
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">🎯 功能要点</td></tr>
-                  <tr><td class="prd-label">目标用户</td><td class="prd-value">驾驶员，在车内使用 APP 查看收运任务、接单、确认路线、补传凭证</td></tr>
-                  <tr><td class="prd-label">页面结构</td><td class="prd-value">2 个底部 Tab：「任务」「我的」。默认进入「任务」Tab</td></tr>
-                  <tr><td class="prd-label">Tab 1：任务</td><td class="prd-value">6 个状态筛选 Tab（全部/待接单/已接单/收运中/已完成/待补传），卡片列表展示筛选结果，点击卡片进入全屏详情</td></tr>
-                  <tr><td class="prd-label">Tab 2：我的</td><td class="prd-value">驾驶员信息（头像+姓名+车辆），「我的运单」标题+日期选择（日历网格含每日运单数），当日统计（总运单/正常完成/超时，三色区分），运单列表</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">📱 任务详情页结构</td></tr>
-                  <tr><td class="prd-label">顶部栏</td><td class="prd-value">「返回」按钮 + 任务单号 + 状态标签（待接单/已接单/收运中/已完成）+ 超时标签（红色）</td></tr>
-                  <tr><td class="prd-label">标题区</td><td class="prd-value">优先级（紧急红色/普通灰色）+ 任务类型 + 任务名称 + 「下一步」文字提示（仅引导，非按钮）</td></tr>
-                  <tr><td class="prd-label">路线卡片</td><td class="prd-value">收运点（绿点）→ 目的地（红点），中间竖线连接</td></tr>
-                  <tr><td class="prd-label">核心指标</td><td class="prd-value">2×2 网格：截止时间/SLA、满溢率（≥90%红色）、称重（吨）、箱体编号/车辆</td></tr>
-                  <tr><td class="prd-label">地图轨迹</td><td class="prd-value">Leaflet 地图（实线已行驶/虚线未完成，围栏圆圈标注），顶部「查看始发点」按钮聚焦放大到起点</td></tr>
-                  <tr><td class="prd-label">关键事件</td><td class="prd-value">a-timeline 时间线，8 步：派单→接单→到达始发地→装车→发车→到达目的地→卸车完成→上传照片。仅显示已完成步骤+当前第一步未完成步骤，隐藏未来步骤避免空时间。进度计数如 5/8</td></tr>
-                  <tr><td class="prd-label">单据信息</td><td class="prd-value">a-descriptions 表格 15 字段：任务单号、关联运单、任务类型、任务状态、驾驶员、车辆、箱体编号、收运点、目的地、截止时间、满溢率、称重、创建时间、接单/装车/完成时间、凭证状态</td></tr>
-                  <tr><td class="prd-label">凭证照片</td><td class="prd-value">已上传时显示单张全宽凭证照片（SVG 模拟），含车辆号、目的地、完成时间水印</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">🔑 状态流转与操作</td></tr>
-                  <tr><td class="prd-label">收运状态</td><td class="prd-value">待接单 / 已接单 / 收运中 / 已完成，四状态互斥按序流转</td></tr>
-                  <tr><td class="prd-label">待接单</td><td class="prd-value">创建任务单后的初始状态</td></tr>
-                  <tr><td class="prd-label">已接单</td><td class="prd-value">驾驶员手动接单后变为已接单</td></tr>
-                  <tr><td class="prd-label">收运中</td><td class="prd-value">驾驶员手动接单后，车辆进入任务单中的始发点电子围栏后变为收运中；必须手动接单，未接单时即使进入围栏也不会自动开始收运，防止路过车辆误触发状态变更</td></tr>
-                  <tr><td class="prd-label">强制完成</td><td class="prd-value">运营人员可通过后台强制完成未完成的任务单，强制完成的收运单在状态旁显示橙色「强制完成」标签，关键事件可能不完整</td></tr>
-                  <tr><td class="prd-label">已超时</td><td class="prd-value">收运过程中，时长已超过任务时效要求，变为已超时</td></tr>
-                  <tr><td class="prd-label">待接单 → 已接单</td><td class="prd-value">底部「接单」按钮 → Modal.confirm 二次确认 → 记录 acceptTime → 点亮「接单」步骤 → 状态变为已接单</td></tr>
-                  <tr><td class="prd-label">已接单 → 收运中</td><td class="prd-value">底部"等待系统自动识别到达始发点"文字 + 原型「模拟系统识别」按钮。点击后点亮「到达始发地」「装车」「发车」三步，随机生成称重，状态变为收运中。真实 APP 由 GPS+电子围栏自动触发。必须先手动接单，未接单状态时即使车辆进入围栏也不会变为收运中，防止路过车辆误触发</td></tr>
-                  <tr><td class="prd-label">收运中 → 已完成</td><td class="prd-value">底部"等待系统自动识别到达目的地"文字 + 原型「模拟系统完成」按钮。点击后点亮「到达目的地」「卸车完成」两步，记录 finishTime，计算耗时并判定超时。真实 APP 由目的地电子围栏+称重变化自动触发</td></tr>
-                  <tr><td class="prd-label">已完成 + 未上传</td><td class="prd-value">底部「补传凭证照片」按钮 → 进入上传页（水印相机/相册选择，1 张）→ 提交后点亮「上传照片」步骤，proofUploaded=true</td></tr>
-                  <tr><td class="prd-label">已完成 + 已上传</td><td class="prd-value">底部绿色提示"任务已完成，凭证已上传"，不可再操作</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">🔑 关键事件（过程步骤）</td></tr>
-                  <tr><td class="prd-label">① 派单</td><td class="prd-value">任务单创建</td></tr>
-                  <tr><td class="prd-label">② 接单</td><td class="prd-value">驾驶员接单（必须手动接单，不可跳过；未接单则无法进入收运中状态）</td></tr>
-                  <tr><td class="prd-label">③ 到达始发地</td><td class="prd-value">进入始发电子围栏</td></tr>
-                  <tr><td class="prd-label">④ 装车</td><td class="prd-value">通过始发地+称重变化判断</td></tr>
-                  <tr><td class="prd-label">⑤ 发车</td><td class="prd-value">离开始发地</td></tr>
-                  <tr><td class="prd-label">⑥ 到达目的地</td><td class="prd-value">进入目的地电子围栏</td></tr>
-                  <tr><td class="prd-label">⑦ 卸车完成</td><td class="prd-value">目的地电子围栏+称重变化判断</td></tr>
-                  <tr><td class="prd-label">⑧ 上传照片</td><td class="prd-value">驾驶员补传凭证</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">⚠️ 验收要点</td></tr>
-                  <tr><td class="prd-label">✓ 状态筛选</td><td class="prd-value">6 Tab 切换过滤，计数实时；待接单置顶，超时红色标记</td></tr>
-                  <tr><td class="prd-label">✓ 列表进详情</td><td class="prd-value">点击卡片进入全屏详情，返回不刷新</td></tr>
-                  <tr><td class="prd-label">✓ 接单确认</td><td class="prd-value">Modal.confirm 二次确认，确认后状态即时变更</td></tr>
-                  <tr><td class="prd-label">✓ 8 步骤时间线</td><td class="prd-value">已完成绿点、当前蓝点、未来步骤隐藏；进度计数与实际显示一致。8 步：派单→接单→到达始发地→装车→发车→到达目的地→卸车完成→上传照片</td></tr>
-                  <tr><td class="prd-label">✓ 满溢率展示</td><td class="prd-value">核心指标中显示，≥90% 红色高亮</td></tr>
-                  <tr><td class="prd-label">✓ 地图轨迹</td><td class="prd-value">实线已行驶/虚线未完成，始发点目的地围栏标注</td></tr>
-                  <tr><td class="prd-label">✓ 原型模拟</td><td class="prd-value">模拟系统识别/完成按钮可用，真实 APP 由 GPS+电子围栏+称重变化自动触发</td></tr>
-                  <tr><td class="prd-label">✓ 凭证上传</td><td class="prd-value">水印相机+相册，1 张照片，提交后详情页显示凭证照片</td></tr>
-                  <tr><td class="prd-label">✓ 我的运单</td><td class="prd-value">日历日期附带当日运单数，统计三色区分（总蓝/正常绿/超时红）</td></tr>
-                  <tr><td class="prd-label">✓ 图层遮挡</td><td class="prd-value">底部操作区 z-index 高于 Leaflet 地图控件</td></tr>
-                  <tr><td class="prd-label">✓ 数据来源</td><td class="prd-value">当前为 mock 数据，后续对接后端 API</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </a-collapse-item>
-      </a-collapse>
-    </div>
+    <PrdPanel :sections="prdSections" />
 
     <!-- ========== 手机外框 ========== -->
     <div class="phone-wrapper">
@@ -281,7 +196,79 @@ import { computed, ref } from 'vue'
 import { Modal, Message as ArcoMessage } from '@arco-design/web-vue'
 import ModuleHeader from './components/ModuleHeader.vue'
 import TaskTrackMap from './components/TaskTrackMap.vue'
+import PrdPanel from './components/PrdPanel.vue'
+import type { PrdSection } from './data/pageConfigs'
 import { driverTaskList, useAppStore, type DriverTask } from './data/app-mock'
+
+const prdSections: PrdSection[] = [
+  {
+    title: '🎯 功能要点',
+    items: [
+      { label: '目标用户', value: '驾驶员，在车内使用 APP 查看收运任务、接单、确认路线、补传凭证' },
+      { label: '页面结构', value: '2 个底部 Tab：「任务」「我的」。默认进入「任务」Tab' },
+      { label: 'Tab 1：任务', value: '6 个状态筛选 Tab（全部/待接单/已接单/收运中/已完成/待补传），卡片列表展示筛选结果，点击卡片进入全屏详情' },
+      { label: 'Tab 2：我的', value: '驾驶员信息（头像+姓名+车辆），「我的运单」标题+日期选择（日历网格含每日运单数），当日统计（总运单/正常完成/超时，三色区分），运单列表' },
+    ],
+  },
+  {
+    title: '📱 任务详情页结构',
+    items: [
+      { label: '顶部栏', value: '「返回」按钮 + 任务单号 + 状态标签（待接单/已接单/收运中/已完成）+ 超时标签（红色）' },
+      { label: '标题区', value: '优先级（紧急红色/普通灰色）+ 任务类型 + 任务名称 + 「下一步」文字提示（仅引导，非按钮）' },
+      { label: '路线卡片', value: '收运点（绿点）→ 目的地（红点），中间竖线连接' },
+      { label: '核心指标', value: '2×2 网格：截止时间/SLA、满溢率（≥90%红色）、称重（吨）、箱体编号/车辆' },
+      { label: '地图轨迹', value: 'Leaflet 地图（实线已行驶/虚线未完成，围栏圆圈标注），顶部「查看始发点」按钮聚焦放大到起点' },
+      { label: '关键事件', value: 'a-timeline 时间线，8 步：派单→接单→到达始发地→装车→发车→到达目的地→卸车完成→上传照片。仅显示已完成步骤+当前第一步未完成步骤，隐藏未来步骤避免空时间。进度计数如 5/8' },
+      { label: '单据信息', value: 'a-descriptions 表格 15 字段：任务单号、关联运单、任务类型、任务状态、驾驶员、车辆、箱体编号、收运点、目的地、截止时间、满溢率、称重、创建时间、接单/装车/完成时间、凭证状态' },
+      { label: '凭证照片', value: '已上传时显示单张全宽凭证照片（SVG 模拟），含车辆号、目的地、完成时间水印' },
+    ],
+  },
+  {
+    title: '🔑 状态流转与操作',
+    items: [
+      { label: '收运状态', value: '待接单 / 已接单 / 收运中 / 已完成，四状态互斥按序流转' },
+      { label: '待接单', value: '创建任务单后的初始状态' },
+      { label: '已接单', value: '驾驶员手动接单后变为已接单' },
+      { label: '收运中', value: '驾驶员手动接单后，车辆进入任务单中的始发点电子围栏后变为收运中；必须手动接单，未接单时即使进入围栏也不会自动开始收运，防止路过车辆误触发状态变更' },
+      { label: '强制完成', value: '运营人员可通过后台强制完成未完成的任务单，强制完成的收运单在状态旁显示橙色「强制完成」标签，关键事件可能不完整' },
+      { label: '已超时', value: '收运过程中，时长已超过任务时效要求，变为已超时' },
+      { label: '待接单 → 已接单', value: '底部「接单」按钮 → Modal.confirm 二次确认 → 记录 acceptTime → 点亮「接单」步骤 → 状态变为已接单' },
+      { label: '已接单 → 收运中', value: '底部"等待系统自动识别到达始发点"文字 + 原型「模拟系统识别」按钮。点击后点亮「到达始发地」「装车」「发车」三步，随机生成称重，状态变为收运中。真实 APP 由 GPS+电子围栏自动触发。必须先手动接单，未接单状态时即使车辆进入围栏也不会变为收运中，防止路过车辆误触发' },
+      { label: '收运中 → 已完成', value: '底部"等待系统自动识别到达目的地"文字 + 原型「模拟系统完成」按钮。点击后点亮「到达目的地」「卸车完成」两步，记录 finishTime，计算耗时并判定超时。真实 APP 由目的地电子围栏+称重变化自动触发' },
+      { label: '已完成 + 未上传', value: '底部「补传凭证照片」按钮 → 进入上传页（水印相机/相册选择，1 张）→ 提交后点亮「上传照片」步骤，proofUploaded=true' },
+      { label: '已完成 + 已上传', value: '底部绿色提示"任务已完成，凭证已上传"，不可再操作' },
+    ],
+  },
+  {
+    title: '🔑 关键事件（过程步骤）',
+    items: [
+      { label: '① 派单', value: '任务单创建' },
+      { label: '② 接单', value: '驾驶员接单（必须手动接单，不可跳过；未接单则无法进入收运中状态）' },
+      { label: '③ 到达始发地', value: '进入始发电子围栏' },
+      { label: '④ 装车', value: '通过始发地+称重变化判断' },
+      { label: '⑤ 发车', value: '离开始发地' },
+      { label: '⑥ 到达目的地', value: '进入目的地电子围栏' },
+      { label: '⑦ 卸车完成', value: '目的地电子围栏+称重变化判断' },
+      { label: '⑧ 上传照片', value: '驾驶员补传凭证' },
+    ],
+  },
+  {
+    title: '⚠️ 验收要点',
+    items: [
+      { label: '✓ 状态筛选', value: '6 Tab 切换过滤，计数实时；待接单置顶，超时红色标记' },
+      { label: '✓ 列表进详情', value: '点击卡片进入全屏详情，返回不刷新' },
+      { label: '✓ 接单确认', value: 'Modal.confirm 二次确认，确认后状态即时变更' },
+      { label: '✓ 8 步骤时间线', value: '已完成绿点、当前蓝点、未来步骤隐藏；进度计数与实际显示一致。8 步：派单→接单→到达始发地→装车→发车→到达目的地→卸车完成→上传照片' },
+      { label: '✓ 满溢率展示', value: '核心指标中显示，≥90% 红色高亮' },
+      { label: '✓ 地图轨迹', value: '实线已行驶/虚线未完成，始发点目的地围栏标注' },
+      { label: '✓ 原型模拟', value: '模拟系统识别/完成按钮可用，真实 APP 由 GPS+电子围栏+称重变化自动触发' },
+      { label: '✓ 凭证上传', value: '水印相机+相册，1 张照片，提交后详情页显示凭证照片' },
+      { label: '✓ 我的运单', value: '日历日期附带当日运单数，统计三色区分（总蓝/正常绿/超时红）' },
+      { label: '✓ 图层遮挡', value: '底部操作区 z-index 高于 Leaflet 地图控件' },
+      { label: '✓ 数据来源', value: '当前为 mock 数据，后续对接后端 API' },
+    ],
+  },
+]
 
 defineOptions({ name: 'SanitationAppDriver' })
 
@@ -404,21 +391,6 @@ function handleProofClick(t: DriverTask) { detailTask.value = t }
 
 <style scoped lang="scss">
 .sanitation-page { display: flex; flex-direction: column; gap: 14px; }
-
-// ====== PRD 面板 ======
-.prd-panel {
-  background: var(--color-bg-2);
-  border-radius: 4px;
-  :deep(.arco-collapse-item-header) { font-weight: 600; font-size: 14px; }
-}
-.prd-body { display: flex; flex-direction: column; gap: 20px; padding: 4px 0; }
-.prd-section-title { font-size: 14px; font-weight: 600; color: var(--color-text-1); margin: 0 0 8px; }
-.prd-table {
-  width: 100%; border-collapse: collapse; font-size: 13px;
-  tr:nth-child(even) { background: var(--color-fill-1); }
-  td { padding: 6px 12px; border: 1px solid var(--color-border-2); vertical-align: top; line-height: 1.6; }
-  .prd-label { width: 140px; min-width: 140px; font-weight: 500; color: var(--color-text-2); white-space: nowrap; }
-}
 
 // ====== 手机外框 ======
 .phone-wrapper { display: flex; justify-content: center; padding: 12px 0; }

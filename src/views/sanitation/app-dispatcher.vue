@@ -8,71 +8,7 @@
       module="移动端"
     />
 
-    <!-- 产品需求说明 -->
-    <div class="prd-panel">
-      <a-collapse :default-active-key="[]" :bordered="false">
-        <a-collapse-item key="prd" header="📋 产品需求说明">
-          <div class="prd-body">
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">🎯 功能要点（开发 / 测试关注）</td></tr>
-                  <tr><td class="prd-label">页面</td><td class="prd-value">调度员端，双手机框并排布局：左侧「告警派单」+ 右侧「运单监控」，覆盖调度员核心工作流</td></tr>
-                  <tr><td class="prd-label">目标用户</td><td class="prd-value">调度员，负责接收告警、派发任务、监控运单执行状态、处理异常（强制完成/转单）</td></tr>
-                  <tr><td class="prd-label">业务流</td><td class="prd-value">告警接收 → 告警处理 → 满溢告警派单（底部弹出层配置任务） → 运单监控跟踪执行 → 异常时强制完成或转单</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">📱 左侧：告警派单</td></tr>
-                  <tr><td class="prd-label">头部汇总</td><td class="prd-value">3 列统计卡：今日告警（红）/ 未读（红）/ 星标消息（橙），每项可点击筛选</td></tr>
-                  <tr><td class="prd-label">告警列表</td><td class="prd-value">卡片展示告警标题、类型标签、星标图标、内容摘要、来源和时间。</td></tr>
-                  <tr><td class="prd-label">星标</td><td class="prd-value">可对告警消息添加/取消星标，便于标记需要关注的消息。星标消息在列表中以黄色五角星标识。</td></tr>
-                  <tr><td class="prd-label">展开详情</td><td class="prd-value">点击卡片本条下拉展开详情（告警编号、等级、来源、阅读状态、处理状态、关联任务），不跳新页；再次点击收起</td></tr>
-                  <tr><td class="prd-label">派单入口</td><td class="prd-value">仅「满溢告警」且尚未关联任务时显示「派单」按钮</td></tr>
-                  <tr><td class="prd-label">派单流程</td><td class="prd-value">点击派单 → 底部弹出层（遮罩+圆角面板从下往上滑入）。上半展示告警消息详情（只读），下半任务配置表单：驾驶员 Select、目的地 Select、时效 Select（30/60/90/120min）、优先级 Select（紧急/普通）→ 点击「创建任务单」提交，自动生成 linkedTaskId 并添加星标</td></tr>
-                  <tr><td class="prd-label">查看任务</td><td class="prd-value">已关联任务时显示「查看任务」按钮，点击提示跳转至具体收运任务单信息</td></tr>
-                  <tr><td class="prd-label">数据来源</td><td class="prd-value">告警列表来自 app-mock.ts 的 alertList，含满溢告警、低电量告警、设备离线等类型</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">📋 右侧：运单监控</td></tr>
-                  <tr><td class="prd-label">双 Tab</td><td class="prd-value">顶部切换「运单监控」（今日未完成任务）和「全部运单」（全量查询）</td></tr>
-                  <tr><td class="prd-label">运单监控 Tab</td><td class="prd-value">3 列统计卡（进行中 / 已完成 / 超时）；卡片列表展示未完成任务，含任务名称、状态、司机/车辆、优先级、始发→目的地路线、步骤进度圆点、截止时间和超时标记；每张卡片可快捷「强制完成」或「转单」</td></tr>
-                  <tr><td class="prd-label">全部运单 Tab</td><td class="prd-value">驾驶员文本框（模糊查询）+ 车牌号文本框（模糊查询）+ 状态下拉（全部/待接单/已接单/收运中/已完成）+ 超时下拉（全部/未超时/已超时）+ 自定义日期范围（起始日期 → 至 → 结束日期）+ 卡片列表；列表展示任务名称、状态、司机/车辆、创建时间、路线、截止时间和称重</td></tr>
-                  <tr><td class="prd-label">运单详情</td><td class="prd-value">点击列表条目 → 全屏浮层，监控视角展示：优先级+任务名称、收运点→目的地路线、地图轨迹（起/终视觉化）、四指标（SLA/称重/箱体/司机）、任务进度时间线、单据信息（任务单号/类型/创建/截止/超时状态）；未完成任务底部显示「强制完成」+「转单」按钮</td></tr>
-                  <tr><td class="prd-label">强制完成</td><td class="prd-value">列表或详情中点击「强制完成」 → 运单状态变为已完成，所有步骤点亮，提示成功。强制完成的运单显示橙色「强制完成」标签，关键事件可能不完整</td></tr>
-                  <tr><td class="prd-label">转单</td><td class="prd-value">点击「转单」→ 底部弹出层：显示当前司机和车辆，下拉选择目标司机（自动排除当前司机），点击「确认转单」完成，driver 字段更新</td></tr>
-                  <tr><td class="prd-label">数据来源</td><td class="prd-value">运单列表来自 app-mock.ts 的 waybillList，状态仅包含待接单/已接单/收运中/已完成（无待派发）</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">⚠️ 边界 & 验收要点</td></tr>
-                  <tr><td class="prd-label">✓ 告警统计筛选</td><td class="prd-value">点击统计卡切换筛选，计数准确；今日告警=总数，未读/星标消息各自准确</td></tr>
-                  <tr><td class="prd-label">✓ 星标切换</td><td class="prd-value">点击星标按钮可添加/取消星标，按钮文字和图标即时切换</td></tr>
-                  <tr><td class="prd-label">✓ 展开/收起</td><td class="prd-value">点击卡片展开详情，再次点击收起；展开时标记已读</td></tr>
-                  <tr><td class="prd-label">✓ 派单弹层</td><td class="prd-value">底部弹出层 slideUp 动画；遮罩点击关闭；表单字段完整；提交后 linkedTaskId 生成，自动添加星标</td></tr>
-                  <tr><td class="prd-label">✓ 双 Tab 切换</td><td class="prd-value">运单监控/全部运单切换流畅，列表独立过滤</td></tr>
-                  <tr><td class="prd-label">✓ 全部运单筛选</td><td class="prd-value">搜索 + 状态 + 超时 + 日期范围，联合过滤正确</td></tr>
-                  <tr><td class="prd-label">✓ 运单详情</td><td class="prd-value">全屏浮层展示完整信息；地图轨迹可视化；未完成显示操作按钮</td></tr>
-                  <tr><td class="prd-label">✓ 强制完成</td><td class="prd-value">状态变为已完成，所有步骤 done=true，超时标记不可操作</td></tr>
-                  <tr><td class="prd-label">✓ 转单</td><td class="prd-value">底部弹层选择目标司机（不能是当前司机），确认后 driver 和提示正确更新</td></tr>
-                  <tr><td class="prd-label">✓ 数据来源</td><td class="prd-value">当前为 mock 数据；后续对接后端时告警状态、运单状态、派单创建、转单和强制完成需走 API 同步</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </a-collapse-item>
-      </a-collapse>
-    </div>
+    <PrdPanel :sections="prdSections" />
 
     <div class="phones-wrapper">
       <!-- 手机框 1：告警派单 -->
@@ -409,12 +345,65 @@
 import { computed, reactive, ref } from 'vue'
 import { Message as ArcoMessage } from '@arco-design/web-vue'
 import ModuleHeader from './components/ModuleHeader.vue'
+import PrdPanel from './components/PrdPanel.vue'
+import type { PrdSection } from './data/pageConfigs'
 import {
   alertList,
   waybillList,
   type AlertItem,
   type WaybillItem,
 } from './data/app-mock'
+
+const prdSections: PrdSection[] = [
+  {
+    title: '🎯 功能要点（开发 / 测试关注）',
+    items: [
+      { label: '页面', value: '调度员端，双手机框并排布局：左侧「告警派单」+ 右侧「运单监控」，覆盖调度员核心工作流' },
+      { label: '目标用户', value: '调度员，负责接收告警、派发任务、监控运单执行状态、处理异常（强制完成/转单）' },
+      { label: '业务流', value: '告警接收 → 告警处理 → 满溢告警派单（底部弹出层配置任务） → 运单监控跟踪执行 → 异常时强制完成或转单' },
+    ],
+  },
+  {
+    title: '📱 左侧：告警派单',
+    items: [
+      { label: '头部汇总', value: '3 列统计卡：今日告警（红）/ 未读（红）/ 星标消息（橙），每项可点击筛选' },
+      { label: '告警列表', value: '卡片展示告警标题、类型标签、星标图标、内容摘要、来源和时间。' },
+      { label: '星标', value: '可对告警消息添加/取消星标，便于标记需要关注的消息。星标消息在列表中以黄色五角星标识。' },
+      { label: '展开详情', value: '点击卡片本条下拉展开详情（告警编号、等级、来源、阅读状态、处理状态、关联任务），不跳新页；再次点击收起' },
+      { label: '派单入口', value: '仅「满溢告警」且尚未关联任务时显示「派单」按钮' },
+      { label: '派单流程', value: '点击派单 → 底部弹出层（遮罩+圆角面板从下往上滑入）。上半展示告警消息详情（只读），下半任务配置表单：驾驶员 Select、目的地 Select、时效 Select（30/60/90/120min）、优先级 Select（紧急/普通）→ 点击「创建任务单」提交，自动生成 linkedTaskId 并添加星标' },
+      { label: '查看任务', value: '已关联任务时显示「查看任务」按钮，点击提示跳转至具体收运任务单信息' },
+      { label: '数据来源', value: '告警列表来自 app-mock.ts 的 alertList，含满溢告警、低电量告警、设备离线等类型' },
+    ],
+  },
+  {
+    title: '📋 右侧：运单监控',
+    items: [
+      { label: '双 Tab', value: '顶部切换「运单监控」（今日未完成任务）和「全部运单」（全量查询）' },
+      { label: '运单监控 Tab', value: '3 列统计卡（进行中 / 已完成 / 超时）；卡片列表展示未完成任务，含任务名称、状态、司机/车辆、优先级、始发→目的地路线、步骤进度圆点、截止时间和超时标记；每张卡片可快捷「强制完成」或「转单」' },
+      { label: '全部运单 Tab', value: '驾驶员文本框（模糊查询）+ 车牌号文本框（模糊查询）+ 状态下拉（全部/待接单/已接单/收运中/已完成）+ 超时下拉（全部/未超时/已超时）+ 自定义日期范围（起始日期 → 至 → 结束日期）+ 卡片列表；列表展示任务名称、状态、司机/车辆、创建时间、路线、截止时间和称重' },
+      { label: '运单详情', value: '点击列表条目 → 全屏浮层，监控视角展示：优先级+任务名称、收运点→目的地路线、地图轨迹（起/终视觉化）、四指标（SLA/称重/箱体/司机）、任务进度时间线、单据信息（任务单号/类型/创建/截止/超时状态）；未完成任务底部显示「强制完成」+「转单」按钮' },
+      { label: '强制完成', value: '列表或详情中点击「强制完成」 → 运单状态变为已完成，所有步骤点亮，提示成功。强制完成的运单显示橙色「强制完成」标签，关键事件可能不完整' },
+      { label: '转单', value: '点击「转单」→ 底部弹出层：显示当前司机和车辆，下拉选择目标司机（自动排除当前司机），点击「确认转单」完成，driver 字段更新' },
+      { label: '数据来源', value: '运单列表来自 app-mock.ts 的 waybillList，状态仅包含待接单/已接单/收运中/已完成（无待派发）' },
+    ],
+  },
+  {
+    title: '⚠️ 边界 & 验收要点',
+    items: [
+      { label: '✓ 告警统计筛选', value: '点击统计卡切换筛选，计数准确；今日告警=总数，未读/星标消息各自准确' },
+      { label: '✓ 星标切换', value: '点击星标按钮可添加/取消星标，按钮文字和图标即时切换' },
+      { label: '✓ 展开/收起', value: '点击卡片展开详情，再次点击收起；展开时标记已读' },
+      { label: '✓ 派单弹层', value: '底部弹出层 slideUp 动画；遮罩点击关闭；表单字段完整；提交后 linkedTaskId 生成，自动添加星标' },
+      { label: '✓ 双 Tab 切换', value: '运单监控/全部运单切换流畅，列表独立过滤' },
+      { label: '✓ 全部运单筛选', value: '搜索 + 状态 + 超时 + 日期范围，联合过滤正确' },
+      { label: '✓ 运单详情', value: '全屏浮层展示完整信息；地图轨迹可视化；未完成显示操作按钮' },
+      { label: '✓ 强制完成', value: '状态变为已完成，所有步骤 done=true，超时标记不可操作' },
+      { label: '✓ 转单', value: '底部弹层选择目标司机（不能是当前司机），确认后 driver 和提示正确更新' },
+      { label: '✓ 数据来源', value: '当前为 mock 数据；后续对接后端时告警状态、运单状态、派单创建、转单和强制完成需走 API 同步' },
+    ],
+  },
+]
 
 defineOptions({ name: 'SanitationAppDispatcher' })
 
@@ -528,21 +517,6 @@ function doTransfer() {
 
 <style scoped lang="scss">
 .sanitation-page { display: flex; flex-direction: column; gap: 14px; }
-/* 产品需求说明 */
-.prd-panel {
-  background: var(--color-bg-2);
-  border-radius: 4px;
-  margin-bottom: 8px;
-  :deep(.arco-collapse-item-header) { font-weight: 600; font-size: 14px; }
-}
-.prd-body { display: flex; flex-direction: column; gap: 20px; padding: 4px 0; }
-.prd-section-title { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--color-text-1); }
-.prd-table {
-  width: 100%; border-collapse: collapse; font-size: 13px;
-  tr:nth-child(even) { background: var(--color-fill-1); }
-  td { padding: 6px 12px; border: 1px solid var(--color-border-2); vertical-align: top; line-height: 1.6; }
-  .prd-label { width: 140px; min-width: 140px; font-weight: 500; color: var(--color-text-2); white-space: nowrap; }
-}
 /* 手机框 */
 .phones-wrapper { display: flex; justify-content: center; gap: 24px; padding: 12px 0; flex-wrap: wrap; }
 .phone-frame { width: 390px; min-height: 780px; background: #f0f2f5; border: 3px solid #1f2937; border-radius: 30px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.16); display: flex; flex-direction: column; position: relative; }

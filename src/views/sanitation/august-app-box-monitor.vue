@@ -8,71 +8,7 @@
       module="移动端"
     />
 
-    <!-- 产品需求说明 -->
-    <div class="prd-panel">
-      <a-collapse :default-active-key="[]" :bordered="false">
-        <a-collapse-item key="prd" header="📋 产品需求说明">
-          <div class="prd-body">
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">🎯 功能要点（开发 / 测试关注）</td></tr>
-                  <tr><td class="prd-label">页面</td><td class="prd-value">管理员端 APP「箱体监控」模块，单手机框 + 顶部三 Tab（小勾臂箱 / 大勾臂箱 / 小勾臂箱地图），覆盖箱体巡检与地图定位场景</td></tr>
-                  <tr><td class="prd-label">目标用户</td><td class="prd-value">管理员（如李经理），负责箱体状态巡检、满溢关注和地图定位</td></tr>
-                  <tr><td class="prd-label">数据来源</td><td class="prd-value">产品原型，使用内置模拟数据（列表 10 小勾臂箱 + 10 大勾臂箱；地图 30 个小勾臂箱），不调用真实接口</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">📦 Tab 1 / Tab 2：小勾臂箱 · 大勾臂箱（列表）</td></tr>
-                  <tr><td class="prd-label">类型切换</td><td class="prd-value">顶部「小勾臂箱」/「大勾臂箱」切换，各 10 条模拟数据；标题显示当前类型和数量（如"小勾臂箱 · 10个"）</td></tr>
-                  <tr><td class="prd-label">搜索</td><td class="prd-value">小勾臂箱 Tab 下显示搜索框，支持按箱体编号或名称模糊查询</td></tr>
-                  <tr><td class="prd-label">编号</td><td class="prd-value">箱体编号为纯数字（如 101、201），卡片上大字突出展示</td></tr>
-                  <tr><td class="prd-label">状态筛选</td><td class="prd-value">全部 / 满溢 两个筛选按钮，与类型切换和搜索联合过滤</td></tr>
-                  <tr><td class="prd-label">箱体卡片</td><td class="prd-value">突出重点、弱化非重点：卡片直接展示编号（大字）、所属乡镇/村庄、满溢率、电量、匹配对象、状态标签（仅「正常 / 满溢」两种）；箱体名称/类型/具体地址/锁状态/最后上报等次要信息折叠在「详情」中查看</td></tr>
-                  <tr><td class="prd-label">展开详情</td><td class="prd-value">点击「详情」按钮本条下拉展开次要信息：箱体名称、编号、类型、乡镇、村庄、匹配对象、具体地址、锁状态、最后上报，按钮变蓝高亮</td></tr>
-                  <tr><td class="prd-label">远程开锁</td><td class="prd-value">仅小勾臂箱显示「远程开锁/关锁」按钮（带解锁图标），大勾臂箱无此功能</td></tr>
-                  <tr><td class="prd-label">导航</td><td class="prd-value">每条记录右侧「导航」按钮：点击打开全屏地图页显示该箱体位置（左上返回、底部箱体信息条），页面上「开始导航」调起手机导航软件（高德 URI API，驾车导航）</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">🗺️ Tab 3：小勾臂箱地图</td></tr>
-                  <tr><td class="prd-label">地图</td><td class="prd-value">点击「小勾臂箱地图」Tab，手机端内打开高德地图，展示 30 个小勾臂箱实时分布</td></tr>
-                  <tr><td class="prd-label">箱体标记</td><td class="prd-value">标记显示箱体编号；颜色区分状态：🟢 正常（<75%）/ 🟠 预警（75%~90%）/ 🔴 满溢（≥90%）</td></tr>
-                  <tr><td class="prd-label">统计</td><td class="prd-value">地图上方展示「共 N 箱」与「满溢 N」统计</td></tr>
-                  <tr><td class="prd-label">只看满溢</td><td class="prd-value">开关：仅显示满溢箱体，按钮红色高亮</td></tr>
-                  <tr><td class="prd-label">按箱号搜索</td><td class="prd-value">地图上方搜索框，按箱体编号/名称模糊匹配并绿色高亮；回车：0 条忽略 / 多条提示「匹配到 X 个箱体，请输入更精确的编号」/ 单条自动定位缩放并打开详情；不隐藏其他箱体</td></tr>
-                  <tr><td class="prd-label">点选详情</td><td class="prd-value">点击标记弹出底部详情浮层：编号、名称、状态、垃圾占比、温度、电量、在线/开关状态、具体位置、所属乡镇、设备号、上报时间，支持「导航」</td></tr>
-                  <tr><td class="prd-label">所属乡镇（重点）</td><td class="prd-value">根据该箱体地址是否匹配到「收集点」来确定：当箱体地址与某个收集点匹配时，显示该收集点配置的所属乡镇 / 村庄；未匹配到收集点时显示「未匹配」</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">⚠️ 边界 & 验收要点</td></tr>
-                  <tr><td class="prd-label">✓ Tab 切换</td><td class="prd-value">三 Tab 切换流畅，列表 / 地图互不干扰</td></tr>
-                  <tr><td class="prd-label">✓ 搜索过滤</td><td class="prd-value">小勾臂箱搜索按编号/名称模糊匹配</td></tr>
-                  <tr><td class="prd-label">✓ 地图标记色</td><td class="prd-value">正常绿 / 预警橙 / 满溢红，与图例一致</td></tr>
-                  <tr><td class="prd-label">✓ 只看满溢</td><td class="prd-value">地图仅显示满溢箱体，与统计数字一致</td></tr>
-                  <tr><td class="prd-label">✓ 箱号搜索</td><td class="prd-value">输入高亮命中箱体，回车定位唯一箱体并打开详情</td></tr>
-                  <tr><td class="prd-label">✓ 远程开锁</td><td class="prd-value">仅小勾臂箱显示，大勾臂箱无此按钮</td></tr>
-                  <tr><td class="prd-label">✓ 导航</td><td class="prd-value">点击打开全屏地图页显示该箱体位置，页面上可调起手机导航</td></tr>
-                  <tr><td class="prd-label">✓ 所属乡镇</td><td class="prd-value">箱体匹配到收集点时显示收集点所属乡镇/村庄，未匹配显示「未匹配」</td></tr>
-                  <tr><td class="prd-label">✓ 界面呈现</td><td class="prd-value">字号适中（≥12px）、信息简洁不拥挤、图标辅助表达、结构层级清晰</td></tr>
-                  <tr><td class="prd-label">✓ 数据来源</td><td class="prd-value">列表 generateBoxes() 生成，地图 augustSmallBoxes 模拟数据；后续对接后端需走 API</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </a-collapse-item>
-      </a-collapse>
-    </div>
+    <PrdPanel :sections="prdSections" />
 
     <div class="phone-wrapper">
       <div class="phone-frame">
@@ -180,7 +116,60 @@ import { useRouter } from 'vue-router'
 import { Message as ArcoMessage } from '@arco-design/web-vue'
 import ModuleHeader from './components/ModuleHeader.vue'
 import AugustSmallBoxMap from './components/AugustSmallBoxMap.vue'
+import PrdPanel from './components/PrdPanel.vue'
+import type { PrdSection } from './data/pageConfigs'
 import { type BoxMonitorItem } from './data/app-mock'
+
+const prdSections: PrdSection[] = [
+  {
+    title: '🎯 功能要点（开发 / 测试关注）',
+    items: [
+      { label: '页面', value: '管理员端 APP「箱体监控」模块，单手机框 + 顶部三 Tab（小勾臂箱 / 大勾臂箱 / 小勾臂箱地图），覆盖箱体巡检与地图定位场景' },
+      { label: '目标用户', value: '管理员（如李经理），负责箱体状态巡检、满溢关注和地图定位' },
+      { label: '数据来源', value: '产品原型，使用内置模拟数据（列表 10 小勾臂箱 + 10 大勾臂箱；地图 30 个小勾臂箱），不调用真实接口' },
+    ],
+  },
+  {
+    title: '📦 Tab 1 / Tab 2：小勾臂箱 · 大勾臂箱（列表）',
+    items: [
+      { label: '类型切换', value: '顶部「小勾臂箱」/「大勾臂箱」切换，各 10 条模拟数据；标题显示当前类型和数量（如"小勾臂箱 · 10个"）' },
+      { label: '搜索', value: '小勾臂箱 Tab 下显示搜索框，支持按箱体编号或名称模糊查询' },
+      { label: '编号', value: '箱体编号为纯数字（如 101、201），卡片上大字突出展示' },
+      { label: '状态筛选', value: '全部 / 满溢 两个筛选按钮，与类型切换和搜索联合过滤' },
+      { label: '箱体卡片', value: '突出重点、弱化非重点：卡片直接展示编号（大字）、所属乡镇/村庄、满溢率、电量、匹配对象、状态标签（仅「正常 / 满溢」两种）；箱体名称/类型/具体地址/锁状态/最后上报等次要信息折叠在「详情」中查看' },
+      { label: '展开详情', value: '点击「详情」按钮本条下拉展开次要信息：箱体名称、编号、类型、乡镇、村庄、匹配对象、具体地址、锁状态、最后上报，按钮变蓝高亮' },
+      { label: '远程开锁', value: '仅小勾臂箱显示「远程开锁/关锁」按钮（带解锁图标），大勾臂箱无此功能' },
+      { label: '导航', value: '每条记录右侧「导航」按钮：点击打开全屏地图页显示该箱体位置（左上返回、底部箱体信息条），页面上「开始导航」调起手机导航软件（高德 URI API，驾车导航）' },
+    ],
+  },
+  {
+    title: '🗺️ Tab 3：小勾臂箱地图',
+    items: [
+      { label: '地图', value: '点击「小勾臂箱地图」Tab，手机端内打开高德地图，展示 30 个小勾臂箱实时分布' },
+      { label: '箱体标记', value: '标记显示箱体编号；颜色区分状态：🟢 正常（<75%）/ 🟠 预警（75%~90%）/ 🔴 满溢（≥90%）' },
+      { label: '统计', value: '地图上方展示「共 N 箱」与「满溢 N」统计' },
+      { label: '只看满溢', value: '开关：仅显示满溢箱体，按钮红色高亮' },
+      { label: '按箱号搜索', value: '地图上方搜索框，按箱体编号/名称模糊匹配并绿色高亮；回车：0 条忽略 / 多条提示「匹配到 X 个箱体，请输入更精确的编号」/ 单条自动定位缩放并打开详情；不隐藏其他箱体' },
+      { label: '点选详情', value: '点击标记弹出底部详情浮层：编号、名称、状态、垃圾占比、温度、电量、在线/开关状态、具体位置、所属乡镇、设备号、上报时间，支持「导航」' },
+      { label: '所属乡镇（重点）', value: '根据该箱体地址是否匹配到「收集点」来确定：当箱体地址与某个收集点匹配时，显示该收集点配置的所属乡镇 / 村庄；未匹配到收集点时显示「未匹配」' },
+    ],
+  },
+  {
+    title: '⚠️ 边界 & 验收要点',
+    items: [
+      { label: '✓ Tab 切换', value: '三 Tab 切换流畅，列表 / 地图互不干扰' },
+      { label: '✓ 搜索过滤', value: '小勾臂箱搜索按编号/名称模糊匹配' },
+      { label: '✓ 地图标记色', value: '正常绿 / 预警橙 / 满溢红，与图例一致' },
+      { label: '✓ 只看满溢', value: '地图仅显示满溢箱体，与统计数字一致' },
+      { label: '✓ 箱号搜索', value: '输入高亮命中箱体，回车定位唯一箱体并打开详情' },
+      { label: '✓ 远程开锁', value: '仅小勾臂箱显示，大勾臂箱无此按钮' },
+      { label: '✓ 导航', value: '点击打开全屏地图页显示该箱体位置，页面上可调起手机导航' },
+      { label: '✓ 所属乡镇', value: '箱体匹配到收集点时显示收集点所属乡镇/村庄，未匹配显示「未匹配」' },
+      { label: '✓ 界面呈现', value: '字号适中（≥12px）、信息简洁不拥挤、图标辅助表达、结构层级清晰' },
+      { label: '✓ 数据来源', value: '列表 generateBoxes() 生成，地图 augustSmallBoxes 模拟数据；后续对接后端需走 API' },
+    ],
+  },
+]
 
 defineOptions({ name: 'SanitationAugustAppBoxMonitor' })
 
@@ -318,20 +307,6 @@ function openNavPage(box: BoxMonitorItem) {
 
 <style scoped lang="scss">
 .sanitation-page { display: flex; flex-direction: column; gap: 14px; }
-/* 产品需求说明 */
-.prd-panel {
-  background: var(--color-bg-2);
-  border-radius: 4px;
-  :deep(.arco-collapse-item-header) { font-weight: 600; font-size: 14px; }
-}
-.prd-body { display: flex; flex-direction: column; gap: 20px; padding: 4px 0; }
-.prd-section-title { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--color-text-1); }
-.prd-table {
-  width: 100%; border-collapse: collapse; font-size: 13px;
-  tr:nth-child(even) { background: var(--color-fill-1); }
-  td { padding: 6px 12px; border: 1px solid var(--color-border-2); vertical-align: top; line-height: 1.6; }
-  .prd-label { width: 140px; min-width: 140px; font-weight: 500; color: var(--color-text-2); white-space: nowrap; }
-}
 /* 手机框 */
 .phone-wrapper { display: flex; justify-content: center; padding: 12px 0; }
 .phone-frame { width: 390px; min-height: 780px; background: #f7f8fa; border: 3px solid #1f2937; border-radius: 30px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.16); display: flex; flex-direction: column; }

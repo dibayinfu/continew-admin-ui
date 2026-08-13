@@ -17,59 +17,7 @@
 
     <MetricGrid :metrics="metrics" />
 
-    <!-- 产品需求说明（仅任务单创建模式显示） -->
-    <div v-if="isCreateMode" class="prd-panel">
-      <a-collapse :default-active-key="[]" :bordered="false">
-        <a-collapse-item key="prd" header="📋 产品需求说明">
-          <div class="prd-body">
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">🎯 功能要点（开发 / 测试关注）</td></tr>
-                  <tr><td class="prd-label">业务流</td><td class="prd-value">满溢告警 → 创建收运任务单 → 任务单监控 → 驾驶员接单 → 收运 → 完成</td></tr>
-                  <tr><td class="prd-label">数据关联</td><td class="prd-value">人员档案（drivers）→ 驾驶员/车辆；中转站/焚烧厂（destinations）→ 目的地；箱体档案（boxes）→ 箱体信息/位置</td></tr>
-                  <tr><td class="prd-label">入口</td><td class="prd-value">① 右侧详情「基于此消息创建」② 表格行「快速创建」图标（满溢告警行可见）</td></tr>
-                  <tr><td class="prd-label">任务单状态筛选</td><td class="prd-value">支持“全部、未建任务单、已建任务单”；以告警是否存在 linkedTaskId 为判断依据。</td></tr>
-                  <tr><td class="prd-label">顶部铃铛联动</td><td class="prd-value">点击未建任务单的满溢告警时携带告警 ID 进入本页，自动填入“告警编号”，列表仅显示该条数据并打开快速创建任务单弹窗；清空告警编号后恢复完整列表。</td></tr>
-                  <tr><td class="prd-label">详情操作</td><td class="prd-value">未建任务单的满溢告警显示“基于此消息快速创建”；仅已建任务单的告警显示“查看关联任务单”，避免重复建单。</td></tr>
-                  <tr><td class="prd-label">星标操作</td><td class="prd-value">列表星标列仅用五角星展示状态（已星标高亮、未星标置灰）；操作列仅保留查看，添加/取消星标统一在告警详情中操作。</td></tr>
-                  <tr><td class="prd-label">弹窗布局</td><td class="prd-value">上半：告警消息详情（只读）| 下半：任务配置表单（可操作）</td></tr>
-                  <tr><td class="prd-label">表单字段</td><td class="prd-value">驾驶员（Select 联动车辆只读）、目的地（按箱体类型过滤）、起点（只读）、时效、优先级、备注</td></tr>
-                  <tr><td class="prd-label">默认值</td><td class="prd-value">驾驶员按箱体类型匹配（小勾臂→张师傅/豫E3G516，大勾臂→孙师傅/豫E6N109），目的地对应过滤，时效60min，优先级紧急</td></tr>
-                  <tr><td class="prd-label">提交映射</td><td class="prd-value">→ CollectionTask，状态初始「待接单」，轨迹4个占位点，不修改告警星标状态</td></tr>
-                  <tr><td class="prd-label">模拟新告警</td><td class="prd-value">列表最前插入一条满溢告警，整行闪烁3次，不打开详情面板</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">🔑 字段映射规则</td></tr>
-                  <tr><td class="prd-label">taskName</td><td class="prd-value">{boxName}满溢{boxType === '小勾臂箱' ? '收运' : '转运'}</td></tr>
-                  <tr><td class="prd-label">driver / vehicle</td><td class="prd-value">从 drivers 中按 name 匹配，联动填充 phone / vehicle / vehicleType</td></tr>
-                  <tr><td class="prd-label">destination</td><td class="prd-value">从 destinations 中按 name 匹配，自动填充 destinationType / destinationAddress</td></tr>
-                  <tr><td class="prd-label">collectionStatus</td><td class="prd-value">初始值 '待接单'</td></tr>
-                  <tr><td class="prd-label">overtimeStatus</td><td class="prd-value">初始值 '未超时'</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">⚠️ 边界 & 验收要点</td></tr>
-                  <tr><td class="prd-label">✓ 驾驶员切换</td><td class="prd-value">车辆联动更新</td></tr>
-                  <tr><td class="prd-label">✓ 箱体类型 → 目的地</td><td class="prd-value">小勾臂只选中转站，大勾臂只选焚烧厂</td></tr>
-                  <tr><td class="prd-label">✓ 提交后告警状态</td><td class="prd-value">星标状态不变</td></tr>
-                  <tr><td class="prd-label">✓ 关联任务</td><td class="prd-value">「看任务」跳转收运单监控页</td></tr>
-                  <tr><td class="prd-label">✓ 模拟新告警</td><td class="prd-value">列表新增行闪烁，不打开详情面板</td></tr>
-                  <tr><td class="prd-label">✓ 数据来源</td><td class="prd-value">当前为 mock 数据，对接后端后需走 API</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </a-collapse-item>
-      </a-collapse>
-    </div>
+    <PrdPanel v-if="isCreateMode" :sections="prdSections" />
 
     <div class="content-grid" :class="{ 'content-grid--full': !detailVisible }">
       <section class="table-panel">
@@ -317,6 +265,8 @@ import { useRoute, useRouter } from 'vue-router'
 import ModuleHeader from './components/ModuleHeader.vue'
 import MetricGrid from './components/MetricGrid.vue'
 import StatusTag from './components/StatusTag.vue'
+import PrdPanel from './components/PrdPanel.vue'
+import type { PrdSection } from './data/pageConfigs'
 import {
   createCollectionTaskFromAlarm,
   destinations,
@@ -325,6 +275,47 @@ import {
   type SanitationAlarm,
 } from './data/alert-task'
 import { boxes } from './data/mock'
+
+const prdSections: PrdSection[] = [
+  {
+    title: '🎯 功能要点（开发 / 测试关注）',
+    items: [
+      { label: '业务流', value: '满溢告警 → 创建收运任务单 → 任务单监控 → 驾驶员接单 → 收运 → 完成' },
+      { label: '数据关联', value: '人员档案（drivers）→ 驾驶员/车辆；中转站/焚烧厂（destinations）→ 目的地；箱体档案（boxes）→ 箱体信息/位置' },
+      { label: '入口', value: '① 右侧详情「基于此消息创建」② 表格行「快速创建」图标（满溢告警行可见）' },
+      { label: '任务单状态筛选', value: '支持“全部、未建任务单、已建任务单”；以告警是否存在 linkedTaskId 为判断依据。' },
+      { label: '顶部铃铛联动', value: '点击未建任务单的满溢告警时携带告警 ID 进入本页，自动填入“告警编号”，列表仅显示该条数据并打开快速创建任务单弹窗；清空告警编号后恢复完整列表。' },
+      { label: '详情操作', value: '未建任务单的满溢告警显示“基于此消息快速创建”；仅已建任务单的告警显示“查看关联任务单”，避免重复建单。' },
+      { label: '星标操作', value: '列表星标列仅用五角星展示状态（已星标高亮、未星标置灰）；操作列仅保留查看，添加/取消星标统一在告警详情中操作。' },
+      { label: '弹窗布局', value: '上半：告警消息详情（只读）| 下半：任务配置表单（可操作）' },
+      { label: '表单字段', value: '驾驶员（Select 联动车辆只读）、目的地（按箱体类型过滤）、起点（只读）、时效、优先级、备注' },
+      { label: '默认值', value: '驾驶员按箱体类型匹配（小勾臂→张师傅/豫E3G516，大勾臂→孙师傅/豫E6N109），目的地对应过滤，时效60min，优先级紧急' },
+      { label: '提交映射', value: '→ CollectionTask，状态初始「待接单」，轨迹4个占位点，不修改告警星标状态' },
+      { label: '模拟新告警', value: '列表最前插入一条满溢告警，整行闪烁3次，不打开详情面板' },
+    ],
+  },
+  {
+    title: '🔑 字段映射规则',
+    items: [
+      { label: 'taskName', value: '{boxName}满溢{boxType === \'小勾臂箱\' ? \'收运\' : \'转运\'}' },
+      { label: 'driver / vehicle', value: '从 drivers 中按 name 匹配，联动填充 phone / vehicle / vehicleType' },
+      { label: 'destination', value: '从 destinations 中按 name 匹配，自动填充 destinationType / destinationAddress' },
+      { label: 'collectionStatus', value: '初始值 \'待接单\'' },
+      { label: 'overtimeStatus', value: '初始值 \'未超时\'' },
+    ],
+  },
+  {
+    title: '⚠️ 边界 & 验收要点',
+    items: [
+      { label: '✓ 驾驶员切换', value: '车辆联动更新' },
+      { label: '✓ 箱体类型 → 目的地', value: '小勾臂只选中转站，大勾臂只选焚烧厂' },
+      { label: '✓ 提交后告警状态', value: '星标状态不变' },
+      { label: '✓ 关联任务', value: '「看任务」跳转收运单监控页' },
+      { label: '✓ 模拟新告警', value: '列表新增行闪烁，不打开详情面板' },
+      { label: '✓ 数据来源', value: '当前为 mock 数据，对接后端后需走 API' },
+    ],
+  },
+]
 
 defineOptions({ name: 'SanitationAlarmCenter' })
 
@@ -814,57 +805,6 @@ function refreshFlash() {
   justify-content: center;
   width: 32px;
   min-width: 32px;
-}
-
-/* 产品需求说明折叠面板 */
-.prd-panel {
-  background: var(--color-bg-2);
-  border-radius: 4px;
-
-  :deep(.arco-collapse-item-header) {
-    font-weight: 600;
-    font-size: 14px;
-  }
-}
-
-.prd-body {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 4px 0;
-}
-
-.prd-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-
-  tr:nth-child(even) {
-    background: var(--color-fill-1);
-  }
-
-  td {
-    padding: 6px 12px;
-    border: 1px solid var(--color-border-2);
-    vertical-align: top;
-    line-height: 1.6;
-  }
-
-  .prd-label {
-    width: 140px;
-    min-width: 140px;
-    font-weight: 500;
-    color: var(--color-text-2);
-    white-space: nowrap;
-  }
-
-  .prd-section-row td {
-    background: var(--color-fill-2);
-    font-weight: 600;
-    font-size: 14px;
-    color: var(--color-text-1);
-    padding: 8px 12px;
-  }
 }
 
 @media (max-width: 1200px) {

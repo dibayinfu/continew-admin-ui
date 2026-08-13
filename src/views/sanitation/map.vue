@@ -21,18 +21,7 @@
 
     <MetricGrid :metrics="metrics" />
 
-    <div class="prd-panel">
-      <a-collapse :bordered="false">
-        <a-collapse-item key="prd" header="产品需求说明">
-          <div class="prd-body">
-            <p><b>目标用户：</b>PC 端运营人员、调度人员、监管人员。</p>
-            <p><b>核心目标：</b>把告警消息、收运任务单、车辆位置、箱体位置、中转站/焚烧厂目的地放到同一地图视图中，支持快速判断和调度。</p>
-            <p><b>核心操作：</b>未派单满溢告警可地图派单；未完成任务可强制完成或转单；点击地图点位可查看任务/告警详情。</p>
-            <p><b>验收点：</b>图层切换有效；告警点和任务轨迹可视；右侧详情随选中对象切换；任务操作会同步更新共享任务数据。</p>
-          </div>
-        </a-collapse-item>
-      </a-collapse>
-    </div>
+    <PrdPanel :sections="prdSections" header="产品需求说明" />
 
     <div class="map-shell">
       <section class="map-main-panel">
@@ -136,6 +125,8 @@ import ModuleHeader from './components/ModuleHeader.vue'
 import MetricGrid from './components/MetricGrid.vue'
 import StatusTag from './components/StatusTag.vue'
 import LonganMapFrame from './components/LonganMapFrame.vue'
+import PrdPanel from './components/PrdPanel.vue'
+import type { PrdSection } from './data/pageConfigs'
 import { mapPoints, type MapPoint } from './data/mock'
 import {
   autoCompleteCollectionTask,
@@ -147,6 +138,18 @@ import {
   type CollectionTask,
   type SanitationAlarm,
 } from './data/alert-task'
+
+const prdSections: PrdSection[] = [
+  {
+    title: '',
+    items: [
+      { label: '目标用户：', value: 'PC 端运营人员、调度人员、监管人员。' },
+      { label: '核心目标：', value: '把告警消息、收运任务单、车辆位置、箱体位置、中转站/焚烧厂目的地放到同一地图视图中，支持快速判断和调度。' },
+      { label: '核心操作：', value: '未派单满溢告警可地图派单；未完成任务可强制完成或转单；点击地图点位可查看任务/告警详情。' },
+      { label: '验收点：', value: '图层切换有效；告警点和任务轨迹可视；右侧详情随选中对象切换；任务操作会同步更新共享任务数据。' },
+    ],
+  },
+]
 
 defineOptions({ name: 'SanitationMap' })
 
@@ -290,16 +293,6 @@ function transferTaskToNext(task: CollectionTask) {
   padding: 16px;
   background: var(--color-bg-2);
   border-radius: 4px;
-}
-
-.prd-body {
-  display: grid;
-  gap: 8px;
-
-  p {
-    margin: 0;
-    line-height: 1.7;
-  }
 }
 
 .map-shell {

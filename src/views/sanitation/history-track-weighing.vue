@@ -1,63 +1,6 @@
 <template>
   <div class="gi_page history-track-page">
-    <section class="prd-panel">
-      <a-collapse :default-active-key="[]" :bordered="false">
-        <a-collapse-item key="prd" header="📋 产品需求说明">
-          <div class="prd-body">
-            <div class="prd-section">
-              <h4 class="prd-section-title">🎯 功能要点（开发 / 测试关注）</h4>
-              <table class="prd-table">
-                <tbody>
-                  <tr>
-                    <td class="prd-label">功能范围</td>
-                    <td class="prd-value">本功能仅针对历史轨迹中的车辆称重数据展示，不扩展其它业务功能。</td>
-                  </tr>
-                  <tr>
-                    <td class="prd-label">称重按钮</td>
-                    <td class="prd-value">当车辆已安装称重设备时，在历史轨迹底部按钮栏显示“称重”按钮；未安装称重设备的车辆不显示该按钮。</td>
-                  </tr>
-                  <tr>
-                    <td class="prd-label">称重曲线</td>
-                    <td class="prd-value">点击“称重”按钮后，在底部图表区域显示该车辆在当前时间范围内的重量变化曲线，用于查看车辆作业过程中的重量波动情况。</td>
-                  </tr>
-                  <tr>
-                    <td class="prd-label">装卸点</td>
-                    <td class="prd-value">在称重曲线区域提供“显示装卸点”勾选项。勾选后，在地图轨迹上标记“装车点”和“卸车点”。</td>
-                  </tr>
-                  <tr>
-                    <td class="prd-label">点位弹层</td>
-                    <td class="prd-value">点击地图上的“装车点”或“卸车点”后，弹层展示该点位的时间、地点、重量、坐标。</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="prd-section">
-              <h4 class="prd-section-title">🔑 判断规则</h4>
-              <table class="prd-table">
-                <tbody>
-                  <tr>
-                    <td class="prd-label">装卸阈值</td>
-                    <td class="prd-value">当车辆称重数据的重量波动超过箱体容量的 10% 时，判定为一次装车或卸车行为。</td>
-                  </tr>
-                  <tr>
-                    <td class="prd-label">装车</td>
-                    <td class="prd-value">重量增加超过阈值，判定为装车。</td>
-                  </tr>
-                  <tr>
-                    <td class="prd-label">卸车</td>
-                    <td class="prd-value">重量减少超过阈值，判定为卸车。</td>
-                  </tr>
-                  <tr>
-                    <td class="prd-label">示例</td>
-                    <td class="prd-value">大勾臂箱箱体容量为 10 吨，10% 阈值为 1 吨；当重量增加或减少 1 吨及以上时，视为装车或卸车。</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </a-collapse-item>
-      </a-collapse>
-    </section>
+    <PrdPanel :sections="prdSections" />
 
     <div class="track-shell">
       <aside class="track-sidebar">
@@ -250,7 +193,7 @@
                 />
               </svg>
             </div>
-            <TrackChartBox v-else :key="activeChart" :spec="activeChartSpec" />
+            <TrackChartBox v-else :key="activeChart" :option="activeChartOption" />
           </div>
         </div>
       </section>
@@ -261,7 +204,32 @@
 
 <script setup lang="ts">
 import { computed, defineComponent, h, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import type { ECharts } from 'echarts'
 import LonganMapFrame from './components/LonganMapFrame.vue'
+import PrdPanel from './components/PrdPanel.vue'
+import type { PrdSection } from './data/pageConfigs'
+
+const prdSections: PrdSection[] = [
+  {
+    title: '🎯 功能要点（开发 / 测试关注）',
+    items: [
+      { label: '功能范围', value: '本功能仅针对历史轨迹中的车辆称重数据展示，不扩展其它业务功能。' },
+      { label: '称重按钮', value: '当车辆已安装称重设备时，在历史轨迹底部按钮栏显示“称重”按钮；未安装称重设备的车辆不显示该按钮。' },
+      { label: '称重曲线', value: '点击“称重”按钮后，在底部图表区域显示该车辆在当前时间范围内的重量变化曲线，用于查看车辆作业过程中的重量波动情况。' },
+      { label: '装卸点', value: '在称重曲线区域提供“显示装卸点”勾选项。勾选后，在地图轨迹上标记“装车点”和“卸车点”。' },
+      { label: '点位弹层', value: '点击地图上的“装车点”或“卸车点”后，弹层展示该点位的时间、地点、重量、坐标。' },
+    ],
+  },
+  {
+    title: '🔑 判断规则',
+    items: [
+      { label: '装卸阈值', value: '当车辆称重数据的重量波动超过箱体容量的 10% 时，判定为一次装车或卸车行为。' },
+      { label: '装车', value: '重量增加超过阈值，判定为装车。' },
+      { label: '卸车', value: '重量减少超过阈值，判定为卸车。' },
+      { label: '示例', value: '大勾臂箱箱体容量为 10 吨，10% 阈值为 1 吨；当重量增加或减少 1 吨及以上时，视为装车或卸车。' },
+    ],
+  },
+]
 
 defineOptions({ name: 'SanitationHistoryTrackWeighing' })
 
@@ -439,39 +407,38 @@ const chartMeta = computed(() => {
   return map[activeChart.value]
 })
 
-const activeChartSpec = computed(() => ({
-  type: 'line',
-  data: [{ id: 'chart', values: chartData.value }],
-  xField: 'time',
-  yField: 'value',
-  padding: [8, 18, 28, 44],
-  background: '#eef3fb',
-  axes: [
+// 统一使用 echarts 渲染折线图（项目已内置 echarts，去掉 @visactor/vchart 依赖，减小构建体积）
+const activeChartOption = computed(() => ({
+  backgroundColor: '#eef3fb',
+  grid: { top: 8, right: 18, bottom: 28, left: 44 },
+  xAxis: {
+    type: 'category',
+    data: chartData.value.map((d) => d.time),
+    axisLine: { lineStyle: { color: '#9aa4b2', width: 2 } },
+    axisTick: { show: false },
+    axisLabel: { color: '#8a94a6', fontSize: 12 },
+  },
+  yAxis: {
+    type: 'value',
+    min: activeChart.value === 'weight' ? 0 : undefined,
+    max: activeChart.value === 'weight' ? 300 : undefined,
+    axisLine: { show: false },
+    axisTick: { show: false },
+    axisLabel: { color: '#8a94a6', fontSize: 12 },
+    splitLine: { lineStyle: { color: '#dde5f0' } },
+  },
+  series: [
     {
-      orient: 'left',
-      min: activeChart.value === 'weight' ? 0 : undefined,
-      max: activeChart.value === 'weight' ? 300 : undefined,
-      label: { style: { fill: '#8a94a6', fontSize: 12 } },
-      grid: { style: { stroke: '#dde5f0' } },
-      domainLine: { visible: false },
-      tick: { visible: false },
-    },
-    {
-      orient: 'bottom',
-      label: { style: { fill: '#8a94a6', fontSize: 12 } },
-      grid: { visible: false },
-      domainLine: { style: { stroke: '#9aa4b2', lineWidth: 2 } },
-      tick: { visible: false },
+      type: 'line',
+      data: chartData.value.map((d) => d.value),
+      symbol: 'circle',
+      symbolSize: activeChart.value === 'weight' ? 3 : 2,
+      lineStyle: { color: chartMeta.value.color, width: activeChart.value === 'weight' ? 3 : 2 },
+      itemStyle: { color: chartMeta.value.color, borderColor: '#fff', borderWidth: 1 },
+      areaStyle: { color: chartMeta.value.area },
     },
   ],
-  line: {
-    style: {
-      stroke: chartMeta.value.color,
-      lineWidth: activeChart.value === 'weight' ? 3 : 2,
-    },
-  },
-  point: { style: { fill: '#fff', stroke: chartMeta.value.color, size: activeChart.value === 'weight' ? 3 : 2 } },
-  tooltip: { visible: true },
+  tooltip: { trigger: 'axis' },
 }))
 
 function switchChart(key: ChartKey) {
@@ -558,11 +525,11 @@ onBeforeUnmount(() => {
 
 const TrackChartBox = defineComponent({
   props: {
-    spec: { type: Object, required: true },
+    option: { type: Object, required: true },
   },
   setup(props) {
     const el = ref<HTMLElement>()
-    let chart: any
+    let chart: ECharts | undefined
     let ro: ResizeObserver | undefined
     let raf = 0
 
@@ -573,10 +540,10 @@ const TrackChartBox = defineComponent({
         raf = window.requestAnimationFrame(renderChart)
         return
       }
-      const { VChart } = await import('@visactor/vchart')
-      if (chart) chart.release()
-      chart = new VChart(props.spec, { dom: el.value })
-      chart.renderSync()
+      const echartsModule = await import('echarts')
+      if (chart) chart.dispose()
+      chart = echartsModule.init(el.value)
+      chart.setOption(props.option)
       if (!ro) {
         ro = new ResizeObserver(() => chart?.resize())
         ro.observe(el.value)
@@ -584,11 +551,11 @@ const TrackChartBox = defineComponent({
     }
 
     onMounted(renderChart)
-    watch(() => props.spec, renderChart, { deep: true })
+    watch(() => props.option, renderChart, { deep: true })
     onBeforeUnmount(() => {
       if (raf) window.cancelAnimationFrame(raf)
       ro?.disconnect()
-      chart?.release()
+      chart?.dispose()
     })
 
     return () => h('div', { ref: el, class: 'chart-canvas', style: { width: '100%', height: '100%' } })
@@ -724,63 +691,6 @@ const TrackChartBox = defineComponent({
   background: #fff;
   border: 1px solid #e5e8ef;
   border-radius: 4px;
-}
-
-.prd-panel {
-  width: 100%;
-  background: var(--color-bg-2);
-  border-radius: 4px;
-  flex-shrink: 0;
-
-  :deep(.arco-collapse-item-header) {
-    font-weight: 600;
-    font-size: 14px;
-  }
-}
-
-.prd-body {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 4px 0;
-}
-
-.prd-section-title {
-  margin: 0 0 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text-1);
-}
-
-.prd-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-
-  tr {
-    &:nth-child(even) {
-      background: var(--color-fill-1);
-    }
-  }
-
-  td {
-    padding: 6px 12px;
-    border: 1px solid var(--color-border-2);
-    vertical-align: top;
-    line-height: 1.6;
-  }
-
-  .prd-label {
-    width: 140px;
-    min-width: 140px;
-    font-weight: 500;
-    color: var(--color-text-2);
-    white-space: nowrap;
-  }
-
-  .prd-value {
-    color: var(--color-text-1);
-  }
 }
 
 .query-bar {

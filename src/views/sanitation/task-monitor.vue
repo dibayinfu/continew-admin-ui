@@ -21,79 +21,7 @@
 
     <MetricGrid :metrics="metrics" />
 
-    <!-- 产品需求说明 -->
-    <div class="prd-panel">
-      <a-collapse :default-active-key="[]" :bordered="false">
-        <a-collapse-item key="prd" header="📋 产品需求说明">
-          <div class="prd-body">
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">🎯 功能要点（开发 / 测试关注）</td></tr>
-                  <tr><td class="prd-label">页面</td><td class="prd-value">「收运单监控」和「全部任务单」共用同一组件，根据 URL 路径动态切换标题/副标题</td></tr>
-                  <tr><td class="prd-label">业务流</td><td class="prd-value">派单（创建任务单）→ 驾驶员手动接单（必须步骤，不可跳过）→ 系统自动识别进入始发点电子围栏 → 装车（始发地+称重变化判断）→ 发车离开始发地 → 到达目的地电子围栏 → 卸车完成（目的地围栏+称重变化判断）→ 驾驶员补传凭证照片。未接单时即使车辆进入围栏也不会变为收运中，防止路过车辆误触发</td></tr>
-                  <tr><td class="prd-label">数据关联</td><td class="prd-value">一个收运单必须有始发点、目的地、时效要求和八个关键事件；小勾臂为收集点→中转站，大勾臂为中转站→焚烧厂</td></tr>
-                  <tr><td class="prd-label">快速创建任务</td><td class="prd-value">顶部按钮 → 本页弹出创建弹窗，选箱体后自动填充驾驶员/车辆/目的地，提交后追加到列表</td></tr>
-                  <tr><td class="prd-label">创建弹窗</td><td class="prd-value">上半：箱体选择器（AutoComplete，搜索编号/名称）→ 展示位置/类型/乡镇 | 下半：任务配置表单</td></tr>
-                  <tr><td class="prd-label">布局</td><td class="prd-value">三栏布局：左侧运单卡片（运营筛选）| 中间地图轨迹（调度判断）| 右侧关键详情（核查与复盘）</td></tr>
-                  <tr><td class="prd-label">左侧列表</td><td class="prd-value">卡片第一层展示运单名称、状态、车牌司机、SLA；第二层用箭头明确「始发点 → 目的地」，弱化箱体编号等辅助信息</td></tr>
-                  <tr><td class="prd-label">中间面板</td><td class="prd-value">地图按车辆实际轨迹点绘制平滑线路，实线表示已行驶、虚线表示待完成；始发点和目的地电子围栏按业务半径显示</td></tr>
-                  <tr><td class="prd-label">右侧面板</td><td class="prd-value">优先展示时效、始发/目的地、八个关键事件时间和围栏规则；箱体编号、告警号、电话等放在辅助信息区</td></tr>
-                  <tr><td class="prd-label">称重数据</td><td class="prd-value">装车后称重设备读取垃圾重量（吨），收运中/已完成时在地图面板和右侧详情中展示，模拟推进/强制完成时自动生成随机重量</td></tr>
-                  <tr><td class="prd-label">满溢率</td><td class="prd-value">箱体当前满溢百分比（来自满溢传感器），在运单重点区域展示，≥90% 红色高亮标记「满溢」</td></tr>
-                  <tr><td class="prd-label">模拟推进</td><td class="prd-value">点击按状态机推进：待接单→（接单）→已接单→（车辆入栏）→收运中→已完成，实时计算耗时、超时和称重，同步点亮对应关键事件步骤。待接单状态时「模拟推进」执行接单操作，已接单状态时才可推进至收运中</td></tr>
-                  <tr><td class="prd-label">完成凭证</td><td class="prd-value">已完成任务显示证明图片（SVG 占位图），可预览放大</td></tr>
-                  <tr><td class="prd-label">强制完成</td><td class="prd-value">中间面板底部按钮，未完成的任务可强制设为已完成，自动计算耗时/超时/称重，当前步骤标记「已强制完成」。强制完成的任务会打上「强制完成」标签，关键事件可能不完整</td></tr>
-                  <tr><td class="prd-label">转单</td><td class="prd-value">中间面板底部按钮，未完成的任务可转给其他驾驶员，弹窗选目标驾驶员后更新 driver/phone/vehicle，当前步骤标记「已转单至 XXX」</td></tr>
-                  <tr><td class="prd-label">状态拆分</td><td class="prd-value">收运状态（待接单/已接单/收运中/已完成）与超时状态（未超时/已超时）独立显示和筛选</td></tr>
-                  <tr><td class="prd-label">统计卡</td><td class="prd-value">今日总任务 / 待接单 / 收运中 / 已完成 / 收运垃圾量(小勾臂完成总和) / 已超时，6 个指标卡片</td></tr>
-                  <tr><td class="prd-label">历史任务</td><td class="prd-value">过往历史中未完成的任务单（如昨天创建仍未完成的）也会显示在列表中，不限定仅当日数据</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">🔑 状态设计</td></tr>
-                  <tr><td class="prd-label">收运状态</td><td class="prd-value">待接单 / 已接单 / 收运中 / 已完成，四个值互斥按序流转</td></tr>
-                  <tr><td class="prd-label">待接单</td><td class="prd-value">创建任务单后的初始状态</td></tr>
-                  <tr><td class="prd-label">已接单</td><td class="prd-value">驾驶员手动接单后变为已接单</td></tr>
-                  <tr><td class="prd-label">收运中</td><td class="prd-value">驾驶员手动接单后，车辆进入任务单中的始发点电子围栏后变为收运中；必须手动接单，未接单时即使进入围栏也不会自动开始收运，防止路过车辆误触发状态变更</td></tr>
-                  <tr><td class="prd-label">已完成</td><td class="prd-value">卸货完成，根据目的地电子围栏 + 称重变化判断卸货</td></tr>
-                  <tr><td class="prd-label">超时状态</td><td class="prd-value">未超时 / 已超时，独立于收运状态显示和筛选</td></tr>
-                  <tr><td class="prd-label">未超时</td><td class="prd-value">默认状态，收运时长未超过任务时效要求</td></tr>
-                  <tr><td class="prd-label">已超时</td><td class="prd-value">收运过程中，时长已超过任务时效要求，变为已超时</td></tr>
-                  <tr><td class="prd-label">关键事件（过程步骤）</td><td class="prd-value">共 8 步：① 派单（任务单创建）→ ② 接单（驾驶员接单，必须步骤不可跳过）→ ③ 到达始发地（进入始发电子围栏）→ ④ 装车（始发地+称重变化判断）→ ⑤ 发车（离开始发地）→ ⑥ 到达目的地（进入目的地电子围栏）→ ⑦ 卸车完成（目的地围栏+称重变化判断）→ ⑧ 上传照片（驾驶员补传凭证）</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">⚠️ 边界 & 验收要点</td></tr>
-                  <tr><td class="prd-label">✓ 快速创建</td><td class="prd-value">本页弹窗创建任务，选箱体后自动填充，提交后追加到列表</td></tr>
-                  <tr><td class="prd-label">✓ 选中切换</td><td class="prd-value">左侧点击任务 → 中间/右侧联动刷新</td></tr>
-                  <tr><td class="prd-label">✓ 箱体位置</td><td class="prd-value">小勾臂箱显示收集点地址，大勾臂箱显示中转站地址</td></tr>
-                  <tr><td class="prd-label">✓ 两种状态独立</td><td class="prd-value">收运状态和超时状态各自独立显示标签，可分别筛选</td></tr>
-                  <tr><td class="prd-label">✓ 八事件上图</td><td class="prd-value">派单、接单、到达始发地、装车、发车、到达目的地、卸车完成、上传照片八个关键事件必须在地图和右侧时间线上同步显示</td></tr>
-                  <tr><td class="prd-label">✓ 围栏半径</td><td class="prd-value">小勾臂始发收集点 500m、目的中转站 500m；大勾臂始发中转站 500m、目的焚烧厂 1000m</td></tr>
-                  <tr><td class="prd-label">✓ 模拟推进</td><td class="prd-value">按状态机推进，关键事件步骤同步点亮，最终计算实际耗时</td></tr>
-                  <tr><td class="prd-label">✓ 强制完成</td><td class="prd-value">未完成任务可强制完成，自动计算耗时/超时/称重，track 全部点亮</td></tr>
-                  <tr><td class="prd-label">✓ 称重显示</td><td class="prd-value">收运中/已完成状态显示称重数据（地图面板 + 右侧详情），完成后统计卡更新垃圾量</td></tr>
-                  <tr><td class="prd-label">✓ 转单</td><td class="prd-value">未完成任务可选目标驾驶员转单，driver/phone/vehicle 同步更新，不能选相同驾驶员</td></tr>
-                  <tr><td class="prd-label">✓ 超时判定</td><td class="prd-value">实际耗时 > SLA 时 overtimeStatus=已超时，显示红色标记</td></tr>
-                  <tr><td class="prd-label">✓ 完成凭证</td><td class="prd-value">已完成任务显示图片证明，可预览</td></tr>
-                  <tr><td class="prd-label">✓ 历史任务</td><td class="prd-value">过往未完成的任务单正常显示在列表中，不受日期限制</td></tr>
-                  <tr><td class="prd-label">✓ 搜索/筛选</td><td class="prd-value">关键字搜索（任务名/司机/车牌/箱体）+ 收运状态下拉 + 超时状态下拉</td></tr>
-                  <tr><td class="prd-label">✓ URL 参数</td><td class="prd-value">?taskId=xxx 自动定位到指定任务</td></tr>
-                  <tr><td class="prd-label">✓ 数据来源</td><td class="prd-value">当前为 mock 数据，对接后端后需走 API</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </a-collapse-item>
-      </a-collapse>
-    </div>
+    <PrdPanel :sections="prdSections" />
 
     <div class="monitor-layout">
       <section class="task-list-panel">
@@ -392,6 +320,8 @@ import ModuleHeader from './components/ModuleHeader.vue'
 import MetricGrid from './components/MetricGrid.vue'
 import StatusTag from './components/StatusTag.vue'
 import TaskTrackMap from './components/TaskTrackMap.vue'
+import PrdPanel from './components/PrdPanel.vue'
+import type { PrdSection } from './data/pageConfigs'
 import {
   acceptCollectionTask,
   autoCompleteCollectionTask,
@@ -404,6 +334,67 @@ import {
   type SanitationAlarm,
 } from './data/alert-task'
 import { boxes } from './data/mock'
+
+const prdSections: PrdSection[] = [
+  {
+    title: '🎯 功能要点（开发 / 测试关注）',
+    items: [
+      { label: '页面', value: '「收运单监控」和「全部任务单」共用同一组件，根据 URL 路径动态切换标题/副标题' },
+      { label: '业务流', value: '派单（创建任务单）→ 驾驶员手动接单（必须步骤，不可跳过）→ 系统自动识别进入始发点电子围栏 → 装车（始发地+称重变化判断）→ 发车离开始发地 → 到达目的地电子围栏 → 卸车完成（目的地围栏+称重变化判断）→ 驾驶员补传凭证照片。未接单时即使车辆进入围栏也不会变为收运中，防止路过车辆误触发' },
+      { label: '数据关联', value: '一个收运单必须有始发点、目的地、时效要求和八个关键事件；小勾臂为收集点→中转站，大勾臂为中转站→焚烧厂' },
+      { label: '快速创建任务', value: '顶部按钮 → 本页弹出创建弹窗，选箱体后自动填充驾驶员/车辆/目的地，提交后追加到列表' },
+      { label: '创建弹窗', value: '上半：箱体选择器（AutoComplete，搜索编号/名称）→ 展示位置/类型/乡镇 | 下半：任务配置表单' },
+      { label: '布局', value: '三栏布局：左侧运单卡片（运营筛选）| 中间地图轨迹（调度判断）| 右侧关键详情（核查与复盘）' },
+      { label: '左侧列表', value: '卡片第一层展示运单名称、状态、车牌司机、SLA；第二层用箭头明确「始发点 → 目的地」，弱化箱体编号等辅助信息' },
+      { label: '中间面板', value: '地图按车辆实际轨迹点绘制平滑线路，实线表示已行驶、虚线表示待完成；始发点和目的地电子围栏按业务半径显示' },
+      { label: '右侧面板', value: '优先展示时效、始发/目的地、八个关键事件时间和围栏规则；箱体编号、告警号、电话等放在辅助信息区' },
+      { label: '称重数据', value: '装车后称重设备读取垃圾重量（吨），收运中/已完成时在地图面板和右侧详情中展示，模拟推进/强制完成时自动生成随机重量' },
+      { label: '满溢率', value: '箱体当前满溢百分比（来自满溢传感器），在运单重点区域展示，≥90% 红色高亮标记「满溢」' },
+      { label: '模拟推进', value: '点击按状态机推进：待接单→（接单）→已接单→（车辆入栏）→收运中→已完成，实时计算耗时、超时和称重，同步点亮对应关键事件步骤。待接单状态时「模拟推进」执行接单操作，已接单状态时才可推进至收运中' },
+      { label: '完成凭证', value: '已完成任务显示证明图片（SVG 占位图），可预览放大' },
+      { label: '强制完成', value: '中间面板底部按钮，未完成的任务可强制设为已完成，自动计算耗时/超时/称重，当前步骤标记「已强制完成」。强制完成的任务会打上「强制完成」标签，关键事件可能不完整' },
+      { label: '转单', value: '中间面板底部按钮，未完成的任务可转给其他驾驶员，弹窗选目标驾驶员后更新 driver/phone/vehicle，当前步骤标记「已转单至 XXX」' },
+      { label: '状态拆分', value: '收运状态（待接单/已接单/收运中/已完成）与超时状态（未超时/已超时）独立显示和筛选' },
+      { label: '统计卡', value: '今日总任务 / 待接单 / 收运中 / 已完成 / 收运垃圾量(小勾臂完成总和) / 已超时，6 个指标卡片' },
+      { label: '历史任务', value: '过往历史中未完成的任务单（如昨天创建仍未完成的）也会显示在列表中，不限定仅当日数据' },
+    ],
+  },
+  {
+    title: '🔑 状态设计',
+    items: [
+      { label: '收运状态', value: '待接单 / 已接单 / 收运中 / 已完成，四个值互斥按序流转' },
+      { label: '待接单', value: '创建任务单后的初始状态' },
+      { label: '已接单', value: '驾驶员手动接单后变为已接单' },
+      { label: '收运中', value: '驾驶员手动接单后，车辆进入任务单中的始发点电子围栏后变为收运中；必须手动接单，未接单时即使进入围栏也不会自动开始收运，防止路过车辆误触发状态变更' },
+      { label: '已完成', value: '卸货完成，根据目的地电子围栏 + 称重变化判断卸货' },
+      { label: '超时状态', value: '未超时 / 已超时，独立于收运状态显示和筛选' },
+      { label: '未超时', value: '默认状态，收运时长未超过任务时效要求' },
+      { label: '已超时', value: '收运过程中，时长已超过任务时效要求，变为已超时' },
+      { label: '关键事件（过程步骤）', value: '共 8 步：① 派单（任务单创建）→ ② 接单（驾驶员接单，必须步骤不可跳过）→ ③ 到达始发地（进入始发电子围栏）→ ④ 装车（始发地+称重变化判断）→ ⑤ 发车（离开始发地）→ ⑥ 到达目的地（进入目的地电子围栏）→ ⑦ 卸车完成（目的地围栏+称重变化判断）→ ⑧ 上传照片（驾驶员补传凭证）' },
+    ],
+  },
+  {
+    title: '⚠️ 边界 & 验收要点',
+    items: [
+      { label: '✓ 快速创建', value: '本页弹窗创建任务，选箱体后自动填充，提交后追加到列表' },
+      { label: '✓ 选中切换', value: '左侧点击任务 → 中间/右侧联动刷新' },
+      { label: '✓ 箱体位置', value: '小勾臂箱显示收集点地址，大勾臂箱显示中转站地址' },
+      { label: '✓ 两种状态独立', value: '收运状态和超时状态各自独立显示标签，可分别筛选' },
+      { label: '✓ 八事件上图', value: '派单、接单、到达始发地、装车、发车、到达目的地、卸车完成、上传照片八个关键事件必须在地图和右侧时间线上同步显示' },
+      { label: '✓ 围栏半径', value: '小勾臂始发收集点 500m、目的中转站 500m；大勾臂始发中转站 500m、目的焚烧厂 1000m' },
+      { label: '✓ 模拟推进', value: '按状态机推进，关键事件步骤同步点亮，最终计算实际耗时' },
+      { label: '✓ 强制完成', value: '未完成任务可强制完成，自动计算耗时/超时/称重，track 全部点亮' },
+      { label: '✓ 称重显示', value: '收运中/已完成状态显示称重数据（地图面板 + 右侧详情），完成后统计卡更新垃圾量' },
+      { label: '✓ 转单', value: '未完成任务可选目标驾驶员转单，driver/phone/vehicle 同步更新，不能选相同驾驶员' },
+      { label: '✓ 超时判定', value: '实际耗时 > SLA 时 overtimeStatus=已超时，显示红色标记' },
+      { label: '✓ 完成凭证', value: '已完成任务显示图片证明，可预览' },
+      { label: '✓ 历史任务', value: '过往未完成的任务单正常显示在列表中，不受日期限制' },
+      { label: '✓ 搜索/筛选', value: '关键字搜索（任务名/司机/车牌/箱体）+ 收运状态下拉 + 超时状态下拉' },
+      { label: '✓ URL 参数', value: '?taskId=xxx 自动定位到指定任务' },
+      { label: '✓ 数据来源', value: '当前为 mock 数据，对接后端后需走 API' },
+    ],
+  },
+]
 
 defineOptions({ name: 'SanitationTaskMonitor' })
 
@@ -740,56 +731,6 @@ function doTransfer() {
 
   .task-sla {
     color: var(--color-text-2);
-  }
-}
-
-/* 产品需求说明折叠面板 */
-.prd-panel {
-  background: var(--color-bg-2);
-  border-radius: 4px;
-
-  :deep(.arco-collapse-item-header) {
-    font-weight: 600;
-    font-size: 14px;
-  }
-}
-
-.prd-body {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 4px 0;
-}
-
-.prd-section-title {
-  margin: 0 0 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text-1);
-}
-
-.prd-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-
-  tr:nth-child(even) {
-    background: var(--color-fill-1);
-  }
-
-  td {
-    padding: 6px 12px;
-    border: 1px solid var(--color-border-2);
-    vertical-align: top;
-    line-height: 1.6;
-  }
-
-  .prd-label {
-    width: 140px;
-    min-width: 140px;
-    font-weight: 500;
-    color: var(--color-text-2);
-    white-space: nowrap;
   }
 }
 

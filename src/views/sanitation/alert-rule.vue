@@ -16,25 +16,7 @@
     </ModuleHeader>
 
     <!-- PRD -->
-    <div v-if="config.prd?.length" class="prd-panel">
-      <a-collapse :default-active-key="[]" :bordered="false">
-        <a-collapse-item key="prd" header="📋 产品需求说明">
-          <div class="prd-body">
-            <div v-for="section in config.prd" :key="section.title" class="prd-section">
-              <h4 class="prd-section-title">{{ section.title }}</h4>
-              <table class="prd-table">
-                <tbody>
-                  <tr v-for="item in section.items" :key="item.label">
-                    <td class="prd-label">{{ item.label }}</td>
-                    <td class="prd-value">{{ item.value }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </a-collapse-item>
-      </a-collapse>
-    </div>
+    <PrdPanel v-if="config.prd?.length" :sections="config.prd" />
 
     <div class="table-panel">
       <div class="toolbar">
@@ -218,6 +200,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import ModuleHeader from './components/ModuleHeader.vue'
+import PrdPanel from './components/PrdPanel.vue'
 import type { PrototypePageConfig } from './data/pageConfigs'
 import { pageConfigs, platformAccounts } from './data/pageConfigs'
 
@@ -477,55 +460,6 @@ function handleModalCancel() {
   padding: 16px;
   background: var(--color-bg-2);
   border-radius: 4px;
-}
-
-/* 产品需求说明折叠面板 */
-.prd-panel {
-  background: var(--color-bg-2);
-  border-radius: 4px;
-
-  :deep(.arco-collapse-item-header) {
-    font-weight: 600;
-    font-size: 14px;
-  }
-}
-
-.prd-body {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 4px 0;
-}
-
-.prd-section-title {
-  margin: 0 0 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text-1);
-}
-
-.prd-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-
-  tr:nth-child(2n) {
-    background: var(--color-fill-1);
-  }
-
-  td {
-    padding: 6px 12px;
-    border: 1px solid var(--color-border-2);
-    line-height: 1.6;
-    vertical-align: top;
-  }
-}
-
-.prd-label {
-  width: 200px;
-  font-weight: 500;
-  color: var(--color-text-2);
-  white-space: nowrap;
 }
 
 .prd-value {

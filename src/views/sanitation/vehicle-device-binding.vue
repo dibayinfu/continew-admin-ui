@@ -8,25 +8,7 @@
       module="基础档案"
     />
 
-    <div class="prd-panel">
-      <a-collapse :default-active-key="[]" :bordered="false">
-        <a-collapse-item key="prd" header="📋 产品需求说明">
-          <div class="prd-body">
-            <div v-for="section in prd" :key="section.title" class="prd-section">
-              <h4 class="prd-section-title">{{ section.title }}</h4>
-              <table class="prd-table">
-                <tbody>
-                  <tr v-for="item in section.items" :key="item.label">
-                    <td class="prd-label">{{ item.label }}</td>
-                    <td class="prd-value">{{ item.value }}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </a-collapse-item>
-      </a-collapse>
-    </div>
+    <PrdPanel :sections="prd" />
 
     <div class="table-panel">
       <div class="toolbar">
@@ -124,6 +106,7 @@
 import { computed, reactive, ref } from 'vue'
 import { Message as ArcoMessage } from '@arco-design/web-vue'
 import ModuleHeader from './components/ModuleHeader.vue'
+import PrdPanel from './components/PrdPanel.vue'
 import { devices } from './data/pageConfigs'
 import { vehicles } from './data/mock'
 
@@ -282,37 +265,6 @@ function getCompanyName(town: string) {
   padding: 16px 20px;
   background: var(--color-bg-2);
   border-radius: 4px;
-}
-
-.prd-body {
-  display: grid;
-  gap: 16px;
-}
-
-.prd-section-title {
-  margin: 0 0 8px;
-  color: var(--color-text-1);
-  font-size: 14px;
-}
-
-.prd-table {
-  width: 100%;
-  border-collapse: collapse;
-  color: var(--color-text-2);
-  font-size: 13px;
-
-  td {
-    padding: 9px 12px;
-    border: 1px solid var(--color-neutral-3);
-    line-height: 1.6;
-  }
-}
-
-.prd-label {
-  width: 140px;
-  color: var(--color-text-1);
-  background: var(--color-fill-2);
-  font-weight: 500;
 }
 
 .binding-alert {

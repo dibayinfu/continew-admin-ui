@@ -8,67 +8,7 @@
       module="移动端"
     />
 
-    <!-- 产品需求说明 -->
-    <div class="prd-panel">
-      <a-collapse :default-active-key="[]" :bordered="false">
-        <a-collapse-item key="prd" header="📋 产品需求说明">
-          <div class="prd-body">
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">🎯 功能要点（开发 / 测试关注）</td></tr>
-                  <tr><td class="prd-label">页面</td><td class="prd-value">管理员端 APP，单手机框 + 底部双 Tab（收运看板 / 箱体监控），覆盖管理员日常巡检和快速调度场景</td></tr>
-                  <tr><td class="prd-label">目标用户</td><td class="prd-value">管理员（如李经理），负责整体运营态势感知、箱体设备巡检和异常告警关注</td></tr>
-                  <tr><td class="prd-label">与调度员端关系</td><td class="prd-value">管理员也可拥有调度权限，通过权限开通后访问调度员端的「告警派单」和「运单监控」页面；管理员端聚焦看板和箱体巡检，避免与调度员端功能重复</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">📊 Tab 1：收运看板</td></tr>
-                  <tr><td class="prd-label">核心指标</td><td class="prd-value">2 张卡片，今/昨对比：① 任务数（今日 X 单 / 昨日 Y 单）、② 垃圾量（今日 X t / 昨日 Y t）。今日数值蓝/绿色高亮，昨日灰色弱化，对比直观</td></tr>
-                  <tr><td class="prd-label">今日运行</td><td class="prd-value">4 项实时状态：在线车辆、进行中（待接单+已接单+收运中）、超时任务、未处理告警；数据基于运单列表和告警列表实时计算</td></tr>
-                  <tr><td class="prd-label">箱体状态</td><td class="prd-value">4 项统计：全部、正常、满溢、离线；点击可跳转箱体监控 Tab 并带入对应筛选条件</td></tr>
-                  <tr><td class="prd-label">异常告警</td><td class="prd-value">过滤掉满溢告警（满溢由调度员处理），仅展示低电量、设备离线等非满溢类告警，最多 3 条，带「查看全部 →」链接</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">📦 Tab 2：箱体监控</td></tr>
-                  <tr><td class="prd-label">箱体分类</td><td class="prd-value">顶部切换「小勾臂箱」/「大勾臂箱」，各 10 条模拟数据；标题显示当前类型和数量（如"小勾臂箱 · 10个"）</td></tr>
-                  <tr><td class="prd-label">搜索</td><td class="prd-value">小勾臂箱 Tab 下显示搜索框，支持按箱体编号或名称模糊查询</td></tr>
-                  <tr><td class="prd-label">状态筛选</td><td class="prd-value">全部 / 满溢 / 离线 三个筛选按钮，与类型筛选和搜索联合过滤</td></tr>
-                  <tr><td class="prd-label">箱体卡片</td><td class="prd-value">展示箱体名称、状态标签、乡镇/村庄、编号、满溢率进度条、电量进度条</td></tr>
-                  <tr><td class="prd-label">匹配对象</td><td class="prd-value">卡片中高亮显示匹配对象：小勾臂箱 → 对应中转站（如龙泉中转站），大勾臂箱 → 对应焚烧厂（如龙安焚烧厂），直观展示箱体去向</td></tr>
-                  <tr><td class="prd-label">展开详情</td><td class="prd-value">点击「详情」按钮本条下拉展开更多信息：箱体编号、类型、乡镇、村庄、匹配对象、具体地址、锁状态、最后上报时间；展开时按钮变蓝高亮，再次点击收起</td></tr>
-                  <tr><td class="prd-label">远程开锁</td><td class="prd-value">仅小勾臂箱显示「远程开锁/关锁」按钮，大勾臂箱无此功能</td></tr>
-                </tbody>
-              </table>
-            </div>
-            <div class="prd-section">
-              <table class="prd-table">
-                <tbody>
-                  <tr class="prd-section-row"><td class="prd-section-title" colspan="2">⚠️ 边界 & 验收要点</td></tr>
-                  <tr><td class="prd-label">✓ 指标卡今/昨对比</td><td class="prd-value">任务数和垃圾量分别在一张卡内今/昨左右对比，今日高亮、昨日灰色</td></tr>
-                  <tr><td class="prd-label">✓ 今日运行实时计算</td><td class="prd-value">在线车辆、进行中、超时任务、未处理告警基于 waybillList 和 alertList 实时计算</td></tr>
-                  <tr><td class="prd-label">✓ 箱体状态联动</td><td class="prd-value">点击正常/满溢/离线可跳转箱体监控并带入筛选</td></tr>
-                  <tr><td class="prd-label">✓ 异常告警过滤</td><td class="prd-value">仅展示非满溢类告警，满溢告警由调度员端处理</td></tr>
-                  <tr><td class="prd-label">✓ 箱体类型切换</td><td class="prd-value">小勾臂/大勾臂切换流畅，数据独立过滤</td></tr>
-                  <tr><td class="prd-label">✓ 搜索过滤</td><td class="prd-value">小勾臂箱搜索按编号/名称模糊匹配</td></tr>
-                  <tr><td class="prd-label">✓ 匹配对象</td><td class="prd-value">小勾臂→中转站，大勾臂→焚烧厂，基于乡镇映射</td></tr>
-                  <tr><td class="prd-label">✓ 展开详情</td><td class="prd-value">点击详情展开/收起，信息完整，按钮状态切换</td></tr>
-                  <tr><td class="prd-label">✓ 远程开锁</td><td class="prd-value">仅小勾臂箱显示，大勾臂箱无此按钮</td></tr>
-                  <tr><td class="prd-label">✓ 数据来源</td><td class="prd-value">箱体数据为 generateBoxes() 生成，运单/告警来自 app-mock.ts；后续对接后端需走 API</td></tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </a-collapse-item>
-      </a-collapse>
-    </div>
+    <PrdPanel :sections="prdSections" />
 
     <div class="phone-wrapper">
       <div class="phone-frame">
@@ -223,6 +163,8 @@
 import { computed, ref } from 'vue'
 import { Message as ArcoMessage } from '@arco-design/web-vue'
 import ModuleHeader from './components/ModuleHeader.vue'
+import PrdPanel from './components/PrdPanel.vue'
+import type { PrdSection } from './data/pageConfigs'
 import {
   alertList,
   waybillList,
@@ -231,6 +173,53 @@ import {
   type WaybillItem,
   type AlertItem,
 } from './data/app-mock'
+
+const prdSections: PrdSection[] = [
+  {
+    title: '🎯 功能要点（开发 / 测试关注）',
+    items: [
+      { label: '页面', value: '管理员端 APP，单手机框 + 底部双 Tab（收运看板 / 箱体监控），覆盖管理员日常巡检和快速调度场景' },
+      { label: '目标用户', value: '管理员（如李经理），负责整体运营态势感知、箱体设备巡检和异常告警关注' },
+      { label: '与调度员端关系', value: '管理员也可拥有调度权限，通过权限开通后访问调度员端的「告警派单」和「运单监控」页面；管理员端聚焦看板和箱体巡检，避免与调度员端功能重复' },
+    ],
+  },
+  {
+    title: '📊 Tab 1：收运看板',
+    items: [
+      { label: '核心指标', value: '2 张卡片，今/昨对比：① 任务数（今日 X 单 / 昨日 Y 单）、② 垃圾量（今日 X t / 昨日 Y t）。今日数值蓝/绿色高亮，昨日灰色弱化，对比直观' },
+      { label: '今日运行', value: '4 项实时状态：在线车辆、进行中（待接单+已接单+收运中）、超时任务、未处理告警；数据基于运单列表和告警列表实时计算' },
+      { label: '箱体状态', value: '4 项统计：全部、正常、满溢、离线；点击可跳转箱体监控 Tab 并带入对应筛选条件' },
+      { label: '异常告警', value: '过滤掉满溢告警（满溢由调度员处理），仅展示低电量、设备离线等非满溢类告警，最多 3 条，带「查看全部 →」链接' },
+    ],
+  },
+  {
+    title: '📦 Tab 2：箱体监控',
+    items: [
+      { label: '箱体分类', value: '顶部切换「小勾臂箱」/「大勾臂箱」，各 10 条模拟数据；标题显示当前类型和数量（如"小勾臂箱 · 10个"）' },
+      { label: '搜索', value: '小勾臂箱 Tab 下显示搜索框，支持按箱体编号或名称模糊查询' },
+      { label: '状态筛选', value: '全部 / 满溢 / 离线 三个筛选按钮，与类型筛选和搜索联合过滤' },
+      { label: '箱体卡片', value: '展示箱体名称、状态标签、乡镇/村庄、编号、满溢率进度条、电量进度条' },
+      { label: '匹配对象', value: '卡片中高亮显示匹配对象：小勾臂箱 → 对应中转站（如龙泉中转站），大勾臂箱 → 对应焚烧厂（如龙安焚烧厂），直观展示箱体去向' },
+      { label: '展开详情', value: '点击「详情」按钮本条下拉展开更多信息：箱体编号、类型、乡镇、村庄、匹配对象、具体地址、锁状态、最后上报时间；展开时按钮变蓝高亮，再次点击收起' },
+      { label: '远程开锁', value: '仅小勾臂箱显示「远程开锁/关锁」按钮，大勾臂箱无此功能' },
+    ],
+  },
+  {
+    title: '⚠️ 边界 & 验收要点',
+    items: [
+      { label: '✓ 指标卡今/昨对比', value: '任务数和垃圾量分别在一张卡内今/昨左右对比，今日高亮、昨日灰色' },
+      { label: '✓ 今日运行实时计算', value: '在线车辆、进行中、超时任务、未处理告警基于 waybillList 和 alertList 实时计算' },
+      { label: '✓ 箱体状态联动', value: '点击正常/满溢/离线可跳转箱体监控并带入筛选' },
+      { label: '✓ 异常告警过滤', value: '仅展示非满溢类告警，满溢告警由调度员端处理' },
+      { label: '✓ 箱体类型切换', value: '小勾臂/大勾臂切换流畅，数据独立过滤' },
+      { label: '✓ 搜索过滤', value: '小勾臂箱搜索按编号/名称模糊匹配' },
+      { label: '✓ 匹配对象', value: '小勾臂→中转站，大勾臂→焚烧厂，基于乡镇映射' },
+      { label: '✓ 展开详情', value: '点击详情展开/收起，信息完整，按钮状态切换' },
+      { label: '✓ 远程开锁', value: '仅小勾臂箱显示，大勾臂箱无此按钮' },
+      { label: '✓ 数据来源', value: '箱体数据为 generateBoxes() 生成，运单/告警来自 app-mock.ts；后续对接后端需走 API' },
+    ],
+  },
+]
 
 defineOptions({ name: 'SanitationAppAdmin' })
 
@@ -394,20 +383,6 @@ function handleAlertDispatch(a: AlertItem) { a.linkedTaskId = 'WB007'; a.handleS
 
 <style scoped lang="scss">
 .sanitation-page { display: flex; flex-direction: column; gap: 14px; }
-/* 产品需求说明 */
-.prd-panel {
-  background: var(--color-bg-2);
-  border-radius: 4px;
-  :deep(.arco-collapse-item-header) { font-weight: 600; font-size: 14px; }
-}
-.prd-body { display: flex; flex-direction: column; gap: 20px; padding: 4px 0; }
-.prd-section-title { margin: 0 0 8px; font-size: 14px; font-weight: 600; color: var(--color-text-1); }
-.prd-table {
-  width: 100%; border-collapse: collapse; font-size: 13px;
-  tr:nth-child(even) { background: var(--color-fill-1); }
-  td { padding: 6px 12px; border: 1px solid var(--color-border-2); vertical-align: top; line-height: 1.6; }
-  .prd-label { width: 140px; min-width: 140px; font-weight: 500; color: var(--color-text-2); white-space: nowrap; }
-}
 /* 手机框 */
 .phone-wrapper { display: flex; justify-content: center; padding: 12px 0; }
 .phone-frame { width: 390px; min-height: 780px; background: #f0f2f5; border: 3px solid #1f2937; border-radius: 30px; overflow: hidden; box-shadow: 0 10px 40px rgba(0,0,0,.16); display: flex; flex-direction: column; }

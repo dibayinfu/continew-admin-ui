@@ -1,29 +1,6 @@
 <template>
   <div class="gi_page location-monitor-page">
-    <!-- 产品需求说明 -->
-    <div class="prd-panel">
-      <a-collapse :default-active-key="[]" :bordered="false">
-        <a-collapse-item key="prd" header="📋 产品需求说明">
-          <div class="prd-body">
-            <div class="prd-section">
-              <h4 class="prd-section-title">🎯 功能要点（开发 / 测试关注）</h4>
-              <table class="prd-table">
-                <tbody>
-                  <tr>
-                    <td class="prd-label">重量字段</td>
-                    <td class="prd-value">若车辆安装了称重设备，点击车辆后在详情弹层中显示重量字段。</td>
-                  </tr>
-                  <tr>
-                    <td class="prd-label">驾驶员信息</td>
-                    <td class="prd-value">若车辆已配置驾驶员，点击车辆后在详情弹层中显示驾驶员姓名及联系方式。</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </a-collapse-item>
-      </a-collapse>
-    </div>
+    <PrdPanel :sections="prdSections" />
 
     <!-- Main Layout: Left Tree + Center Map + Right Detail -->
     <div class="monitor-shell">
@@ -221,6 +198,18 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import LonganMapFrame from './components/LonganMapFrame.vue'
+import PrdPanel from './components/PrdPanel.vue'
+import type { PrdSection } from './data/pageConfigs'
+
+const prdSections: PrdSection[] = [
+  {
+    title: '🎯 功能要点（开发 / 测试关注）',
+    items: [
+      { label: '重量字段', value: '若车辆安装了称重设备，点击车辆后在详情弹层中显示重量字段。' },
+      { label: '驾驶员信息', value: '若车辆已配置驾驶员，点击车辆后在详情弹层中显示驾驶员姓名及联系方式。' },
+    ],
+  },
+]
 
 defineOptions({ name: 'SanitationLocationMonitorWeighing' })
 
@@ -443,66 +432,6 @@ function handleDispatch() {
   min-height: 600px;
   padding: 0;
   overflow: hidden;
-}
-
-// ===== PRD Panel =====
-.prd-panel {
-  margin-bottom: 12px;
-  background: var(--color-bg-2);
-  border-radius: 4px;
-  flex-shrink: 0;
-
-  :deep(.arco-collapse-item-header) {
-    font-weight: 600;
-    font-size: 14px;
-  }
-}
-
-.prd-body {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  padding: 4px 0;
-}
-
-.prd-section {
-  width: 100%;
-}
-
-.prd-section-title {
-  margin: 0 0 8px;
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--color-text-1);
-}
-
-.prd-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-
-  tr:nth-child(even) {
-    background: var(--color-fill-1);
-  }
-
-  td {
-    padding: 6px 12px;
-    border: 1px solid var(--color-border-2);
-    vertical-align: top;
-    line-height: 1.6;
-  }
-
-  .prd-label {
-    width: 140px;
-    min-width: 140px;
-    font-weight: 500;
-    color: var(--color-text-2);
-    white-space: nowrap;
-  }
-
-  .prd-value {
-    color: var(--color-text-1);
-  }
 }
 
 // ===== Main Shell =====

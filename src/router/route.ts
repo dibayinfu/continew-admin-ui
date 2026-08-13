@@ -138,6 +138,7 @@ export const systemRoutes: RouteRecordRaw[] = [
           { path: '/sanitation/smallBoxMonitor', name: 'SanitationSmallBoxMonitor', component: () => import('@/views/sanitation/small-box-monitor.vue'), meta: { title: '小勾臂箱监控', icon: 'storage', hidden: false } },
           { path: '/sanitation/collectionPointMap', name: 'SanitationCollectionPointMap', component: () => import('@/views/sanitation/collection-point-map.vue'), meta: { title: '收集点地图', icon: 'pushpin', hidden: false } },
           { path: '/sanitation/boxPointMap', name: 'SanitationBoxPointMap', component: () => import('@/views/sanitation/box-point-map.vue'), meta: { title: '箱体收集点地图', icon: 'apps', hidden: false } },
+          { path: '/sanitation/swap-statistics', name: 'SanitationSwapStatistics', component: () => import('@/views/sanitation/swap-statistics.vue'), meta: { title: '换箱统计', icon: 'swap', hidden: false } },
           { path: '/sanitation/dataHiddenConfig', name: 'SanitationDataHiddenConfig', component: () => import('@/views/sanitation/data-hidden-config.vue'), meta: { title: '数据隐藏配置', icon: 'eye-invisible', hidden: false } },
         ],
       },

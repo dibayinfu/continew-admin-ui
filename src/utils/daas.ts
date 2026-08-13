@@ -12,6 +12,7 @@ export const DAS_TOKEN_KEY = 'sbg-monitor:token'
 export const DAS_REFRESH_KEY = 'sbg-monitor:refresh-token'
 export const DAS_CLIENT_ID = 'XyeIWUO2gq'
 export const DAS_CLIENT_SECRET = 'Wy2h@bGi9S'
+const COLLECTOR_API_BASE_URL = (import.meta.env.VITE_COLLECTOR_API_BASE_URL || '').replace(/\/$/, '')
 
 function read(key: string) {
   try { return localStorage.getItem(key) || '' } catch { return '' }
@@ -85,6 +86,16 @@ export function notifyDaasLoginSuccess(token: string, refreshToken?: string) {
   daasAuth.expired = false
   const waiters = pendingLogins.splice(0)
   waiters.forEach((w) => w.resolve())
+}
+
+/** 将 daas-api 登录 token 同步到采集服务，供后端定时采集任务使用。 */
+export async function syncCollectorToken(token: string) {
+  const response = await fetch(`${COLLECTOR_API_BASE_URL}/api/collector/token`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token }),
+  })
+  if (!response.ok) throw new Error(`采集服务返回 HTTP ${response.status}`)
 }
 
 /** 全局登录弹窗被取消时调用 */

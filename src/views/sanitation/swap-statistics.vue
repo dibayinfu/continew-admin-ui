@@ -108,6 +108,7 @@ defineOptions({ name: 'SanitationSwapStatistics' })
 
 interface DailyStatistic { day: string, boxCount: number }
 interface TownshipStatistic { townshipName: string, boxCount: number }
+interface StatisticsOverview { daily: DailyStatistic[], townships: TownshipStatistic[], records: Omit<SwapRecord, 'recordKey'>[] }
 interface PointOption { pointId: number, pointName: string, townshipName: string, villageName: string, excluded: boolean }
 interface SwapRecord {
   swapTime: string
@@ -198,15 +199,17 @@ async function loadStatistics() {
   if (from.value > to.value) { Message.warning('开始日期不能晚于结束日期'); return }
   loading.value = true
   try {
-    const response = await fetch(`${endpoint('/daily')}?${query({ from: from.value, to: to.value })}`)
+    const response = await fetch(`${endpoint('/overview')}?${query({ from: from.value, to: to.value, day: selectedDay.value })}`)
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    daily.value = await response.json() as DailyStatistic[]
+    const overview = await response.json() as StatisticsOverview
+    daily.value = overview.daily
     // 当天还没有换箱记录时，也保留当天柱状条，确保刷新后有明确的默认选中日期。
     if (!daily.value.some((item) => item.day === selectedDay.value) && selectedDay.value >= from.value && selectedDay.value <= to.value) {
       daily.value.push({ day: selectedDay.value, boxCount: 0 })
       daily.value.sort((a, b) => a.day.localeCompare(b.day))
     }
-    await Promise.all([loadRecords(), loadTownships()])
+    townships.value = overview.townships
+    records.value = overview.records.map((item, index) => ({ ...item, recordKey: `${item.pointId}-${item.swapTime}-${index}` }))
   } catch (error) {
     daily.value = []
     townships.value = []

@@ -29,3 +29,9 @@ cd /data/longan/frontend/repo
 ```
 
 部署以 `current` 软链接原子切换，不会先删除线上文件。每次发布包都保留在 `/data/longan/frontend/releases`，便于回退。
+
+完整模板打包需要较多内存。建议服务器配置至少 2GB Swap；如仍出现 Node heap out of memory，可执行：
+
+```bash
+NODE_HEAP_MB=3072 ./scripts/deploy.sh
+```

@@ -4,11 +4,9 @@
 # 用法：
 #   ./deploy.sh                 # 拉取 main -> 构建 -> 原子切换 current
 #   ./deploy.sh <分支>          # 部署指定分支
-#   API_BASE_URL=https://... ./deploy.sh  # 覆盖后端地址
 # ============================================================
 set -euo pipefail
 
-APP_NAME="continew-admin-ui"
 GIT_REPO="git@github.com:dibayinfu/continew-admin-ui.git"
 CODE_DIR="/data/longan/frontend/repo"
 RELEASES_DIR="/data/longan/frontend/releases"
@@ -16,6 +14,9 @@ CURRENT_LINK="/data/longan/frontend/current"
 API_BASE_URL="${API_BASE_URL:-https://longan-api.mozi365.com}"
 VITE_BASE_PATH="${VITE_BASE_PATH:-/}"
 BRANCH="${1:-main}"
+# 完整后台模板打包时 Vite 的默认 Node 堆（约 1.8GB）不足。
+# 可按服务器内存覆盖，例如 NODE_HEAP_MB=2560 ./deploy.sh。
+NODE_HEAP_MB="${NODE_HEAP_MB:-3072}"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 die() { echo "[ERROR] $*" >&2; exit 1; }
@@ -37,8 +38,8 @@ fi
 log "安装依赖"
 (cd "$CODE_DIR" && pnpm install --frozen-lockfile)
 
-log "构建静态站点（API：$API_BASE_URL）"
-(cd "$CODE_DIR" && VITE_BASE="$VITE_BASE_PATH" VITE_COLLECTOR_API_BASE_URL="$API_BASE_URL" pnpm build:prototype)
+log "构建静态站点（API：$API_BASE_URL，Node 堆：${NODE_HEAP_MB}MB）"
+(cd "$CODE_DIR" && NODE_OPTIONS="--max-old-space-size=${NODE_HEAP_MB} ${NODE_OPTIONS:-}" VITE_BASE="$VITE_BASE_PATH" VITE_COLLECTOR_API_BASE_URL="$API_BASE_URL" pnpm build:prototype)
 [ -f "${CODE_DIR}/dist/index.html" ] || die "构建失败：未生成 dist/index.html"
 
 STAMP=$(date '+%Y%m%d-%H%M%S')

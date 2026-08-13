@@ -49,8 +49,8 @@ jobs:
         run: pnpm build:prototype
         env:
           VITE_BASE: ${{ steps.pages_config.outputs.base_path }}/
-          # GitHub Pages 为 HTTPS 静态站点；换箱数据通过 Cloudflare Worker 访问 ECS。
-          VITE_COLLECTOR_API_BASE_URL: https://longan-api-proxy.dibayinfu.workers.dev
+          # GitHub Pages 为 HTTPS 静态站点；换箱数据通过 Cloudflare DNS + ECS Nginx 访问。
+          VITE_COLLECTOR_API_BASE_URL: https://longan-api.mozi365.com
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

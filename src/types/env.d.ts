@@ -11,6 +11,7 @@ interface ImportMetaEnv {
   readonly VITE_AMAP_JS_KEY?: string
   readonly VITE_AMAP_SECURITY_JS_CODE?: string
   readonly VITE_API_WS_URL: string
+  readonly VITE_COLLECTOR_API_BASE_URL?: string
   readonly VITE_PROTOTYPE_MODE?: string
   readonly VITE_PROTOTYPE_HOME?: string
 }

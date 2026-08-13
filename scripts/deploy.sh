@@ -15,9 +15,22 @@ API_BASE_URL="${API_BASE_URL:-https://longan-api.mozi365.com}"
 VITE_BASE_PATH="${VITE_BASE_PATH:-/}"
 BRANCH="${1:-main}"
 # 构建已大幅瘦身：原型模式下不再打包全量后台视图（import.meta.glob 已按模式收敛），
-# 单次 vite build 约 20s、内存占用显著下降，默认 2GB 堆即可满足。
-# 若服务器内存紧张可进一步降低，例如 NODE_HEAP_MB=1536 ./deploy.sh。
-NODE_HEAP_MB="${NODE_HEAP_MB:-2048}"
+# 单次 vite build 约 20s。Node 堆上限按物理内存自动估算（物理内存 60%，1~3GB），
+# 避免在内存较小的 ECS 上因堆过大导致 OOM / 构建卡死；也可用 NODE_HEAP_MB 显式覆盖。
+total_mem_kb=$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null || echo 0)
+if [ "$total_mem_kb" -gt 0 ]; then
+  suggested=$(( total_mem_kb / 1024 * 60 / 100 ))
+  [ "$suggested" -lt 1024 ] && suggested=1024
+  [ "$suggested" -gt 3072 ] && suggested=3072
+  if [ -n "${NODE_HEAP_MB:-}" ] && [ "$NODE_HEAP_MB" -gt $(( total_mem_kb / 1024 / 2 )) ]; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] 警告：检测到 NODE_HEAP_MB=${NODE_HEAP_MB} 超过物理内存一半，自动调整为 ${suggested}MB 以避免 OOM/卡死"
+    NODE_HEAP_MB="$suggested"
+  else
+    NODE_HEAP_MB="${NODE_HEAP_MB:-$suggested}"
+  fi
+else
+  NODE_HEAP_MB="${NODE_HEAP_MB:-2048}"
+fi
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*"; }
 die() { echo "[ERROR] $*" >&2; exit 1; }

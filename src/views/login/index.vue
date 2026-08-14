@@ -2,7 +2,7 @@
   <div v-if="isDesktop" class="login pc">
     <h3 class="login-logo">
       <img v-if="logo" :src="logo" alt="logo" />
-      <img v-else src="/logo.svg" alt="logo" />
+      <img v-else :src="withBase('/logo.svg')" alt="logo" />
       <span>{{ title }}</span>
     </h3>
 
@@ -57,7 +57,7 @@
   <div v-else class="login h5">
     <div class="login-logo">
       <img v-if="logo" :src="logo" alt="logo" />
-      <img v-else src="/logo.svg" alt="logo" />
+      <img v-else :src="withBase('/logo.svg')" alt="logo" />
       <span>{{ title }}</span>
     </div>
     <a-row align="stretch" class="login-box">
@@ -104,6 +104,7 @@ import EmailLogin from './components/email/index.vue'
 import { socialAuth } from '@/apis/auth'
 import { useAppStore } from '@/stores'
 import { useTenantStore } from '@/stores/modules/tenant'
+import { withBase } from '@/utils'
 import { useDevice } from '@/hooks'
 import { getTenantIdByDomain, getTenantStatus } from '@/apis'
 

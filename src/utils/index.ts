@@ -9,6 +9,17 @@ export function getProperty<T, K extends keyof T>(obj: T, key: K): T[K] {
 }
 
 /**
+ * @desc 拼接 Vite 公共基础路径(base),兼容部署到子路径(GitHub Pages 等)的场景
+ * @desc 外部链接、协议内地址(data:/blob:/mailto:/tel:/#)原样返回
+ * @param {string} [path] - 资源路径(以 / 开头或相对路径)
+ */
+export function withBase(path?: string) {
+  if (!path) return path
+  if (/^(https?:)?\/\//.test(path) || /^(data|blob|mailto|tel|#):/.test(path)) return path
+  return `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`
+}
+
+/**
  * @desc 去除空格
  * @param {string} str - 字符串
  * @param {string} pos - 去除空格的位置

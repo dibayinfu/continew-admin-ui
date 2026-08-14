@@ -170,6 +170,10 @@ function barHeight(count: number) { return Math.max((count / maxCount.value) * 1
 function rankWidth(count: number) { return Math.max((count / maxTownshipCount.value) * 100, 4) }
 function formatDateTime(value: string) { return value ? value.replace('T', ' ').slice(0, 16) : '-' }
 function formatPercent(value: number | null) { return value === null || value === undefined ? '-' : `${Math.round(value)}%` }
+/** 后端异常返回跨天数据时，以实际换箱时间为准，绝不污染当前选中日期的明细。 */
+function recordsOfDay(items: Omit<SwapRecord, 'recordKey'>[], day: string) {
+  return items.filter((item) => item.swapTime?.slice(0, 10) === day)
+}
 function openLogin() { daasAuth.visible = true }
 
 async function loadRecords() {
@@ -179,7 +183,7 @@ async function loadRecords() {
     const response = await fetch(`${endpoint('/records')}?${query({ day: selectedDay.value })}`)
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const data = await response.json() as Omit<SwapRecord, 'recordKey'>[]
-    records.value = data.map((item, index) => ({ ...item, recordKey: `${item.pointId}-${item.swapTime}-${index}` }))
+    records.value = recordsOfDay(data, selectedDay.value).map((item, index) => ({ ...item, recordKey: `${item.pointId}-${item.swapTime}-${index}` }))
   } catch (error) {
     records.value = []
     Message.error(`获取换箱明细失败：${error instanceof Error ? error.message : '网络异常'}`)
@@ -212,7 +216,7 @@ async function loadStatistics() {
     // 用户切换日期后，较早的概览请求可能才返回；不得用旧日期的明细覆盖当前选择。
     if (requestedDay !== selectedDay.value) return
     townships.value = overview.townships
-    records.value = overview.records.map((item, index) => ({ ...item, recordKey: `${item.pointId}-${item.swapTime}-${index}` }))
+    records.value = recordsOfDay(overview.records, requestedDay).map((item, index) => ({ ...item, recordKey: `${item.pointId}-${item.swapTime}-${index}` }))
   } catch (error) {
     daily.value = []
     townships.value = []

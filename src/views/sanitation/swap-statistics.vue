@@ -66,9 +66,11 @@
         :data="records"
         :columns="columns"
         :loading="recordLoading"
-        :pagination="{ pageSize: 20, showTotal: true, showPageSize: true }"
+        :pagination="pagination"
         :scroll="{ x: 940 }"
         stripe
+        @page-change="handlePageChange"
+        @page-size-change="handlePageSizeChange"
       >
         <template #swapTime="{ record }">{{ formatDateTime(record.swapTime) }}</template>
         <template #point="{ record }">
@@ -105,7 +107,7 @@
 <script setup lang="ts">
 import type { TableColumnData } from '@arco-design/web-vue'
 import { Message } from '@arco-design/web-vue'
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import dayjs from 'dayjs'
 import { daasAuth, daasRequest } from '@/utils/daas'
 
@@ -113,9 +115,10 @@ defineOptions({ name: 'SanitationSwapStatistics' })
 
 interface DailyStatistic { day: string, boxCount: number }
 interface TownshipStatistic { townshipName: string, boxCount: number }
-interface StatisticsOverview { daily: DailyStatistic[], townships: TownshipStatistic[], records: Omit<SwapRecord, 'recordKey'>[] }
+interface StatisticsOverview { daily: DailyStatistic[], townships: TownshipStatistic[] }
 interface PointOption { pointId: number, pointName: string, townshipName: string, villageName: string, excluded: boolean }
 interface SwapRecord {
+  id: number
   swapTime: string
   pointId: number
   pointName: string
@@ -140,6 +143,8 @@ const records = ref<SwapRecord[]>([])
 const townships = ref<TownshipStatistic[]>([])
 const loading = ref(false)
 const recordLoading = ref(false)
+/** 换箱明细采用服务端分页：默认 20 条/页，支持 20/50/100/200。 */
+const pagination = reactive({ current: 1, pageSize: 20, total: 0, showTotal: true, showPageSize: true, pageSizeOptions: [20, 50, 100, 200] })
 const excludedPointsVisible = ref(false)
 const excludedPointsLoading = ref(false)
 const excludedPointsSaving = ref(false)
@@ -175,22 +180,23 @@ function barHeight(count: number) { return Math.max((count / maxCount.value) * 1
 function rankWidth(count: number) { return Math.max((count / maxTownshipCount.value) * 100, 4) }
 function formatDateTime(value: string) { return value ? value.replace('T', ' ').slice(0, 16) : '-' }
 function formatPercent(value: number | null) { return value === null || value === undefined ? '-' : `${Math.round(value)}%` }
-/** 后端异常返回跨天数据时，以实际换箱时间为准，绝不污染当前选中日期的明细。 */
-function recordsOfDay(items: Omit<SwapRecord, 'recordKey'>[], day: string) {
-  return items.filter((item) => item.swapTime?.slice(0, 10) === day)
-}
 function openLogin() { daasAuth.visible = true }
 
 async function loadRecords() {
   if (!selectedDay.value) return
   recordLoading.value = true
+  const day = selectedDay.value
   try {
-    const response = await fetch(`${endpoint('/records')}?${query({ day: selectedDay.value })}`)
+    const response = await fetch(`${endpoint('/records')}?${query({ day, page: String(pagination.current), size: String(pagination.pageSize) })}`)
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    const data = await response.json() as Omit<SwapRecord, 'recordKey'>[]
-    records.value = recordsOfDay(data, selectedDay.value).map((item, index) => ({ ...item, recordKey: `${item.pointId}-${item.swapTime}-${index}` }))
+    const data = await response.json() as { total: number, list: Omit<SwapRecord, 'recordKey'>[] }
+    if (day !== selectedDay.value) return
+    records.value = data.list.map((item) => ({ ...item, recordKey: String(item.id) }))
+    pagination.total = data.total
   } catch (error) {
+    if (day !== selectedDay.value) return
     records.value = []
+    pagination.total = 0
     Message.error(`获取换箱明细失败：${error instanceof Error ? error.message : '网络异常'}`)
   } finally { recordLoading.value = false }
 }
@@ -221,7 +227,9 @@ async function loadStatistics() {
     // 用户切换日期后，较早的概览请求可能才返回；不得用旧日期的明细覆盖当前选择。
     if (requestedDay !== selectedDay.value) return
     townships.value = overview.townships
-    records.value = recordsOfDay(overview.records, requestedDay).map((item, index) => ({ ...item, recordKey: `${item.pointId}-${item.swapTime}-${index}` }))
+    // 明细已改为服务端分页，查询后回到第一页并单独拉取。
+    pagination.current = 1
+    await loadRecords()
   } catch (error) {
     daily.value = []
     townships.value = []
@@ -277,6 +285,7 @@ async function verifyDaasToken() {
 async function selectDay(day: string) {
   if (selectedDay.value === day) return
   selectedDay.value = day
+  pagination.current = 1
   loading.value = true
   try {
     await Promise.all([loadRecords(), loadTownships()])
@@ -284,6 +293,16 @@ async function selectDay(day: string) {
     townships.value = []
     Message.error(`获取乡镇换箱排行失败：${error instanceof Error ? error.message : '网络异常'}`)
   } finally { loading.value = false }
+}
+
+function handlePageChange(page: number) {
+  pagination.current = page
+  loadRecords()
+}
+function handlePageSizeChange(size: number) {
+  pagination.pageSize = size
+  pagination.current = 1
+  loadRecords()
 }
 
 onMounted(async () => {

@@ -1,25 +1,24 @@
 <template>
   <div class="gi_page sanitation-page">
-    <ModuleHeader
-      title="小勾臂箱监控"
-      subtitle="小勾臂箱列表监控，数据与「箱体地图 / 箱体收集点地图 / 数据隐藏配置」共享。"
-    >
-      <template #extra>
-        <a-space>
-          <a-button type="primary" :loading="cloudLoading" @click="loadFromCloud()">
-            <template #icon><icon-sync /></template>
-            更新
-          </a-button>
-          <a-dropdown position="br">
-            <a-button>更多<icon-down /></a-button>
-            <template #content>
-              <a-doption @click="openLogin()">登录</a-doption>
-              <a-doption @click="openTokenModal">Token</a-doption>
-            </template>
-          </a-dropdown>
-        </a-space>
-      </template>
-    </ModuleHeader>
+    <div class="page-header">
+      <div>
+        <div class="page-title">小勾臂箱监控</div>
+        <div class="page-subtitle">小勾臂箱列表监控，数据与「箱体地图 / 箱体收集点地图 / 数据隐藏配置」共享。</div>
+      </div>
+      <a-space>
+        <a-button type="primary" :loading="cloudLoading" @click="loadFromCloud()">
+          <template #icon><icon-sync /></template>
+          更新
+        </a-button>
+        <a-dropdown position="br">
+          <a-button>更多<icon-down /></a-button>
+          <template #content>
+            <a-doption @click="openLogin()">登录</a-doption>
+            <a-doption @click="openTokenModal">Token</a-doption>
+          </template>
+        </a-dropdown>
+      </a-space>
+    </div>
 
     <div v-if="daasAuth.expired" class="token-expired-banner">
       <icon-exclamation-circle-fill />
@@ -162,7 +161,6 @@ import type { TableColumnData } from '@arco-design/web-vue'
 import { Message } from '@arco-design/web-vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { type AMapCircle, type AMapInstance, type AMapMarker, loadAmapJsApi } from '@/utils/amap'
-import ModuleHeader from './components/ModuleHeader.vue'
 import { daasAuth, daasRequest, getHiddenBoxIds, setDaasToken } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
 
@@ -580,6 +578,10 @@ onBeforeUnmount(() => {
 
 <style scoped lang="scss">
 .sanitation-page { display: flex; flex-direction: column; gap: 14px; }
+.page-header { display: flex; align-items: center; justify-content: space-between; padding: 2px 0; }
+.page-title { color: #1d2129; font-size: 20px; font-weight: 600; line-height: 30px; }
+.page-subtitle { color: var(--color-text-3); font-size: 13px; }
+@media (max-width: 960px) { .page-header { align-items: flex-start; gap: 12px; flex-direction: column; } }
 .token-expired-banner { display: flex; align-items: center; gap: 6px; padding: 9px 14px; border: 1px solid #fbaca3; border-radius: 4px; background: #ffece8; color: #f53f3f; font-size: 13px; }
 .token-reset-link { color: #165dff; cursor: pointer; text-decoration: underline; }
 

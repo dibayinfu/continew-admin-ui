@@ -75,7 +75,7 @@
           <div class="box-change-flow">
             <span class="box-change old">{{ record.oldBoxNo || '-' }} <small>{{ formatPercent(record.oldFillLevel) }}</small></span>
             <icon-arrow-right class="change-arrow" />
-            <span class="box-change new">{{ record.newBoxNo || '-' }}</span>
+            <span class="box-change new">{{ record.newBoxNo || '未知' }}</span>
           </div>
         </template>
         <template #alarmTime="{ record }">{{ formatDateTime(record.lastAlarmTime) }}</template>
@@ -198,16 +198,19 @@ async function loadStatistics() {
   if (!from.value || !to.value) { Message.warning('请选择完整统计区间'); return }
   if (from.value > to.value) { Message.warning('开始日期不能晚于结束日期'); return }
   loading.value = true
+  const requestedDay = selectedDay.value
   try {
     const response = await fetch(`${endpoint('/overview')}?${query({ from: from.value, to: to.value, day: selectedDay.value })}`)
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
     const overview = await response.json() as StatisticsOverview
     daily.value = overview.daily
     // 当天还没有换箱记录时，也保留当天柱状条，确保刷新后有明确的默认选中日期。
-    if (!daily.value.some((item) => item.day === selectedDay.value) && selectedDay.value >= from.value && selectedDay.value <= to.value) {
-      daily.value.push({ day: selectedDay.value, boxCount: 0 })
+    if (!daily.value.some((item) => item.day === requestedDay) && requestedDay >= from.value && requestedDay <= to.value) {
+      daily.value.push({ day: requestedDay, boxCount: 0 })
       daily.value.sort((a, b) => a.day.localeCompare(b.day))
     }
+    // 用户切换日期后，较早的概览请求可能才返回；不得用旧日期的明细覆盖当前选择。
+    if (requestedDay !== selectedDay.value) return
     townships.value = overview.townships
     records.value = overview.records.map((item, index) => ({ ...item, recordKey: `${item.pointId}-${item.swapTime}-${index}` }))
   } catch (error) {

@@ -4,6 +4,7 @@ import { generate, getRgbStr } from '@arco-design/color'
 import { type BasicConfig, listSiteOptionDict } from '@/apis/system'
 import { getSettings } from '@/config/setting'
 import { isPrototypeMode } from '@/utils/prototype'
+import { withBase } from '@/utils'
 
 const storeSetup = () => {
   // App配置
@@ -61,8 +62,8 @@ const storeSetup = () => {
   const initSiteConfig = () => {
     if (isPrototypeMode) {
       setSiteConfig({
-        SITE_FAVICON: '/favicon.ico',
-        SITE_LOGO: '/logo.svg',
+        SITE_FAVICON: withBase('/favicon.ico'),
+        SITE_LOGO: withBase('/logo.svg'),
         SITE_TITLE: '智慧环卫产品原型',
         SITE_COPYRIGHT: '智慧环卫运营管理平台',
         SITE_BEIAN: '',
@@ -82,7 +83,7 @@ const storeSetup = () => {
       document.title = resMap.get('SITE_TITLE')
       document
         .querySelector('link[rel="shortcut icon"]')
-        ?.setAttribute('href', resMap.get('SITE_FAVICON') || '/favicon.ico')
+        ?.setAttribute('href', withBase(resMap.get('SITE_FAVICON')) || withBase('/favicon.ico'))
     })
   }
 
@@ -90,7 +91,7 @@ const storeSetup = () => {
   const setSiteConfig = (config: BasicConfig) => {
     Object.assign(siteConfig, config)
     document.title = config.SITE_TITLE || ''
-    document.querySelector('link[rel="shortcut icon"]')?.setAttribute('href', config.SITE_FAVICON || '/favicon.ico')
+    document.querySelector('link[rel="shortcut icon"]')?.setAttribute('href', withBase(config.SITE_FAVICON) || withBase('/favicon.ico'))
   }
   // 监听 色弱模式 和 哀悼模式
   watch([
@@ -115,11 +116,11 @@ const storeSetup = () => {
   })
 
   const getFavicon = () => {
-    return siteConfig.SITE_FAVICON
+    return withBase(siteConfig.SITE_FAVICON)
   }
 
   const getLogo = () => {
-    return siteConfig.SITE_LOGO
+    return withBase(siteConfig.SITE_LOGO)
   }
 
   const getTitle = () => {

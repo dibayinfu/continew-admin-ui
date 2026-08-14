@@ -1,13 +1,14 @@
 <template>
   <section class="system-logo" :class="{ collapsed: props.collapsed }" @click="toHome">
     <img v-if="logo" class="logo" :src="logo" alt="logo" />
-    <img v-else class="logo" src="/logo.svg" alt="logo" />
+    <img v-else class="logo" :src="withBase('/logo.svg')" alt="logo" />
     <span v-if="!props.hideName" class="system-name gi_line_1">{{ title }}</span>
   </section>
 </template>
 
 <script setup lang="ts">
 import { useAppStore } from '@/stores'
+import { withBase } from '@/utils'
 
 const props = withDefaults(defineProps<Props>(), {
   collapsed: false,

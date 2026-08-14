@@ -2,7 +2,7 @@
   <div class="login pc">
     <h3 class="login-logo">
       <img v-if="logo" :src="logo" alt="logo" />
-      <img v-else src="/logo.svg" alt="logo" />
+      <img v-else :src="withBase('/logo.svg')" alt="logo" />
       <span>{{ title }}</span>
     </h3>
 
@@ -42,7 +42,7 @@
   <div class="login h5">
     <div class="login-logo">
       <img v-if="logo" :src="logo" alt="logo" />
-      <img v-else src="/logo.svg" alt="logo" />
+      <img v-else :src="withBase('/logo.svg')" alt="logo" />
       <span>{{ title }}</span>
     </div>
     <a-row align="stretch" class="login-box">
@@ -67,6 +67,7 @@ import Background from '../components/background/index.vue'
 import ModifyPassword from '../components/modifyPassword/index.vue'
 import { useAppStore } from '@/stores'
 import { useDevice } from '@/hooks'
+import { withBase } from '@/utils'
 
 defineOptions({ name: 'PwdExpired' })
 

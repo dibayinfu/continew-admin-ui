@@ -47,23 +47,35 @@
     </div>
 
     <div class="map-layout" :class="{ 'has-detail': selectedBox }">
-      <a-card class="map-card" :bordered="false">
-        <div ref="mapRef" class="amap-container"></div>
-        <div class="map-stats">
-          <div class="map-stat"><span>箱体总数</span><b>{{ boxes.length }}</b></div>
-          <div class="map-stat danger"><span>满溢预警</span><b>{{ overflowCount }}</b></div>
-        </div>
-        <div class="map-theme-picker">
-          <span>地图主题</span>
-          <a-select v-model="mapTheme" size="small" :allow-clear="false">
-            <a-option v-for="theme in mapThemes" :key="theme.value" :value="theme.value">{{ theme.label }}</a-option>
-          </a-select>
-        </div>
-        <div v-if="mapError" class="map-error">
-          <icon-exclamation-circle-fill />
-          <span>{{ mapError }}</span>
-        </div>
-      </a-card>
+      <div ref="mapFullscreenRef" class="map-card-wrap">
+        <a-card class="map-card" :bordered="false">
+          <div ref="mapRef" class="amap-container"></div>
+          <div class="map-stats">
+            <div class="map-stat"><span>箱体总数</span><b>{{ boxes.length }}</b></div>
+            <div class="map-stat danger"><span>满溢预警</span><b>{{ overflowCount }}</b></div>
+          </div>
+          <div class="map-controls">
+            <div class="map-theme-picker">
+              <span>地图主题</span>
+              <a-select v-model="mapTheme" size="small" :allow-clear="false">
+                <a-option v-for="theme in mapThemes" :key="theme.value" :value="theme.value">{{ theme.label }}</a-option>
+              </a-select>
+            </div>
+            <a-tooltip :content="isMapFullscreen ? '退出全屏' : '全屏放大'">
+              <a-button class="map-fullscreen-btn" :class="{ active: isMapFullscreen }" size="small" @click="toggleMapFullscreen">
+                <template #icon>
+                  <icon-fullscreen-exit v-if="isMapFullscreen" />
+                  <icon-fullscreen v-else />
+                </template>
+              </a-button>
+            </a-tooltip>
+          </div>
+          <div v-if="mapError" class="map-error">
+            <icon-exclamation-circle-fill />
+            <span>{{ mapError }}</span>
+          </div>
+        </a-card>
+      </div>
 
       <a-card v-if="selectedBox" class="detail-card" :bordered="false" title="箱体详情">
           <template #extra>
@@ -124,7 +136,8 @@
 
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useFullscreen } from '@vueuse/core'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { type AMapInstance, type AMapMarker, loadAmapJsApi } from '@/utils/amap'
 import { daasAuth, daasRequest, getHiddenBoxIds, setDaasToken } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
@@ -180,6 +193,11 @@ const initialBoxes: Box[] = [
 ]
 
 const mapRef = ref<HTMLDivElement>()
+const mapFullscreenRef = ref<HTMLElement | null>(null)
+const { isFullscreen: isMapFullscreen, toggle: toggleMapFullscreen } = useFullscreen(mapFullscreenRef, {
+  // 进入/退出全屏后地图容器尺寸变化，通知高德地图重算视口
+  onFullscreenChange: () => { nextTick(() => map?.resize()) },
+})
 const keyword = ref('')
 const overflowOnly = ref(false)
 const mapTheme = ref<MapTheme>('light')
@@ -457,6 +475,7 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); markers.forEach((marker) =>
 .chip.unmatched:hover { border-color: #86909c; color: #4e5969; }
 .chip.unmatched.active { background: #4e5969; border-color: #4e5969; color: #fff; }
 .map-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 16px; overflow: hidden; }.map-layout.has-detail { grid-template-columns: minmax(0, 1fr) 360px; }
+.map-card-wrap { min-height: 0; overflow: hidden; display: flex; }.map-card-wrap .map-card { flex: 1; min-height: 0; }.map-card-wrap:fullscreen { position: fixed; inset: 0; z-index: 1001; background: #f2f3f5; }
 .map-card, .detail-card { min-height: 0; overflow: hidden; }
 .map-card :deep(.arco-card-body) { height: 100%; padding: 0; }
 .detail-card { display: flex; flex-direction: column; }
@@ -465,7 +484,9 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); markers.forEach((marker) =>
 .detail-card .detail-actions { flex-shrink: 0; padding-top: 16px; }
 .amap-container { width: 100%; height: 100%; background: #f2f3f5; }
 .map-stats { position: absolute; top: 16px; left: 16px; display: flex; gap: 10px; z-index: 1; }
-.map-theme-picker { position: absolute; z-index: 1; top: 16px; right: 16px; display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; }.map-theme-picker :deep(.arco-select) { width: 88px; }
+.map-controls { position: absolute; z-index: 1; top: 16px; right: 16px; display: flex; align-items: center; gap: 8px; }
+.map-theme-picker { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; }.map-theme-picker :deep(.arco-select) { width: 88px; }
+.map-fullscreen-btn { border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; }.map-fullscreen-btn.active { color: #165dff; border-color: #165dff; }
 .map-stat { min-width: 106px; padding: 9px 14px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; }
 .map-stat b { display: block; color: #165dff; font-size: 22px; line-height: 28px; }.map-stat.danger b { color: #f53f3f; }
 .map-error { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px; color: #f53f3f; background: #f7f8fa; }

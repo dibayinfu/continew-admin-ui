@@ -10,6 +10,8 @@ export interface AMapCircle {
 export interface AMapInstance {
   destroy: () => void
   getZoom: () => number
+  /** 容器尺寸变化后通知地图重算（全屏切换时使用） */
+  resize: () => void
   setMapStyle: (style: string) => void
   setFitView: (markers?: AMapMarker[], immediately?: boolean, padding?: [number, number, number, number]) => void
   setZoomAndCenter: (zoom: number, center: [number, number]) => void

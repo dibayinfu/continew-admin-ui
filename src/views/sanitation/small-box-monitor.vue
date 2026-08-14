@@ -3,24 +3,23 @@
     <ModuleHeader
       title="小勾臂箱监控"
       subtitle="小勾臂箱列表监控，数据与「箱体地图 / 箱体收集点地图 / 数据隐藏配置」共享。"
-      phase="临时工具"
-      priority="P0"
-      module="箱体监控"
     >
       <template #extra>
         <a-space>
-          <a-tag :color="tokenStatusColor">{{ tokenStatusText }}</a-tag>
-          <a-button type="primary" @click="openLogin()">登录</a-button>
-          <a-button @click="openTokenModal">Token</a-button>
           <a-button type="primary" :loading="cloudLoading" @click="loadFromCloud()">
             <template #icon><icon-sync /></template>
-            从云端更新
+            更新
           </a-button>
+          <a-dropdown position="br">
+            <a-button>更多<icon-down /></a-button>
+            <template #content>
+              <a-doption @click="openLogin()">登录</a-doption>
+              <a-doption @click="openTokenModal">Token</a-doption>
+            </template>
+          </a-dropdown>
         </a-space>
       </template>
     </ModuleHeader>
-
-    <MetricGrid :metrics="metrics" />
 
     <div v-if="daasAuth.expired" class="token-expired-banner">
       <icon-exclamation-circle-fill />
@@ -48,7 +47,10 @@
       <div class="filter-block">
         <span class="filter-label">村庄</span>
         <button type="button" class="chip" :class="{ active: !villageFilter }" @click="villageFilter = ''">全部</button>
-        <button v-for="v in villageOptions" :key="v" type="button" class="chip" :class="{ active: villageFilter === v }" @click="villageFilter = v">{{ v }}</button>
+        <button v-for="v in visibleVillageOptions" :key="v" type="button" class="chip" :class="{ active: villageFilter === v }" @click="villageFilter = v">{{ v }}</button>
+        <button v-if="villageOptions.length > VILLAGE_COLLAPSED" type="button" class="chip chip-more" @click="villageCollapsed = !villageCollapsed">
+          {{ villageCollapsed ? `更多 ${villageOptions.length - VILLAGE_COLLAPSED}` : '收起' }}
+        </button>
         <button type="button" class="chip unmatched" :class="{ active: villageFilter === UNMATCHED }" @click="villageFilter = UNMATCHED">未匹配 {{ unmatchedVillageCount }}</button>
       </div>
     </a-card>
@@ -161,7 +163,6 @@ import { Message } from '@arco-design/web-vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { type AMapCircle, type AMapInstance, type AMapMarker, loadAmapJsApi } from '@/utils/amap'
 import ModuleHeader from './components/ModuleHeader.vue'
-import MetricGrid from './components/MetricGrid.vue'
 import { daasAuth, daasRequest, getHiddenBoxIds, setDaasToken } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
 
@@ -227,11 +228,6 @@ const cloudLoading = ref(false)
 const tokenModalVisible = ref(false)
 const tokenInput = ref(daasAuth.token)
 
-const tokenStatusText = computed(() => {
-  if (!daasAuth.token) return daasAuth.expired ? 'Token 已过期' : 'Token 未配置'
-  return daasAuth.expired ? 'Token 已过期' : 'Token 已配置'
-})
-const tokenStatusColor = computed(() => (daasAuth.expired ? 'red' : daasAuth.token ? 'green' : 'gray'))
 function openTokenModal() {
   tokenInput.value = daasAuth.token
   tokenModalVisible.value = true
@@ -286,6 +282,17 @@ const villageOptions = computed(() => {
   })
   return Array.from(s).sort()
 })
+/** 村庄 chips 折叠：默认只显示前 N 个（约两行），点击「更多」展开 */
+const VILLAGE_COLLAPSED = 24
+const villageCollapsed = ref(true)
+const visibleVillageOptions = computed(() => {
+  const list = villageCollapsed.value ? villageOptions.value.slice(0, VILLAGE_COLLAPSED) : villageOptions.value
+  // 保证当前选中的村庄始终可见（即使超出折叠数量）
+  if (villageFilter.value && villageFilter.value !== UNMATCHED && !list.includes(villageFilter.value) && villageOptions.value.includes(villageFilter.value)) {
+    return [...list, villageFilter.value]
+  }
+  return list
+})
 function selectTownship(val: string) {
   townshipFilter.value = val
   villageFilter.value = ''
@@ -337,19 +344,6 @@ const rows = computed<Row[]>(() => {
         otherObjects: otherObjectsOf(b),
       }
     })
-})
-const overflowCount = computed(() => {
-  const hidden = getHiddenBoxIds()
-  return boxes.value.filter((b) => !hidden.has(b.id) && b.overflowStatus === 1).length
-})
-const metrics = computed(() => {
-  const hidden = getHiddenBoxIds()
-  const visibleCount = boxes.value.filter((b) => !hidden.has(b.id)).length
-  return [
-    { label: '箱体总数', value: visibleCount, tone: 'processing' },
-    { label: '满溢预警', value: overflowCount.value, tone: 'danger' },
-    { label: '收集点总数', value: points.value.length },
-  ]
 })
 /** 响应式分页：每页条数可选 20/50/100/1000（onPageSizeChange 切换时回到第 1 页） */
 const pagination = reactive({
@@ -600,6 +594,7 @@ onBeforeUnmount(() => {
 .chip.unmatched { border-style: dashed; color: var(--color-text-3); }
 .chip.unmatched:hover { border-color: var(--color-text-3); color: var(--color-text-2); }
 .chip.unmatched.active { background: var(--color-text-2); border-color: var(--color-text-2); color: #fff; }
+.chip-more { border-style: dashed; color: rgb(var(--arcoblue-6)); }.chip-more:hover { border-color: rgb(var(--arcoblue-6)); color: rgb(var(--arcoblue-6)); }
 .table-panel { padding: 16px; background: var(--color-bg-2); border-radius: 4px; }
 
 /* 表头允许换行显示（与其它档案页统一样式） */

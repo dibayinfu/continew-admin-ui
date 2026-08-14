@@ -6,8 +6,13 @@
         <div class="page-subtitle">按收集点识别满溢旧箱与新箱的更换记录</div>
       </div>
       <a-space>
-        <a-button size="small" type="primary" @click="openLogin">登录 / 更新 Token</a-button>
         <a-button size="small" @click="openExcludedPoints">排除收集点配置</a-button>
+        <a-dropdown position="br">
+          <a-button size="small">更多<icon-down /></a-button>
+          <template #content>
+            <a-doption @click="openLogin">登录 / 更新 Token</a-doption>
+          </template>
+        </a-dropdown>
       </a-space>
     </div>
 

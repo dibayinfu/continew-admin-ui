@@ -6,12 +6,19 @@
         <div class="page-subtitle">查看箱体实时位置、满溢状态及设备运行信息</div>
       </div>
       <a-space>
-        <a-tag :color="tokenStatusColor">{{ tokenStatusText }}</a-tag>
-        <a-button type="primary" @click="openLogin()">登录</a-button>
-        <a-button @click="openTokenModal">Token</a-button>
-        <a-button :loading="cloudLoading" @click="loadFromCloud()">从云端更新</a-button>
-        <a-button @click="importVisible = true">导入 JSON</a-button>
-        <a-button :disabled="!selectedBox" @click="copyLocationLink">复制定位链接</a-button>
+        <a-button type="primary" :loading="cloudLoading" @click="loadFromCloud()">
+          <template #icon><icon-sync /></template>
+          更新
+        </a-button>
+        <a-dropdown position="br">
+          <a-button>更多<icon-down /></a-button>
+          <template #content>
+            <a-doption @click="openLogin()">登录</a-doption>
+            <a-doption @click="openTokenModal">Token</a-doption>
+            <a-doption @click="importVisible = true">导入 JSON</a-doption>
+            <a-doption :disabled="!selectedBox" @click="copyLocationLink">复制定位链接</a-doption>
+          </template>
+        </a-dropdown>
       </a-space>
     </div>
 
@@ -34,7 +41,10 @@
       <div class="filter-block">
         <span class="filter-label">村庄</span>
         <button type="button" class="chip" :class="{ active: !villageFilter }" @click="villageFilter = ''">全部</button>
-        <button v-for="v in villageOptions" :key="v" type="button" class="chip" :class="{ active: villageFilter === v }" @click="villageFilter = v">{{ v }}</button>
+        <button v-for="v in visibleVillageOptions" :key="v" type="button" class="chip" :class="{ active: villageFilter === v }" @click="villageFilter = v">{{ v }}</button>
+        <button v-if="villageOptions.length > VILLAGE_COLLAPSED" type="button" class="chip chip-more" @click="villageCollapsed = !villageCollapsed">
+          {{ villageCollapsed ? `更多 ${villageOptions.length - VILLAGE_COLLAPSED}` : '收起' }}
+        </button>
         <button type="button" class="chip unmatched" :class="{ active: villageFilter === UNMATCHED }" @click="villageFilter = UNMATCHED">未匹配 {{ unmatchedVillageCount }}</button>
       </div>
     </a-card>
@@ -56,7 +66,7 @@
           </div>
           <div class="map-controls">
             <div class="map-theme-picker">
-              <span>地图主题</span>
+              <span>主题</span>
               <a-select v-model="mapTheme" size="small" :allow-clear="false">
                 <a-option v-for="theme in mapThemes" :key="theme.value" :value="theme.value">{{ theme.label }}</a-option>
               </a-select>
@@ -223,12 +233,6 @@ const mapThemes: Array<{ label: string, value: MapTheme }> = [
   { label: '默认', value: 'normal' },
 ]
 
-const tokenStatusText = computed(() => {
-  if (!daasAuth.token) return daasAuth.expired ? 'Token 已过期' : 'Token 未配置'
-  return daasAuth.expired ? 'Token 已过期' : 'Token 已配置'
-})
-const tokenStatusColor = computed(() => (daasAuth.expired ? 'red' : daasAuth.token ? 'green' : 'gray'))
-
 function openTokenModal() {
   tokenInput.value = daasAuth.token
   tokenModalVisible.value = true
@@ -280,6 +284,17 @@ const villageOptions = computed(() => {
     s.add(a.village)
   }
   return Array.from(s).sort()
+})
+/** 村庄 chips 折叠：默认只显示前 N 个（约两行），点击「更多」展开 */
+const VILLAGE_COLLAPSED = 24
+const villageCollapsed = ref(true)
+const visibleVillageOptions = computed(() => {
+  const list = villageCollapsed.value ? villageOptions.value.slice(0, VILLAGE_COLLAPSED) : villageOptions.value
+  // 保证当前选中的村庄始终可见（即使超出折叠数量）
+  if (villageFilter.value && villageFilter.value !== UNMATCHED && !list.includes(villageFilter.value) && villageOptions.value.includes(villageFilter.value)) {
+    return [...list, villageFilter.value]
+  }
+  return list
 })
 function selectTownship(val: string) {
   townshipFilter.value = val
@@ -474,6 +489,7 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); markers.forEach((marker) =>
 .chip.unmatched { border-style: dashed; color: #86909c; }
 .chip.unmatched:hover { border-color: #86909c; color: #4e5969; }
 .chip.unmatched.active { background: #4e5969; border-color: #4e5969; color: #fff; }
+.chip-more { border-style: dashed; color: #165dff; }.chip-more:hover { border-color: #165dff; color: #165dff; }
 .map-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 16px; overflow: hidden; }.map-layout.has-detail { grid-template-columns: minmax(0, 1fr) 360px; }
 .map-card-wrap { min-height: 0; overflow: hidden; display: flex; }.map-card-wrap .map-card { flex: 1; min-height: 0; }.map-card-wrap:fullscreen { position: fixed; inset: 0; z-index: 1001; background: #f2f3f5; }
 .map-card, .detail-card { min-height: 0; overflow: hidden; }
@@ -485,8 +501,8 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); markers.forEach((marker) =>
 .amap-container { width: 100%; height: 100%; background: #f2f3f5; }
 .map-stats { position: absolute; top: 16px; left: 16px; display: flex; gap: 10px; z-index: 1; }
 .map-controls { position: absolute; z-index: 1; top: 16px; right: 16px; display: flex; align-items: center; gap: 8px; }
-.map-theme-picker { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; }.map-theme-picker :deep(.arco-select) { width: 88px; }
-.map-fullscreen-btn { border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; }.map-fullscreen-btn.active { color: #165dff; border-color: #165dff; }
+.map-theme-picker { height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 9px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; }.map-theme-picker :deep(.arco-select) { width: 88px; }
+.map-fullscreen-btn { height: 32px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; }.map-fullscreen-btn.active { color: #165dff; border-color: #165dff; }
 .map-stat { min-width: 106px; padding: 9px 14px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; }
 .map-stat b { display: block; color: #165dff; font-size: 22px; line-height: 28px; }.map-stat.danger b { color: #f53f3f; }
 .map-error { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px; color: #f53f3f; background: #f7f8fa; }

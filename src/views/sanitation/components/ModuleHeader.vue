@@ -1,10 +1,10 @@
 <template>
   <div class="module-header">
     <div>
-      <a-space>
-        <a-tag color="arcoblue">{{ phase }}</a-tag>
-        <a-tag color="orangered">{{ priority }}</a-tag>
-        <a-tag>{{ module }}</a-tag>
+      <a-space v-if="phase || priority || module">
+        <a-tag v-if="phase" color="arcoblue">{{ phase }}</a-tag>
+        <a-tag v-if="priority" color="orangered">{{ priority }}</a-tag>
+        <a-tag v-if="module">{{ module }}</a-tag>
       </a-space>
       <h2>{{ title }}</h2>
       <p>{{ subtitle }}</p>
@@ -19,9 +19,9 @@
 defineProps<{
   title: string
   subtitle: string
-  phase: string
-  priority: string
-  module: string
+  phase?: string
+  priority?: string
+  module?: string
 }>()
 </script>
 

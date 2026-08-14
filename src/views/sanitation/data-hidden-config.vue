@@ -6,10 +6,17 @@
         <div class="page-subtitle">配置后，「箱体地图」「箱体收集点地图」将不显示被隐藏的箱体与收集点。</div>
       </div>
       <a-space>
-        <a-tag :color="tokenStatusColor">{{ tokenStatusText }}</a-tag>
-        <a-button type="primary" @click="openLogin()">登录</a-button>
-        <a-button @click="openTokenModal">Token</a-button>
-        <a-button :loading="loading" @click="loadAll()">从云端更新</a-button>
+        <a-button type="primary" :loading="loading" @click="loadAll()">
+          <template #icon><icon-sync /></template>
+          更新
+        </a-button>
+        <a-dropdown position="br">
+          <a-button>更多<icon-down /></a-button>
+          <template #content>
+            <a-doption @click="openLogin()">登录</a-doption>
+            <a-doption @click="openTokenModal">Token</a-doption>
+          </template>
+        </a-dropdown>
       </a-space>
     </div>
 
@@ -127,11 +134,6 @@ const pointKeyword = ref('')
 
 const tokenModalVisible = ref(false)
 const tokenInput = ref(daasAuth.token)
-const tokenStatusText = computed(() => {
-  if (!daasAuth.token) return daasAuth.expired ? 'Token 已过期' : 'Token 未配置'
-  return daasAuth.expired ? 'Token 已过期' : 'Token 已配置'
-})
-const tokenStatusColor = computed(() => (daasAuth.expired ? 'red' : daasAuth.token ? 'green' : 'gray'))
 function openTokenModal() {
   tokenInput.value = daasAuth.token
   tokenModalVisible.value = true

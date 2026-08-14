@@ -6,9 +6,17 @@
         <div class="page-subtitle">查看收集点位置、服务半径及覆盖箱体信息</div>
       </div>
       <a-space>
-        <a-button :loading="cloudLoading" @click="loadFromCloud()">从云端刷新</a-button>
-        <a-button @click="importVisible = true">导入最新 JSON</a-button>
-        <a-button type="primary" :disabled="!selectedPoint" @click="copyLocationLink">复制当前定位链接</a-button>
+        <a-button type="primary" :loading="cloudLoading" @click="loadFromCloud()">
+          <template #icon><icon-sync /></template>
+          更新
+        </a-button>
+        <a-dropdown position="br">
+          <a-button>更多<icon-down /></a-button>
+          <template #content>
+            <a-doption @click="importVisible = true">导入最新 JSON</a-doption>
+            <a-doption :disabled="!selectedPoint" @click="copyLocationLink">复制当前定位链接</a-doption>
+          </template>
+        </a-dropdown>
       </a-space>
     </div>
 
@@ -25,6 +33,15 @@
         </a-button>
         <span class="filter-result">当前显示 {{ visiblePoints.length }} 个收集点</span>
       </a-space>
+      <div class="filter-block">
+        <span class="filter-label">村庄</span>
+        <button type="button" class="chip" :class="{ active: !villageFilter }" @click="villageFilter = ''">全部</button>
+        <button v-for="v in visibleVillageOptions" :key="v" type="button" class="chip" :class="{ active: villageFilter === v }" @click="villageFilter = v">{{ v }}</button>
+        <button v-if="villageOptions.length > VILLAGE_COLLAPSED" type="button" class="chip chip-more" @click="villageCollapsed = !villageCollapsed">
+          {{ villageCollapsed ? `更多 ${villageOptions.length - VILLAGE_COLLAPSED}` : '收起' }}
+        </button>
+        <button type="button" class="chip unmatched" :class="{ active: villageFilter === UNMATCHED }" @click="villageFilter = UNMATCHED">未匹配 {{ unmatchedVillageCount }}</button>
+      </div>
     </a-card>
 
     <div class="map-layout" :class="{ 'has-detail': selectedPoint }">
@@ -38,7 +55,7 @@
           </div>
           <div class="map-controls">
             <div class="map-theme-picker">
-              <span>地图主题</span>
+              <span>主题</span>
               <a-select v-model="mapTheme" size="small" :allow-clear="false">
                 <a-option v-for="theme in mapThemes" :key="theme.value" :value="theme.value">{{ theme.label }}</a-option>
               </a-select>
@@ -189,10 +206,33 @@ const mapThemes: Array<{ label: string, value: MapTheme }> = [
 ]
 
 const townshipOptions = computed(() => Array.from(new Set(points.value.map((p) => p.townshipName).filter(Boolean))).sort())
+/** 「未匹配」筛选值：无村庄归属的收集点专用 sentinel，不会与真实村庄名冲突 */
+const UNMATCHED = '__unmatched__'
+const villageFilter = ref('')
+/** 村庄 chips 折叠：默认只显示前 N 个（约两行），点击「更多」展开 */
+const VILLAGE_COLLAPSED = 24
+const villageCollapsed = ref(true)
+const villageOptions = computed(() => Array.from(new Set(points.value.map((p) => p.villageName).filter(Boolean))).sort())
+const visibleVillageOptions = computed(() => {
+  const list = villageCollapsed.value ? villageOptions.value.slice(0, VILLAGE_COLLAPSED) : villageOptions.value
+  // 保证当前选中的村庄始终可见（即使超出折叠数量）
+  if (villageFilter.value && villageFilter.value !== UNMATCHED && !list.includes(villageFilter.value) && villageOptions.value.includes(villageFilter.value)) {
+    return [...list, villageFilter.value]
+  }
+  return list
+})
+const unmatchedVillageCount = computed(() => points.value.filter((p) => !p.villageName).length)
+function matchVillage(point: CollectionPoint) {
+  if (!villageFilter.value) return true
+  const village = point.villageName
+  if (villageFilter.value === UNMATCHED) return !village
+  return village === villageFilter.value
+}
 const visiblePoints = computed(() => {
   const query = keyword.value.trim().toLowerCase()
   return points.value.filter((p) => Number.isFinite(p.longitude) && Number.isFinite(p.latitude)
     && (!township.value || p.townshipName === township.value)
+    && matchVillage(p)
     && (!multiOnly.value || p.containerCount >= 2)
     && (!query || p.pointName.toLowerCase().includes(query) || p.townshipName.toLowerCase().includes(query)
       || p.villageName.toLowerCase().includes(query) || p.address.toLowerCase().includes(query)))
@@ -288,7 +328,7 @@ function importPoints() {
   } catch { Message.error('JSON 格式不正确：需要包含 data.list 数组'); return false }
 }
 
-watch([keyword, township, multiOnly], drawMarkers)
+watch([keyword, township, villageFilter, multiOnly], drawMarkers)
 watch(points, drawMarkers)
 watch(selectedPoint, drawSelectedRadiusLabel)
 watch(mapTheme, (theme) => map?.setMapStyle(`amap://styles/${theme}`))
@@ -325,6 +365,15 @@ onBeforeUnmount(() => { markers.forEach((marker) => marker.setMap(null)); radius
 .page-header { display: flex; align-items: center; justify-content: space-between; padding: 2px 0; }
 .page-title { color: #1d2129; font-size: 20px; font-weight: 600; line-height: 30px; }
 .page-subtitle, .filter-result { color: #86909c; font-size: 13px; }
+.filter-block { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+.filter-label { color: #4e5969; font-size: 13px; white-space: nowrap; }
+.chip { padding: 2px 13px; border: 1px solid #e5e6eb; border-radius: 14px; background: #fff; color: #4e5969; font-size: 13px; line-height: 22px; cursor: pointer; transition: all .15s; }
+.chip:hover { border-color: #165dff; color: #165dff; }
+.chip.active { background: #165dff; border-color: #165dff; color: #fff; }
+.chip.unmatched { border-style: dashed; color: #86909c; }
+.chip.unmatched:hover { border-color: #86909c; color: #4e5969; }
+.chip.unmatched.active { background: #4e5969; border-color: #4e5969; color: #fff; }
+.chip-more { border-style: dashed; color: #165dff; }.chip-more:hover { border-color: #165dff; color: #165dff; }
 .filter-card :deep(.arco-card-body) { padding: 14px 16px; }
 .map-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 16px; overflow: hidden; }.map-layout.has-detail { grid-template-columns: minmax(0, 1fr) 360px; }
 .map-card-wrap { min-height: 0; overflow: hidden; display: flex; }.map-card-wrap .map-card { flex: 1; min-height: 0; }.map-card-wrap:fullscreen { position: fixed; inset: 0; z-index: 1001; background: #f2f3f5; }
@@ -337,8 +386,8 @@ onBeforeUnmount(() => { markers.forEach((marker) => marker.setMap(null)); radius
 .amap-container { width: 100%; height: 100%; background: #f2f3f5; }
 .map-stats { position: absolute; top: 16px; left: 16px; display: flex; gap: 10px; z-index: 1; }
 .map-controls { position: absolute; z-index: 1; top: 16px; right: 16px; display: flex; align-items: center; gap: 8px; }
-.map-theme-picker { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; }.map-theme-picker :deep(.arco-select) { width: 88px; }
-.map-fullscreen-btn { border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; }.map-fullscreen-btn.active { color: #165dff; border-color: #165dff; }
+.map-theme-picker { height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 9px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; }.map-theme-picker :deep(.arco-select) { width: 88px; }
+.map-fullscreen-btn { height: 32px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; }.map-fullscreen-btn.active { color: #165dff; border-color: #165dff; }
 .map-stat { min-width: 106px; padding: 9px 14px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; }
 .map-stat b { display: block; color: #165dff; font-size: 22px; line-height: 28px; }
 .map-error { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px; color: #f53f3f; background: #f7f8fa; }

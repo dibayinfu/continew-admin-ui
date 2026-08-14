@@ -6,12 +6,19 @@
         <div class="page-subtitle">箱体与收集点同图展示，支持一键导入最新 JSON 数据</div>
       </div>
       <a-space>
-        <a-tag :color="tokenStatusColor">{{ tokenStatusText }}</a-tag>
-        <a-button type="primary" @click="openLogin()">登录</a-button>
-        <a-button @click="openTokenModal">Token</a-button>
-        <a-button :loading="cloudLoading" @click="loadFromCloud()">从云端更新</a-button>
-        <a-button @click="importVisible = true">导入最新 JSON</a-button>
-        <a-button :disabled="!selected" @click="copyLocationLink">复制定位链接</a-button>
+        <a-button type="primary" :loading="cloudLoading" @click="loadFromCloud()">
+          <template #icon><icon-sync /></template>
+          更新
+        </a-button>
+        <a-dropdown position="br">
+          <a-button>更多<icon-down /></a-button>
+          <template #content>
+            <a-doption @click="openLogin()">登录</a-doption>
+            <a-doption @click="openTokenModal">Token</a-doption>
+            <a-doption @click="importVisible = true">导入最新 JSON</a-doption>
+            <a-doption :disabled="!selected" @click="copyLocationLink">复制定位链接</a-doption>
+          </template>
+        </a-dropdown>
       </a-space>
     </div>
 
@@ -24,8 +31,18 @@
       </div>
       <div class="filter-block">
         <span class="filter-label">乡镇</span>
-        <button type="button" class="chip" :class="{ active: isAllSelected }" @click="toggleAllTownships">全部</button>
-        <button v-for="name in allTownships" :key="name" type="button" class="chip" :class="{ active: selectedTownships.has(name) }" @click="toggleTownship(name)">{{ name }}</button>
+        <button type="button" class="chip" :class="{ active: !townshipFilter }" @click="selectTownship('')">全部</button>
+        <button v-for="t in townshipOptions" :key="t" type="button" class="chip" :class="{ active: townshipFilter === t }" @click="selectTownship(t)">{{ t }}</button>
+        <button type="button" class="chip unmatched" :class="{ active: townshipFilter === UNMATCHED }" @click="selectTownship(UNMATCHED)">未匹配 {{ unmatchedTownshipCount }}</button>
+      </div>
+      <div class="filter-block">
+        <span class="filter-label">村庄</span>
+        <button type="button" class="chip" :class="{ active: !villageFilter }" @click="villageFilter = ''">全部</button>
+        <button v-for="v in visibleVillageOptions" :key="v" type="button" class="chip" :class="{ active: villageFilter === v }" @click="villageFilter = v">{{ v }}</button>
+        <button v-if="villageOptions.length > VILLAGE_COLLAPSED" type="button" class="chip chip-more" @click="villageCollapsed = !villageCollapsed">
+          {{ villageCollapsed ? `更多 ${villageOptions.length - VILLAGE_COLLAPSED}` : '收起' }}
+        </button>
+        <button type="button" class="chip unmatched" :class="{ active: villageFilter === UNMATCHED }" @click="villageFilter = UNMATCHED">未匹配 {{ unmatchedVillageCount }}</button>
       </div>
       <div class="filter-block">
         <span class="filter-label">箱体</span>
@@ -34,8 +51,6 @@
           <button type="button" class="seg-btn" :class="{ active: overflowFilter === 'all' }" @click="overflowFilter = 'all'">全部</button>
           <button type="button" class="seg-btn danger" :class="{ active: overflowFilter === 'overflow' }" @click="overflowFilter = 'overflow'">只看满溢</button>
         </div>
-      </div>
-      <div class="filter-block">
         <span class="filter-label">收集点</span>
         <a-switch v-model="showPoints" size="small" />
         <div class="seg" :class="{ disabled: !showPoints }">
@@ -69,7 +84,7 @@
           </div>
           <div class="map-controls">
             <div class="map-theme-picker">
-              <span>地图主题</span>
+              <span>主题</span>
               <a-select v-model="mapTheme" size="small" :allow-clear="false">
                 <a-option v-for="theme in mapThemes" :key="theme.value" :value="theme.value">{{ theme.label }}</a-option>
               </a-select>
@@ -270,11 +285,6 @@ const importText = ref('')
 const tokenModalVisible = ref(false)
 const tokenInput = ref(daasAuth.token)
 
-const tokenStatusText = computed(() => {
-  if (!daasAuth.token) return daasAuth.expired ? 'Token 已过期' : 'Token 未配置'
-  return daasAuth.expired ? 'Token 已过期' : 'Token 已配置'
-})
-const tokenStatusColor = computed(() => (daasAuth.expired ? 'red' : daasAuth.token ? 'green' : 'gray'))
 function openTokenModal() {
   tokenInput.value = daasAuth.token
   tokenModalVisible.value = true
@@ -307,24 +317,89 @@ const selectedGcj = computed(() => {
   if (selectedPoint.value) return getPointGcj(selectedPoint.value)
   return undefined
 })
-const allTownships = computed(() => Array.from(new Set(points.value.map((p) => p.townshipName).filter(Boolean))).sort())
-const townshipTouched = ref(false)
-const selectedTownships = ref<Set<string>>(new Set())
-const isAllSelected = computed(() => allTownships.value.length > 0 && allTownships.value.every((t) => selectedTownships.value.has(t)))
-// 默认全部勾选：乡镇列表变化（如加载真实数据后）且用户未手动筛选时，自动补全新出现的乡镇
-watch(allTownships, (towns) => {
-  if (!townshipTouched.value) selectedTownships.value = new Set(towns)
-}, { immediate: true })
-function toggleTownship(name: string) {
-  townshipTouched.value = true
-  const next = new Set(selectedTownships.value)
-  if (next.has(name)) next.delete(name)
-  else next.add(name)
-  selectedTownships.value = next
+/** 乡镇单选（与箱体地图一致）：全部 / 指定乡镇 / 未匹配 */
+const townshipFilter = ref('')
+const townshipOptions = computed(() => {
+  const s = new Set<string>()
+  for (const b of boxes.value) {
+    const a = boxAreas.get(b.id)
+    if (a?.township) s.add(a.township)
+  }
+  return Array.from(s).sort()
+})
+const unmatchedTownshipCount = computed(() => boxes.value.filter((b) => !boxAreas.get(b.id)?.township).length)
+function selectTownship(val: string) {
+  townshipFilter.value = val
+  villageFilter.value = ''
 }
-function toggleAllTownships() {
-  townshipTouched.value = true
-  selectedTownships.value = isAllSelected.value ? new Set() : new Set(allTownships.value)
+function matchTownship(box: Box) {
+  if (!townshipFilter.value) return true
+  const township = boxAreas.get(box.id)?.township
+  if (townshipFilter.value === UNMATCHED) return !township
+  return township === townshipFilter.value
+}
+function matchTownshipForPoint(point: CollectionPoint) {
+  if (!townshipFilter.value) return true
+  const township = point.townshipName
+  if (townshipFilter.value === UNMATCHED) return !township
+  return township === townshipFilter.value
+}
+/** 箱体 -> 所属乡镇/村庄（来自收集点数据 townshipName/villageName，与箱体地图一致） */
+const boxAreas = new Map<number, { township: string, village: string }>()
+function assignBoxAreas(boxList: Box[], pointList: CollectionPoint[]) {
+  boxAreas.clear()
+  for (const box of boxList) {
+    let hit: CollectionPoint | undefined
+    try {
+      const keys = Object.keys(JSON.parse(box.matchObject || '{}'))
+      for (const key of keys) {
+        const p = pointList.find((pp) => pp.pointName === key || pp.pointCode === key || String(pp.id) === key)
+        if (p) { hit = p; break }
+      }
+    } catch { /* 忽略 */ }
+    if (hit) boxAreas.set(box.id, { township: hit.townshipName, village: hit.villageName || '' })
+  }
+}
+/** 「未匹配」筛选值：无收集点归属（无村庄）的箱体专用 sentinel，不会与真实村庄名冲突 */
+const UNMATCHED = '__unmatched__'
+const villageFilter = ref('')
+/** 村庄 chips 折叠：默认只显示前 N 个（约两行），点击「更多」展开 */
+const VILLAGE_COLLAPSED = 24
+const villageCollapsed = ref(true)
+const villageOptions = computed(() => {
+  const s = new Set<string>()
+  for (const b of boxes.value) {
+    const a = boxAreas.get(b.id)
+    if (!a?.village) continue
+    if (townshipFilter.value && a.township !== townshipFilter.value) continue
+    s.add(a.village)
+  }
+  return Array.from(s).sort()
+})
+const visibleVillageOptions = computed(() => {
+  const list = villageCollapsed.value ? villageOptions.value.slice(0, VILLAGE_COLLAPSED) : villageOptions.value
+  // 保证当前选中的村庄始终可见（即使超出折叠数量）
+  if (villageFilter.value && villageFilter.value !== UNMATCHED && !list.includes(villageFilter.value) && villageOptions.value.includes(villageFilter.value)) {
+    return [...list, villageFilter.value]
+  }
+  return list
+})
+const unmatchedVillageCount = computed(() => boxes.value.filter((b) => {
+  if (boxAreas.get(b.id)?.village) return false
+  if (townshipFilter.value && townshipFilter.value !== UNMATCHED) return false
+  return true
+}).length)
+function matchVillage(box: Box) {
+  if (!villageFilter.value) return true
+  const village = boxAreas.get(box.id)?.village
+  if (villageFilter.value === UNMATCHED) return !village
+  return village === villageFilter.value
+}
+function matchVillageForPoint(point: CollectionPoint) {
+  if (!villageFilter.value) return true
+  const village = point.villageName
+  if (villageFilter.value === UNMATCHED) return !village
+  return village === villageFilter.value
 }
 const showBoxes = ref(true)
 const showPoints = ref(true)
@@ -333,18 +408,21 @@ const overflowFilter = ref<'all' | 'overflow'>('all')
 const visiblePoints = computed(() => {
   if (!showPoints.value) return []
   const hidden = getHiddenPointIds()
-  // 关键字不再隐藏收集点（与箱体一致：仅用于箱体高亮定位），仍受开关/隐藏/乡镇/多箱点筛选约束
+  // 关键字不再隐藏收集点（与箱体一致：仅用于箱体高亮定位），仍受开关/隐藏/乡镇/村庄/多箱点筛选约束
   return points.value.filter((p) => Number.isFinite(p.longitude) && Number.isFinite(p.latitude)
     && !hidden.has(p.id)
-    && selectedTownships.value.has(p.townshipName)
+    && matchTownshipForPoint(p)
+    && matchVillageForPoint(p)
     && (multiFilter.value === 'all' || p.containerCount >= 2))
 })
 const visibleBoxes = computed(() => {
   if (!showBoxes.value) return []
   const hidden = getHiddenBoxIds()
-  // 关键字不再隐藏未命中的箱体（参考箱体地图：仅高亮定位），仍受开关/隐藏/满溢筛选约束
+  // 关键字不再隐藏未命中的箱体（参考箱体地图：仅高亮定位），仍受开关/隐藏/村庄/满溢筛选约束
   return boxes.value.filter((b) => Number.isFinite(b.longitude) && Number.isFinite(b.latitude)
     && !hidden.has(b.id)
+    && matchTownship(b)
+    && matchVillage(b)
     && (overflowFilter.value === 'all' || b.overflowStatus === 1))
 })
 const overflowCount = computed(() => visibleBoxes.value.filter((b) => b.overflowStatus === 1).length)
@@ -400,7 +478,7 @@ function pointTone(point: CollectionPoint) { return point.containerCount >= 2 ? 
 function boxStatusText(box: Box) { return box.overflowStatus === 1 ? '满溢' : box.fillLevel >= 70 ? '接近满溢' : '正常' }
 function boxStatusColor(box: Box) { return box.overflowStatus === 1 ? 'red' : box.fillLevel >= 70 ? 'orange' : 'green' }
 
-function drawMarkers() {
+function drawMarkers(fit = true) {
   if (!map || !amap) return
   boxMarkers.forEach((m) => m.setMap(null)); boxMarkers = []
   pointMarkers.forEach((m) => m.setMap(null)); pointMarkers = []
@@ -426,7 +504,7 @@ function drawMarkers() {
     boxMarkers.push(marker)
   })
   const allMarkers = [...pointMarkers, ...boxMarkers]
-  if (allMarkers.length) map.setFitView(allMarkers, false, [60, 60, 60, 360])
+  if (fit && allMarkers.length) map.setFitView(allMarkers, false, [60, 60, 60, 360])
   if (selectedBox.value && !visibleBoxes.value.includes(selectedBox.value)) selectedBox.value = undefined
   if (selectedPoint.value && !visiblePoints.value.includes(selectedPoint.value)) selectedPoint.value = undefined
   drawSelectedRadiusLabel()
@@ -489,35 +567,49 @@ function importData() {
     const boxList = Array.isArray(data?.boxes) ? data.boxes : undefined
     const pointList = Array.isArray(data?.points) ? data.points : undefined
     if (boxList === undefined && pointList === undefined) throw new Error()
-    if (boxList !== undefined) { boxes.value = boxList as Box[]; boxGcjPoints = new WeakMap<Box, GcjPoint>() }
-    if (pointList !== undefined) { points.value = pointList as CollectionPoint[]; pointGcjPoints = new WeakMap<CollectionPoint, GcjPoint>() }
+    const nextBoxes = boxList !== undefined ? (boxList as Box[]) : boxes.value
+    const nextPoints = pointList !== undefined ? (pointList as CollectionPoint[]) : points.value
+    // 先分配箱体归属，再赋值（避免渲染时 villageOptions 读到空归属并缓存为空）
+    assignBoxAreas(nextBoxes, nextPoints)
+    if (boxList !== undefined) { boxes.value = nextBoxes; boxGcjPoints = new WeakMap<Box, GcjPoint>() }
+    if (pointList !== undefined) { points.value = nextPoints; pointGcjPoints = new WeakMap<CollectionPoint, GcjPoint>() }
     selectedBox.value = undefined; selectedPoint.value = undefined; importText.value = ''
     Message.success(`已导入 ${pointList?.length ?? 0} 个收集点、${boxList?.length ?? 0} 个箱体`)
     return true
   } catch { Message.error('JSON 格式不正确：需要包含 data.boxes 或 data.points 数组'); return false }
 }
 
-watch([keyword, multiFilter, overflowFilter, selectedTownships, showBoxes, showPoints], drawMarkers)
+// 关键字仅高亮定位，不重缩放（与箱体地图一致）；筛选条件变化时按筛选结果重新缩放适配
+watch(keyword, () => drawMarkers(false))
+watch([multiFilter, overflowFilter, townshipFilter, villageFilter, showBoxes, showPoints], drawMarkers)
 watch(boxes, drawMarkers)
 watch(points, drawMarkers)
 watch(selectedPoint, drawSelectedRadiusLabel)
 watch(mapTheme, (theme) => map?.setMapStyle(`amap://styles/${theme}`))
 async function loadFromCloud(silent = false) {
   cloudLoading.value = true
-  let boxCount = 0
-  let pointCount = 0
+  let boxList: Box[] | undefined
+  let pointList: CollectionPoint[] | undefined
   let ok = false
   try {
     const data = await daasRequest<{ list: Box[] }>(BOX_MONITOR_PATH, { body: { current: 1, size: 1000 } })
-    if (Array.isArray(data?.list)) { boxes.value = data.list; boxGcjPoints = new WeakMap<Box, GcjPoint>(); boxCount = data.list.length; ok = true; saveCachedBoxes(data.list) }
+    if (Array.isArray(data?.list)) { boxList = data.list; ok = true }
   } catch { /* 单个失败不影响另一个 */ }
   try {
     const data = await daasRequest<{ list: CollectionPoint[] }>(COLLECTION_POINTS_PATH, { method: 'GET', query: COLLECTION_POINTS_QUERY })
-    if (Array.isArray(data?.list)) { points.value = data.list; pointGcjPoints = new WeakMap<CollectionPoint, GcjPoint>(); pointCount = data.list.length; ok = true; saveCachedPoints(data.list) }
+    if (Array.isArray(data?.list)) { pointList = data.list; ok = true }
   } catch { /* 单个失败不影响另一个 */ }
+  // 先分配箱体归属，再赋值 boxes（避免渲染时 villageOptions 读到空归属并缓存为空）
+  const nextBoxes = boxList ?? boxes.value
+  const nextPoints = pointList ?? points.value
+  assignBoxAreas(nextBoxes, nextPoints)
+  if (boxList) { boxes.value = nextBoxes; boxGcjPoints = new WeakMap<Box, GcjPoint>(); saveCachedBoxes(nextBoxes) }
+  if (pointList) { points.value = nextPoints; pointGcjPoints = new WeakMap<CollectionPoint, GcjPoint>(); saveCachedPoints(nextPoints) }
   selectedBox.value = undefined
   selectedPoint.value = undefined
   cloudLoading.value = false
+  const boxCount = boxList?.length ?? 0
+  const pointCount = pointList?.length ?? 0
   if (ok) { if (!silent) Message.success(`已从云端更新：${pointCount} 收集点 / ${boxCount} 箱体`) }
   else if (!silent) Message.warning('云端数据加载失败，请检查网络或稍后重试')
 }
@@ -527,14 +619,20 @@ onMounted(async () => {
   // 先读共享缓存（其它页面已更新的数据），再静默刷新云端
   const cachedBoxes = getCachedBoxes<Box>()
   const cachedPoints = getCachedPoints<CollectionPoint>()
-  if (cachedBoxes.length) { boxes.value = cachedBoxes; boxGcjPoints = new WeakMap<Box, GcjPoint>() }
-  if (cachedPoints.length) { points.value = cachedPoints; pointGcjPoints = new WeakMap<CollectionPoint, GcjPoint>() }
+  const initBoxes = cachedBoxes.length ? cachedBoxes : boxes.value
+  const initPoints = cachedPoints.length ? cachedPoints : points.value
+  if (cachedBoxes.length || cachedPoints.length) {
+    // 先分配箱体归属，再赋值（避免渲染时 villageOptions 读到空归属并缓存为空）
+    assignBoxAreas(initBoxes, initPoints)
+    if (cachedBoxes.length) { boxes.value = initBoxes; boxGcjPoints = new WeakMap<Box, GcjPoint>() }
+    if (cachedPoints.length) { points.value = initPoints; pointGcjPoints = new WeakMap<CollectionPoint, GcjPoint>() }
+  }
   // 其它页面更新数据时，本页同步刷新（boxes/points 已被 watch 绑定 drawMarkers）
   offBoxes = subscribeBoxesUpdated((list) => {
-    if (Array.isArray(list) && list.length) { boxes.value = list as Box[]; boxGcjPoints = new WeakMap<Box, GcjPoint>() }
+    if (Array.isArray(list) && list.length) { const next = list as Box[]; assignBoxAreas(next, points.value); boxes.value = next; boxGcjPoints = new WeakMap<Box, GcjPoint>() }
   })
   offPoints = subscribePointsUpdated((list) => {
-    if (Array.isArray(list) && list.length) { points.value = list as CollectionPoint[]; pointGcjPoints = new WeakMap<CollectionPoint, GcjPoint>() }
+    if (Array.isArray(list) && list.length) { const next = list as CollectionPoint[]; assignBoxAreas(boxes.value, next); points.value = next; pointGcjPoints = new WeakMap<CollectionPoint, GcjPoint>() }
   })
   if (!mapRef.value) return
   try {
@@ -566,6 +664,10 @@ onBeforeUnmount(() => {
 .chip { padding: 2px 13px; border: 1px solid #e5e6eb; border-radius: 14px; background: #fff; color: #4e5969; font-size: 13px; line-height: 22px; cursor: pointer; transition: all .15s; }
 .chip:hover { border-color: #165dff; color: #165dff; }
 .chip.active { background: #165dff; border-color: #165dff; color: #fff; }
+.chip.unmatched { border-style: dashed; color: #86909c; }
+.chip.unmatched:hover { border-color: #86909c; color: #4e5969; }
+.chip.unmatched.active { background: #4e5969; border-color: #4e5969; color: #fff; }
+.chip-more { border-style: dashed; color: #165dff; }.chip-more:hover { border-color: #165dff; color: #165dff; }
 .seg { display: inline-flex; align-items: stretch; border: 1px solid #d2d3d8; border-radius: 4px; overflow: hidden; box-shadow: 0 1px 2px rgb(0 0 0 / 5%); }
 .seg-btn { padding: 4px 15px; border: 0; background: #fff; color: #4e5969; font-size: 13px; line-height: 18px; cursor: pointer; transition: all .15s; }
 .seg-btn + .seg-btn { border-left: 1px solid #d2d3d8; }
@@ -586,8 +688,8 @@ onBeforeUnmount(() => {
 .map-stats { position: absolute; top: 16px; left: 16px; display: flex; gap: 10px; z-index: 1; }
 .map-legend { position: absolute; z-index: 1; bottom: 16px; left: 16px; display: flex; gap: 12px; padding: 7px 12px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; }.map-legend span { display: inline-flex; align-items: center; gap: 5px; }.legend-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }.legend-dot.point { background: #165dff; }.legend-dot.box { background: #00b42a; border-radius: 2px; }.legend-dot.overflow { background: #f53f3f; }
 .map-controls { position: absolute; z-index: 1; top: 16px; right: 16px; display: flex; align-items: center; gap: 8px; }
-.map-theme-picker { display: flex; align-items: center; gap: 8px; padding: 7px 9px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; }.map-theme-picker :deep(.arco-select) { width: 88px; }
-.map-fullscreen-btn { border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; }.map-fullscreen-btn.active { color: #165dff; border-color: #165dff; }
+.map-theme-picker { height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 9px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; }.map-theme-picker :deep(.arco-select) { width: 88px; }
+.map-fullscreen-btn { height: 32px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; }.map-fullscreen-btn.active { color: #165dff; border-color: #165dff; }
 .map-stat { min-width: 96px; padding: 9px 14px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; }
 .map-stat b { display: block; color: #165dff; font-size: 22px; line-height: 28px; }.map-stat.danger b { color: #f53f3f; }
 .map-error { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px; color: #f53f3f; background: #f7f8fa; }

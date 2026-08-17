@@ -73,17 +73,16 @@
                   <span class="bm-value">{{ getMatchTarget(box) }}</span>
                 </div>
 
-                <!-- 展开详情：非重点信息（名称/类型/地址/锁状态/上报时间） -->
+                <!-- 展开详情：箱体名称、在线状态、设备编号、匹配对象、具体地址、温度、锁状态、最后上报时间（与地图模式一致） -->
                 <div v-if="expandedBoxId === box.id" class="box-expand" @click.stop>
                   <div class="bex-row"><span>箱体名称</span><b>{{ box.boxName }}</b></div>
-                  <div class="bex-row"><span>箱体编号</span><b>{{ box.boxNo }}</b></div>
-                  <div class="bex-row"><span>箱体类型</span><b>{{ box.boxType }}</b></div>
-                  <div class="bex-row"><span>所在乡镇</span><b>{{ box.town }}</b></div>
-                  <div class="bex-row"><span>所在村庄</span><b>{{ box.village }}</b></div>
+                  <div class="bex-row"><span>在线状态</span><b>{{ box.onlineStatus === 0 ? '在线' : '离线' }}</b></div>
+                  <div class="bex-row"><span>设备编号</span><b>{{ box.deviceNo || '—' }}</b></div>
                   <div class="bex-row"><span>匹配对象</span><b>{{ getMatchTarget(box) }}</b></div>
                   <div class="bex-row"><span>具体地址</span><b>{{ getBoxAddress(box) }}</b></div>
+                  <div class="bex-row"><span>温度</span><b>{{ box.temperature != null ? box.temperature + '℃' : '—' }}</b></div>
                   <div class="bex-row"><span>锁状态</span><b>{{ box.lockStatus }}</b></div>
-                  <div class="bex-row"><span>最后上报</span><b>{{ box.lastReport }}</b></div>
+                  <div class="bex-row"><span>最后上报时间</span><b>{{ box.lastReport }}</b></div>
                 </div>
 
                 <div class="box-actions">
@@ -137,7 +136,7 @@ const prdSections: PrdSection[] = [
       { label: '编号', value: '箱体编号为纯数字（如 101、201），卡片上大字突出展示' },
       { label: '状态筛选', value: '全部 / 满溢 两个筛选按钮，与类型切换和搜索联合过滤' },
       { label: '箱体卡片', value: '突出重点、弱化非重点：卡片直接展示编号（大字）、所属乡镇/村庄、满溢率、电量、匹配对象、状态标签（仅「正常 / 满溢」两种）；箱体名称/类型/具体地址/锁状态/最后上报等次要信息折叠在「详情」中查看' },
-      { label: '展开详情', value: '点击「详情」按钮本条下拉展开次要信息：箱体名称、编号、类型、乡镇、村庄、匹配对象、具体地址、锁状态、最后上报，按钮变蓝高亮' },
+      { label: '展开详情', value: '点击「详情」按钮本条下拉展开：箱体名称、在线状态、设备编号、匹配对象、具体地址、温度、锁状态、最后上报时间（与地图模式一致），按钮变蓝高亮' },
       { label: '远程开锁', value: '仅小勾臂箱显示「远程开锁/关锁」按钮（带解锁图标），大勾臂箱无此功能' },
       { label: '导航', value: '每条记录右侧「导航」按钮：点击打开全屏地图页显示该箱体位置（左上返回、底部箱体信息条），页面上「开始导航」调起手机导航软件（高德 URI API，驾车导航）' },
     ],
@@ -146,11 +145,13 @@ const prdSections: PrdSection[] = [
     title: '🗺️ Tab 3：小勾臂箱地图',
     items: [
       { label: '地图', value: '点击「小勾臂箱地图」Tab，手机端内打开高德地图，展示 30 个小勾臂箱实时分布' },
-      { label: '箱体标记', value: '标记显示箱体编号；颜色区分状态：🟢 正常（<75%）/ 🟠 预警（75%~90%）/ 🔴 满溢（≥90%）' },
-      { label: '统计', value: '地图上方展示「共 N 箱」与「满溢 N」统计' },
+      { label: '箱体标记', value: '标记显示箱体编号；颜色区分状态：正常 / 满溢（仅两种状态，无预警中间态）' },
+      { label: '统计', value: '地图上方展示「共 N 箱」与「满溢 N」统计，随筛选联动' },
       { label: '只看满溢', value: '开关：仅显示满溢箱体，按钮红色高亮' },
-      { label: '按箱号搜索', value: '地图上方搜索框，按箱体编号/名称模糊匹配并绿色高亮；回车：0 条忽略 / 多条提示「匹配到 X 个箱体，请输入更精确的编号」/ 单条自动定位缩放并打开详情；不隐藏其他箱体' },
-      { label: '点选详情', value: '点击标记弹出底部详情浮层：编号、名称、状态、垃圾占比、温度、电量、在线/开关状态、具体位置、所属乡镇、设备号、上报时间，支持「导航」' },
+      { label: '乡镇筛选', value: '「乡镇」chips 单选（横向滑动）：全部 / 各镇 / 未匹配；选定乡镇后村庄选项联动为该镇下村庄，切换乡镇村庄自动回「全部」' },
+      { label: '村庄筛选', value: '157 个村庄不罗列，用可搜索下拉呈现；下拉内显式含「全部」选项（无需点叉号清除）；支持按名称模糊搜索，含「未匹配」选项（未匹配到收集点、无归属村庄的箱体）' },
+      { label: '按箱号搜索', value: '地图上方单独一行放大搜索框（重要入口），按箱体编号/名称模糊匹配并绿色高亮；回车或点「定位」：0 条忽略 / 多条提示「匹配到 X 个箱体，请输入更精确的编号」/ 单条自动定位缩放并打开详情；不隐藏其他箱体' },
+      { label: '点选详情', value: '点击标记弹出底部浮层，与「小勾臂箱」列表卡片共用设计（图标+箱号+状态标签+乡镇村庄+满溢率/电量+匹配对象）；点「详情」展开：箱体名称、在线状态、设备编号、匹配对象、具体地址、温度、锁状态、最后上报时间；支持「远程开锁/关锁」与「导航」' },
       { label: '所属乡镇（重点）', value: '根据该箱体地址是否匹配到「收集点」来确定：当箱体地址与某个收集点匹配时，显示该收集点配置的所属乡镇 / 村庄；未匹配到收集点时显示「未匹配」' },
     ],
   },
@@ -159,10 +160,11 @@ const prdSections: PrdSection[] = [
     items: [
       { label: '✓ Tab 切换', value: '三 Tab 切换流畅，列表 / 地图互不干扰' },
       { label: '✓ 搜索过滤', value: '小勾臂箱搜索按编号/名称模糊匹配' },
-      { label: '✓ 地图标记色', value: '正常绿 / 预警橙 / 满溢红，与图例一致' },
+      { label: '✓ 地图标记色', value: '正常 / 满溢 两色区分，无预警中间态' },
       { label: '✓ 只看满溢', value: '地图仅显示满溢箱体，与统计数字一致' },
+      { label: '✓ 乡镇/村庄筛选', value: '乡镇 chips 横向滑动 + 村庄可搜索下拉（含「全部」选项）；切换乡镇村庄回「全部」；「未匹配」筛选生效；统计数字随筛选联动' },
       { label: '✓ 箱号搜索', value: '输入高亮命中箱体，回车定位唯一箱体并打开详情' },
-      { label: '✓ 远程开锁', value: '仅小勾臂箱显示，大勾臂箱无此按钮' },
+      { label: '✓ 远程开锁', value: '列表卡片与地图详情浮层均可「远程开锁/关锁」，仅小勾臂箱' },
       { label: '✓ 导航', value: '点击打开全屏地图页显示该箱体位置，页面上可调起手机导航' },
       { label: '✓ 所属乡镇', value: '箱体匹配到收集点时显示收集点所属乡镇/村庄，未匹配显示「未匹配」' },
       { label: '✓ 界面呈现', value: '字号适中（≥12px）、信息简洁不拥挤、图标辅助表达、结构层级清晰' },
@@ -229,6 +231,9 @@ function generateBoxes(): BoxMonitorItem[] {
       town, village,
       fillRate, battery, status,
       lastReport: `2026-06-16 ${String(8 + Math.floor(Math.random() * 6)).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}:00`,
+      onlineStatus: Math.random() > 0.1 ? 0 : 1,
+      deviceNo: `13820260721${String(i).padStart(9, '0')}`,
+      temperature: Math.round((28 + Math.random() * 8) * 10) / 10,
       lockStatus: Math.random() > 0.1 ? '关锁' : '开锁',
       longitude, latitude,
     })
@@ -249,6 +254,9 @@ function generateBoxes(): BoxMonitorItem[] {
       town, village: '-',
       fillRate, battery, status,
       lastReport: `2026-06-16 ${String(8 + Math.floor(Math.random() * 6)).padStart(2, '0')}:${String(Math.floor(Math.random() * 60)).padStart(2, '0')}:00`,
+      onlineStatus: Math.random() > 0.1 ? 0 : 1,
+      deviceNo: `13820260729${String(i).padStart(9, '0')}`,
+      temperature: Math.round((28 + Math.random() * 6) * 10) / 10,
       lockStatus: '关锁',
       longitude, latitude,
     })
@@ -341,14 +349,14 @@ function openNavPage(box: BoxMonitorItem) {
 .box-loc-line { display: flex; align-items: center; gap: 3px; font-size: 13px; color: #4e5969; margin-top: 2px; }
 .loc-ic { color: #165dff; font-size: 14px; }
 .box-status-tag { font-size: 12px; padding: 2px 9px; border-radius: 8px; flex-shrink: 0; }
-.status-normal { background: #e8ffea; color: #00b42a; } .status-warning { background: #fff7e8; color: #ff7d00; }
+.status-normal { background: #e8ffea; color: #00b42a; }
 .status-overflow { background: #fff0f0; color: #f53f3f; } .status-offline { background: #f2f3f5; color: #86909c; }
 .box-gauges { display: flex; flex-direction: column; gap: 6px; margin: 10px 0 8px; }
 .gauge { display: flex; align-items: center; gap: 8px; }
 .g-label { font-size: 12px; color: #86909c; width: 40px; flex-shrink: 0; }
 .g-bar-bg { flex: 1; height: 6px; background: #eef0f4; border-radius: 3px; overflow: hidden; }
 .g-bar { height: 100%; border-radius: 3px; }
-.bar-normal { background: #00b42a; } .bar-warning { background: #ff7d00; } .bar-overflow { background: #f53f3f; } .bar-offline { background: #86909c; }
+.bar-normal { background: #00b42a; } .bar-overflow { background: #f53f3f; } .bar-offline { background: #86909c; }
 .bar-battery { background: #165dff; }
 .g-val { font-size: 13px; font-weight: 600; color: #1d2129; width: 34px; text-align: right; }
 .g-val.val-overflow { color: #f53f3f; } .g-val.val-offline { color: #86909c; }

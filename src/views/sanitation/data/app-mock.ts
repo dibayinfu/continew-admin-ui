@@ -69,6 +69,12 @@ export interface BoxMonitorItem {
   status: 'normal' | 'warning' | 'overflow' | 'offline'
   lastReport: string
   lockStatus: string
+  /** 在线状态 0=在线 1=离线（与地图模式一致；部分页面未填） */
+  onlineStatus?: number
+  /** 设备编号（与地图模式一致；部分页面未填） */
+  deviceNo?: string
+  /** 温度 ℃（与地图模式一致；部分页面未填） */
+  temperature?: number
   /** 可选坐标（WGS84），用于列表导航地图定位 */
   longitude?: number
   latitude?: number

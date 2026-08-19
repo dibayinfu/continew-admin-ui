@@ -113,8 +113,21 @@ const largeBoxRows = boxRows
     locationMatchLabel: item.locationType === 'station' ? '中转站围栏' : item.locationType === 'vehicle' ? '车辆 GPS' : item.locationType === 'plant' ? '焚烧厂围栏' : '',
   }))
 
+/** 乡镇 → 所属机构（环卫公司）映射，与「车辆绑定设备」页保持一致 */
+function getCompanyName(town: string) {
+  const companyByTown: Record<string, string> = {
+    马投涧镇: '龙安区城乡环境服务有限公司',
+    龙泉镇: '龙安区环卫清运有限公司',
+    善应镇: '龙安区智慧环卫运营有限公司',
+    马家乡: '龙安区市容环境管理有限公司',
+    东风乡: '龙安区洁净城市服务有限公司',
+  }
+  return companyByTown[town] || '龙安区环境卫生服务有限公司'
+}
+
 const vehicleRows = vehicles.map((item) => ({
   ...item,
+  organization: getCompanyName(item.town),
   mileageText: `${item.mileage} km`,
   speedText: `${item.speed} km/h`,
 }))
@@ -320,6 +333,14 @@ export const peopleRows = [
   { id: 'P018', name: '马春霞', phone: '13900010018', personType: '站点管理员', town: '善应镇', vehicle: '-', status: '启用' },
   { id: 'P019', name: '宋立军', phone: '13900010019', personType: '站点管理员', town: '马家乡', vehicle: '-', status: '启用' },
   { id: 'P020', name: '周凯', phone: '13900010020', personType: '站点管理员', town: '马投涧镇', vehicle: '-', status: '启用' },
+  { id: 'P021', name: '王师傅', phone: '13900010021', personType: '驾驶员', town: '善应镇', vehicle: '豫E8K270', status: '启用' },
+  { id: 'P022', name: '赵师傅', phone: '13900010022', personType: '驾驶员', town: '马家乡', vehicle: '豫E2M883', status: '启用' },
+  { id: 'P023', name: '孙师傅', phone: '13900010023', personType: '驾驶员', town: '马投涧镇', vehicle: '豫E6N109', status: '启用' },
+  { id: 'P024', name: '陈师傅', phone: '13900010024', personType: '驾驶员', town: '东风乡', vehicle: '豫E1P392', status: '启用' },
+  { id: 'P025', name: '曹德旺', phone: '13900010025', personType: '驾驶员', town: '马投涧镇', vehicle: '豫E0P345', status: '启用' },
+  { id: 'P026', name: '彭建', phone: '13900010026', personType: '驾驶员', town: '龙泉镇', vehicle: '豫E2R012', status: '启用' },
+  { id: 'P027', name: '贺明', phone: '13900010027', personType: '驾驶员', town: '善应镇', vehicle: '豫E6S789', status: '启用' },
+  { id: 'P028', name: '肖红卫', phone: '13900010028', personType: '驾驶员', town: '马家乡', vehicle: '豫E1T456', status: '启用' },
 ]
 
 const plants = [
@@ -586,49 +607,51 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
     module: '基础档案',
     searchPlaceholder: '搜索车牌号/驾驶员',
     filters: ['全部车辆', '小三轮', '小勾臂车', '大勾臂车'],
-    metrics: [{ label: '车辆总数', value: 20, unit: '辆' }, { label: '在线车辆', value: 12, unit: '辆', tone: 'success' }, { label: '离线车辆', value: 5, unit: '辆', tone: 'warning' }, { label: '充电车辆', value: 3, unit: '辆', tone: 'processing' }],
+    metrics: [],
+    multiFilters: [{ key: 'vehicleType', options: ['全部车辆', '小三轮', '小勾臂车', '大勾臂车'] }],
     columns: [
-      { title: '车牌号', dataIndex: 'plateNo', width: 140 },
+      { title: 'VIN码', dataIndex: 'vin', width: 180 },
       { title: '车辆类型', dataIndex: 'vehicleType', width: 120 },
+      { title: '车牌号', dataIndex: 'plateNo', width: 140 },
       { title: '驾驶员', dataIndex: 'driver', width: 100 },
-      { title: '驾驶员类型', dataIndex: 'driverType', width: 100 },
-      { title: '驾驶员电话', dataIndex: 'driverPhone', width: 140 },
-      { title: '状态', dataIndex: 'status', width: 80 },
+      { title: '电话', dataIndex: 'driverPhone', width: 140 },
+      { title: '所属机构', dataIndex: 'organization', width: 200 },
     ],
     rows: vehicleRows,
-    fieldOptions: { vehicleType: ['小三轮', '小勾臂车', '大勾臂车'], status: ['在线', '离线', '充电'], driver: peopleRows.map((p) => p.name) },
+    fieldOptions: { vehicleType: ['小三轮', '小勾臂车', '大勾臂车'], driver: peopleRows.map((p) => p.name) },
     prd: [
       {
         title: '🎯 功能要点（开发 / 测试关注）',
         items: [
-          { label: '列表查询', value: '分页 20 条/页，横向滚动，超出列显示省略号 + Tooltip；顶部汇总展示车辆总数、在线/离线/充电数量' },
-          { label: '搜索', value: '按车牌号/驾驶员模糊匹配，与车辆类型筛选叠加取交集' },
-          { label: '类型筛选', value: '下拉选择「全部车辆 / 小三轮 / 小勾臂车 / 大勾臂车」' },
-          { label: '新增 / 编辑', value: '「驾驶员」从人员档案下拉选择，自动带出人员类型和电话；其余字段录入' },
-          { label: '删除', value: 'Popconfirm 二次确认，生产中建议软删除（标记 status=停用）' },
+          { label: '页面定位', value: '本页仅维护车辆与其关联驾驶员的绑定关系；车辆新增/删除在平台现有车辆管理中维护，本页不提供新增、删除操作' },
+          { label: '列表查询', value: '分页 20 条/页，横向滚动，超出列显示省略号 + Tooltip' },
+          { label: '搜索', value: '按车牌号/驾驶员模糊匹配' },
+          { label: '类型筛选', value: '下拉选择「全部车辆 / 小三轮 / 小勾臂车 / 大勾臂车」，与搜索叠加取交集' },
+          { label: '编辑', value: '「所属机构」「VIN码」「车辆类型」「车牌号」展示不可更改；「驾驶员」可修改' },
+          { label: '驾驶员绑定', value: '驾驶员下拉展示「姓名 + 电话」；若该驾驶员已绑定其它车辆，展示「『姓名』有绑定过其它车辆，可以先解绑再保存」提示并可快捷「解绑」' },
           { label: '详情', value: '右侧抽屉展示全部字段，只读' },
         ],
       },
       {
-        title: '🔑 字段校验规则',
+        title: '🔑 字段说明',
         items: [
-          { label: '车牌号 (plateNo)', value: '必填，唯一校验' },
-          { label: '车辆类型 (vehicleType)', value: '必填，枚举值：小三轮 / 小勾臂车 / 大勾臂车' },
-          { label: '驾驶员 (driver)', value: '必填，从人员档案下拉选择' },
-          { label: '驾驶员类型 (driverType)', value: '从人员档案自动带出，展示只读' },
-          { label: '驾驶员电话 (driverPhone)', value: '从人员档案自动带出，展示只读' },
-          { label: '状态 (status)', value: '枚举值：在线 / 离线 / 充电' },
+          { label: '所属机构 (organization)', value: '展示，不可更改' },
+          { label: 'VIN码 (vin)', value: '车辆唯一号，不可更改' },
+          { label: '车辆类型 (vehicleType)', value: '枚举值：小三轮 / 小勾臂车 / 大勾臂车，不可更改' },
+          { label: '车牌号 (plateNo)', value: '不可修改' },
+          { label: '驾驶员 (driver)', value: '可修改，从人员档案下拉选择（下拉展示「姓名 + 电话」）' },
+          { label: '电话 (driverPhone)', value: '列表展示驾驶员电话；编辑表单不单独设置（已在驾驶员下拉中展示）' },
         ],
       },
       {
         title: '⚠️ 边界 & 约束',
         items: [
-          { label: '驾驶员联动', value: '选择驾驶员后自动带出人员类型和电话，不可手动修改；人员档案变更后车辆档案同步更新' },
-          { label: '数据来源', value: '当前为本地 mock 数据，对接后端后 CRUD 需走 API' },
+          { label: '驾驶员绑定', value: '仅当该驾驶员绑定其它车辆时展示「『姓名』有绑定过其它车辆，可以先解绑再保存」提示；解绑仅解除该车辆-驾驶员关联，不影响车辆档案本身' },
+          { label: '驾驶员联动', value: '选择驾驶员后自动带出驾驶员电话；人员档案变更后车辆档案同步更新' },
+          { label: '数据来源', value: '车辆、人员等基础数据由平台现有功能维护，本页仅维护车辆-驾驶员关联' },
           { label: '权限', value: '当前无权限控制，生产需接入 RBAC' },
-          { label: '删除约束', value: '删除前需检查是否被作业任务/线路引用，禁止级联删除' },
           { label: 'GPS/称重设备', value: '车辆设备绑定信息在设备管理模块维护，车辆档案仅展示关联关系' },
-          { label: '操作审计', value: '增删改操作需记录操作人、时间、变更内容' },
+          { label: '操作审计', value: '修改操作需记录操作人、时间、变更内容' },
         ],
       },
     ],

@@ -72,27 +72,32 @@ export const villages = [
 ]
 
 export const vehicles = [
-  { id: 'CAR001', plateNo: '豫E7A031', vehicleType: '小三轮', town: '马投涧镇', driver: '张师傅', driverType: '驾驶员', driverPhone: '13900010021', deviceNo: 'GPS-LA-001', status: '在线', speed: 18, mileage: 42.6, weight: '-', alarms: 0 },
-  { id: 'CAR002', plateNo: '豫E3G516', vehicleType: '小勾臂车', town: '龙泉镇', driver: '李师傅', driverType: '驾驶员', driverPhone: '13900010022', deviceNo: 'GPS-LA-021', status: '在线', speed: 46, mileage: 86.2, weight: '2.4t', alarms: 1 },
-  { id: 'CAR003', plateNo: '豫E8K270', vehicleType: '大勾臂车', town: '善应镇', driver: '王师傅', driverType: '驾驶员', driverPhone: '13900010023', deviceNo: 'GPS-LA-041', status: '充电', speed: 62, mileage: 114.8, weight: '13.8t', alarms: 3 },
-  { id: 'CAR004', plateNo: '豫E2M883', vehicleType: '小勾臂车', town: '马家乡', driver: '赵师傅', driverType: '设备运维', driverPhone: '13900010024', deviceNo: 'GPS-LA-022', status: '离线', speed: 0, mileage: 51.4, weight: '1.7t', alarms: 0 },
-  { id: 'CAR005', plateNo: '豫E6N109', vehicleType: '大勾臂车', town: '马投涧镇', driver: '孙师傅', driverType: '驾驶员', driverPhone: '13900010025', deviceNo: 'GPS-LA-042', status: '在线', speed: 39, mileage: 97.3, weight: '11.6t', alarms: 0 },
-  { id: 'CAR006', plateNo: '豫E1P392', vehicleType: '小三轮', town: '东风乡', driver: '陈师傅', driverType: '驾驶员', driverPhone: '13900010026', deviceNo: 'GPS-LA-002', status: '在线', speed: 15, mileage: 31.8, weight: '-', alarms: 0 },
-  { id: 'CAR007', plateNo: '豫E5F678', vehicleType: '小三轮', town: '马投涧镇', driver: '周小明', driverType: '驾驶员', driverPhone: '13900010027', deviceNo: 'GPS-LA-003', status: '在线', speed: 22, mileage: 38.5, weight: '-', alarms: 0 },
-  { id: 'CAR008', plateNo: '豫E9C345', vehicleType: '小勾臂车', town: '龙泉镇', driver: '吴刚', driverType: '驾驶员', driverPhone: '13900010028', deviceNo: 'GPS-LA-023', status: '离线', speed: 0, mileage: 72.1, weight: '1.9t', alarms: 0 },
-  { id: 'CAR009', plateNo: '豫E0D789', vehicleType: '大勾臂车', town: '善应镇', driver: '郑伟', driverType: '驾驶员', driverPhone: '13900010029', deviceNo: 'GPS-LA-043', status: '在线', speed: 55, mileage: 108.5, weight: '12.5t', alarms: 1 },
-  { id: 'CAR010', plateNo: '豫E2F456', vehicleType: '小三轮', town: '马家乡', driver: '冯大伟', driverType: '驾驶员', driverPhone: '13900010030', deviceNo: 'GPS-LA-004', status: '在线', speed: 14, mileage: 29.6, weight: '-', alarms: 0 },
-  { id: 'CAR011', plateNo: '豫E7G123', vehicleType: '小勾臂车', town: '东风乡', driver: '褚怀亮', driverType: '驾驶员', driverPhone: '13900010031', deviceNo: 'GPS-LA-024', status: '充电', speed: 0, mileage: 63.8, weight: '2.1t', alarms: 0 },
-  { id: 'CAR012', plateNo: '豫E3H890', vehicleType: '大勾臂车', town: '马投涧镇', driver: '卫东', driverType: '驾驶员', driverPhone: '13900010032', deviceNo: 'GPS-LA-044', status: '离线', speed: 0, mileage: 132.6, weight: '14.2t', alarms: 2 },
-  { id: 'CAR013', plateNo: '豫E8J567', vehicleType: '小三轮', town: '龙泉镇', driver: '蒋小军', driverType: '驾驶员', driverPhone: '13900010033', deviceNo: 'GPS-LA-005', status: '在线', speed: 20, mileage: 35.2, weight: '-', alarms: 0 },
-  { id: 'CAR014', plateNo: '豫E1K234', vehicleType: '小勾臂车', town: '善应镇', driver: '沈国平', driverType: '驾驶员', driverPhone: '13900010034', deviceNo: 'GPS-LA-025', status: '离线', speed: 0, mileage: 55.4, weight: '1.5t', alarms: 0 },
-  { id: 'CAR015', plateNo: '豫E5M901', vehicleType: '大勾臂车', town: '马家乡', driver: '韩志伟', driverType: '驾驶员', driverPhone: '13900010035', deviceNo: 'GPS-LA-045', status: '充电', speed: 0, mileage: 96.7, weight: '10.8t', alarms: 0 },
-  { id: 'CAR016', plateNo: '豫E9N678', vehicleType: '小三轮', town: '东风乡', driver: '唐金平', driverType: '驾驶员', driverPhone: '13900010036', deviceNo: 'GPS-LA-006', status: '离线', speed: 0, mileage: 22.3, weight: '-', alarms: 0 },
-  { id: 'CAR017', plateNo: '豫E0P345', vehicleType: '小勾臂车', town: '马投涧镇', driver: '曹德旺', driverType: '驾驶员', driverPhone: '13900010037', deviceNo: 'GPS-LA-026', status: '在线', speed: 41, mileage: 78.9, weight: '2.6t', alarms: 1 },
-  { id: 'CAR018', plateNo: '豫E2R012', vehicleType: '大勾臂车', town: '龙泉镇', driver: '彭建', driverType: '驾驶员', driverPhone: '13900010038', deviceNo: 'GPS-LA-046', status: '在线', speed: 48, mileage: 103.2, weight: '12.1t', alarms: 0 },
-  { id: 'CAR019', plateNo: '豫E6S789', vehicleType: '小三轮', town: '善应镇', driver: '贺明', driverType: '驾驶员', driverPhone: '13900010039', deviceNo: 'GPS-LA-007', status: '在线', speed: 16, mileage: 27.4, weight: '-', alarms: 0 },
-  { id: 'CAR020', plateNo: '豫E1T456', vehicleType: '小勾臂车', town: '马家乡', driver: '肖红卫', driverType: '驾驶员', driverPhone: '13900010040', deviceNo: 'GPS-LA-027', status: '在线', speed: 35, mileage: 61.7, weight: '2.2t', alarms: 0 },
+  { id: 'CAR001', plateNo: '豫E7A031', vin: 'LSVALR2K1HN000001', alias: '马投涧小三轮1号', vehicleType: '小三轮', town: '马投涧镇', driver: '张师傅', driverType: '驾驶员', driverPhone: '13900010001', deviceNo: 'GPS-LA-001', status: '在线', speed: 18, mileage: 42.6, weight: '-', alarms: 0 },
+  { id: 'CAR002', plateNo: '豫E3G516', vin: 'LSVALR2K2HN000002', alias: '龙泉小勾臂1号', vehicleType: '小勾臂车', town: '龙泉镇', driver: '李师傅', driverType: '驾驶员', driverPhone: '13900010002', deviceNo: 'GPS-LA-021', status: '在线', speed: 46, mileage: 86.2, weight: '2.4t', alarms: 1 },
+  { id: 'CAR003', plateNo: '豫E8K270', vin: 'LSVALR2K3HN000003', alias: '善应大勾臂1号', vehicleType: '大勾臂车', town: '善应镇', driver: '王师傅', driverType: '驾驶员', driverPhone: '13900010021', deviceNo: 'GPS-LA-041', status: '充电', speed: 62, mileage: 114.8, weight: '13.8t', alarms: 3 },
+  { id: 'CAR004', plateNo: '豫E2M883', vin: 'LSVALR2K4HN000004', alias: '马家小勾臂1号', vehicleType: '小勾臂车', town: '马家乡', driver: '赵师傅', driverType: '驾驶员', driverPhone: '13900010022', deviceNo: 'GPS-LA-022', status: '离线', speed: 0, mileage: 51.4, weight: '1.7t', alarms: 0 },
+  { id: 'CAR005', plateNo: '豫E6N109', vin: 'LSVALR2K5HN000005', alias: '马投涧大勾臂1号', vehicleType: '大勾臂车', town: '马投涧镇', driver: '孙师傅', driverType: '驾驶员', driverPhone: '13900010023', deviceNo: 'GPS-LA-042', status: '在线', speed: 39, mileage: 97.3, weight: '11.6t', alarms: 0 },
+  { id: 'CAR006', plateNo: '豫E1P392', vin: 'LSVALR2K6HN000006', alias: '东风小三轮1号', vehicleType: '小三轮', town: '东风乡', driver: '陈师傅', driverType: '驾驶员', driverPhone: '13900010024', deviceNo: 'GPS-LA-002', status: '在线', speed: 15, mileage: 31.8, weight: '-', alarms: 0 },
+  { id: 'CAR007', plateNo: '豫E5F678', vin: 'LSVALR2K7HN000007', alias: '马投涧小三轮2号', vehicleType: '小三轮', town: '马投涧镇', driver: '周小明', driverType: '驾驶员', driverPhone: '13900010005', deviceNo: 'GPS-LA-003', status: '在线', speed: 22, mileage: 38.5, weight: '-', alarms: 0 },
+  { id: 'CAR008', plateNo: '豫E9C345', vin: 'LSVALR2K8HN000008', alias: '龙泉小勾臂2号', vehicleType: '小勾臂车', town: '龙泉镇', driver: '吴刚', driverType: '驾驶员', driverPhone: '13900010006', deviceNo: 'GPS-LA-023', status: '离线', speed: 0, mileage: 72.1, weight: '1.9t', alarms: 0 },
+  { id: 'CAR009', plateNo: '豫E0D789', vin: 'LSVALR2K9HN000009', alias: '善应大勾臂2号', vehicleType: '大勾臂车', town: '善应镇', driver: '郑伟', driverType: '驾驶员', driverPhone: '13900010007', deviceNo: 'GPS-LA-043', status: '在线', speed: 55, mileage: 108.5, weight: '12.5t', alarms: 1 },
+  { id: 'CAR010', plateNo: '豫E2F456', vin: 'LSVALR2KAHN000010', alias: '马家小三轮1号', vehicleType: '小三轮', town: '马家乡', driver: '冯大伟', driverType: '驾驶员', driverPhone: '13900010008', deviceNo: 'GPS-LA-004', status: '在线', speed: 14, mileage: 29.6, weight: '-', alarms: 0 },
+  { id: 'CAR011', plateNo: '豫E7G123', vin: 'LSVALR2KBHN000011', alias: '东风小勾臂1号', vehicleType: '小勾臂车', town: '东风乡', driver: '褚怀亮', driverType: '驾驶员', driverPhone: '13900010009', deviceNo: 'GPS-LA-024', status: '充电', speed: 0, mileage: 63.8, weight: '2.1t', alarms: 0 },
+  { id: 'CAR012', plateNo: '豫E3H890', vin: 'LSVALR2KCHN000012', alias: '马投涧大勾臂2号', vehicleType: '大勾臂车', town: '马投涧镇', driver: '卫东', driverType: '驾驶员', driverPhone: '13900010010', deviceNo: 'GPS-LA-044', status: '离线', speed: 0, mileage: 132.6, weight: '14.2t', alarms: 2 },
+  { id: 'CAR013', plateNo: '豫E8J567', vin: 'LSVALR2KDHN000013', alias: '龙泉小三轮1号', vehicleType: '小三轮', town: '龙泉镇', driver: '蒋小军', driverType: '驾驶员', driverPhone: '13900010011', deviceNo: 'GPS-LA-005', status: '在线', speed: 20, mileage: 35.2, weight: '-', alarms: 0 },
+  { id: 'CAR014', plateNo: '豫E1K234', vin: 'LSVALR2KEHN000014', alias: '善应小勾臂1号', vehicleType: '小勾臂车', town: '善应镇', driver: '沈国平', driverType: '驾驶员', driverPhone: '13900010012', deviceNo: 'GPS-LA-025', status: '离线', speed: 0, mileage: 55.4, weight: '1.5t', alarms: 0 },
+  { id: 'CAR015', plateNo: '豫E5M901', vin: 'LSVALR2KFHN000015', alias: '马家大勾臂1号', vehicleType: '大勾臂车', town: '马家乡', driver: '韩志伟', driverType: '驾驶员', driverPhone: '13900010013', deviceNo: 'GPS-LA-045', status: '充电', speed: 0, mileage: 96.7, weight: '10.8t', alarms: 0 },
+  { id: 'CAR016', plateNo: '豫E9N678', vin: 'LSVALR2KGHN000016', alias: '东风小三轮2号', vehicleType: '小三轮', town: '东风乡', driver: '唐金平', driverType: '驾驶员', driverPhone: '13900010014', deviceNo: 'GPS-LA-006', status: '离线', speed: 0, mileage: 22.3, weight: '-', alarms: 0 },
+  { id: 'CAR017', plateNo: '豫E0P345', vin: 'LSVALR2KHHN000017', alias: '马投涧小勾臂1号', vehicleType: '小勾臂车', town: '马投涧镇', driver: '曹德旺', driverType: '驾驶员', driverPhone: '13900010025', deviceNo: 'GPS-LA-026', status: '在线', speed: 41, mileage: 78.9, weight: '2.6t', alarms: 1 },
+  { id: 'CAR018', plateNo: '豫E2R012', vin: 'LSVALR2KJHN000018', alias: '龙泉大勾臂1号', vehicleType: '大勾臂车', town: '龙泉镇', driver: '彭建', driverType: '驾驶员', driverPhone: '13900010026', deviceNo: 'GPS-LA-046', status: '在线', speed: 48, mileage: 103.2, weight: '12.1t', alarms: 0 },
+  { id: 'CAR019', plateNo: '豫E6S789', vin: 'LSVALR2KKHN000019', alias: '善应小三轮1号', vehicleType: '小三轮', town: '善应镇', driver: '贺明', driverType: '驾驶员', driverPhone: '13900010027', deviceNo: 'GPS-LA-007', status: '在线', speed: 16, mileage: 27.4, weight: '-', alarms: 0 },
+  { id: 'CAR020', plateNo: '豫E1T456', vin: 'LSVALR2KLHN000020', alias: '马家小勾臂2号', vehicleType: '小勾臂车', town: '马家乡', driver: '肖红卫', driverType: '驾驶员', driverPhone: '13900010028', deviceNo: 'GPS-LA-027', status: '在线', speed: 35, mileage: 61.7, weight: '2.2t', alarms: 0 },
 ]
+
+/** 按驾驶员查找其当前绑定的车辆（与车辆档案同一数据源：vehicles[].driver） */
+export function getDriverVehicles(driverName: string) {
+  return vehicles.filter((v) => v.driver === driverName)
+}
 
 export const stations = [
   { id: 'S001', name: '马家中转站', code: 'ST-MJ-001', town: '马家乡', slots: 2, owner: '宋立军', phone: '13737210021', address: '马家乡北街68号', radius: 500, longitude: 114.2185, latitude: 35.9768, status: '启用', boxes: 2, vehicles: 3, contactPerson: '宋立军', contactPhone: '13900010019' },
@@ -236,4 +241,10 @@ export const statusToneMap: Record<string, StatusTone> = {
   线下处理中: 'warning',
   已转收运单: 'success',
   已关闭: 'success',
+  满溢告警: 'danger',
+  低电量告警: 'warning',
+  设备离线: 'offline',
+  称重异常: 'danger',
+  小勾臂箱: 'normal',
+  大勾臂箱: 'success',
 }

@@ -1,6 +1,12 @@
 <template>
   <div class="task-track-map">
-    <div ref="mapContainer" class="map-container" />
+    <div ref="mapWrapRef" class="map-fullscreen-wrap">
+      <div ref="mapContainer" class="map-container" />
+      <button class="map-fullscreen-btn" :title="isMapFullscreen ? '退出全屏' : '全屏放大'" @click="toggleMapFullscreen">
+        <icon-fullscreen-exit v-if="isMapFullscreen" />
+        <icon-fullscreen v-else />
+      </button>
+    </div>
     <div class="map-legend">
       <span><i class="legend-line actual"></i>实际轨迹</span>
       <span><i class="legend-line planned"></i>未完成路段</span>
@@ -13,8 +19,8 @@
 
 <script setup lang="ts">
 import { ref, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
+import { useFullscreen } from '@vueuse/core'
+import { type AMapInstance, type AMapMarker, type AMapOverlay, loadAmapJsApi } from '@/utils/amap'
 import type { TrackPoint } from '../data/alert-task'
 
 const props = defineProps<{
@@ -24,44 +30,56 @@ const props = defineProps<{
 }>()
 
 const mapContainer = ref<HTMLDivElement>()
-let map: L.Map | null = null
+const mapWrapRef = ref<HTMLElement>()
+const { isFullscreen: isMapFullscreen, toggle: toggleMapFullscreen } = useFullscreen(mapWrapRef, {
+  onFullscreenChange: () => setTimeout(() => map?.resize(), 300),
+})
 
-function initMap() {
+let amap: Awaited<ReturnType<typeof loadAmapJsApi>> | undefined
+let map: AMapInstance | null = null
+let overlays: AMapOverlay[] = []
+
+function clearOverlays() {
+  overlays.forEach((o) => o.setMap(null))
+  overlays = []
+}
+
+async function initMap() {
   if (!mapContainer.value) return
-  if (map) { map.remove(); map = null }
+  if (!amap) {
+    try {
+      amap = await loadAmapJsApi()
+    } catch (error) {
+      console.error('高德地图加载失败', error)
+      return
+    }
+  }
+  if (map) { map.destroy(); map = null }
+  clearOverlays()
 
   const allPoints = props.track.filter((p) => p.lng != null && p.lat != null)
   if (allPoints.length === 0) return
 
-  // 关键事件点（有 label）和中间途经点
-  const keyPoints = allPoints.filter((p) => p.label)
-
-  // 计算中心
+  // 计算中心（高德坐标为 [lng, lat]）
   const lngs = allPoints.map((p) => p.lng)
   const lats = allPoints.map((p) => p.lat)
-  const centerLng = (Math.min(...lngs) + Math.max(...lngs)) / 2
-  const centerLat = (Math.min(...lats) + Math.max(...lats)) / 2
+  const center: [number, number] = [
+    (Math.min(...lngs) + Math.max(...lngs)) / 2,
+    (Math.min(...lats) + Math.max(...lats)) / 2,
+  ]
 
-  map = L.map(mapContainer.value, {
-    center: [centerLat, centerLng],
+  map = new amap.Map(mapContainer.value, {
     zoom: 14,
-    zoomControl: true,
-    attributionControl: false,
+    center,
+    viewMode: '2D',
+    mapStyle: 'amap://styles/light',
+    resizeEnable: true,
+    animateEnable: false,
+    jogEnable: false,
   })
 
-  // 高德瓦片（优先）
-  const amapLayer = L.tileLayer('https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', {
-    maxZoom: 18, subdomains: ['webrd01', 'webrd02', 'webrd03', 'webrd04'],
-  })
-  const osmLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 })
-  amapLayer.addTo(map)
-  amapLayer.on('tileerror', () => {
-    map?.removeLayer(amapLayer)
-    if (!map?.hasLayer(osmLayer)) osmLayer.addTo(map!)
-  })
-
-  // ---- 轨迹连线：按车辆实际轨迹点绘制，已走路段实线，未完成路段虚线 ----
-  const completedLatLngs = allPoints.filter((p) => p.done).map((p) => [p.lat, p.lng] as [number, number])
+  // ---- 轨迹连线：已走路段实线，未完成路段虚线 ----
+  const completed = allPoints.filter((p) => p.done).map((p) => [p.lng, p.lat] as [number, number])
   let lastDoneIndex = -1
   for (let index = allPoints.length - 1; index >= 0; index -= 1) {
     if (allPoints[index].done) {
@@ -69,126 +87,124 @@ function initMap() {
       break
     }
   }
-  const plannedLatLngs = lastDoneIndex >= 0
-    ? allPoints.slice(lastDoneIndex).map((p) => [p.lat, p.lng] as [number, number])
-    : allPoints.map((p) => [p.lat, p.lng] as [number, number])
+  const planned = lastDoneIndex >= 0
+    ? allPoints.slice(lastDoneIndex).map((p) => [p.lng, p.lat] as [number, number])
+    : allPoints.map((p) => [p.lng, p.lat] as [number, number])
 
-  if (completedLatLngs.length >= 2) {
-    L.polyline(completedLatLngs, {
-      color: '#0e42d2',
-      weight: 5,
-      opacity: 0.9,
-      lineCap: 'round',
+  if (completed.length >= 2) {
+    const line = new amap.Polyline({
+      path: completed,
+      strokeColor: '#0e42d2',
+      strokeWeight: 5,
+      strokeOpacity: 0.9,
       lineJoin: 'round',
-    }).addTo(map)
+      lineCap: 'round',
+    })
+    line.setMap(map)
+    overlays.push(line)
   }
 
-  if (plannedLatLngs.length >= 2 && allPoints.some((p) => !p.done)) {
-    L.polyline(plannedLatLngs, {
-      color: '#86909c',
-      weight: 4,
-      opacity: 0.75,
-      dashArray: '8, 8',
-      lineCap: 'round',
+  if (planned.length >= 2 && allPoints.some((p) => !p.done)) {
+    const line = new amap.Polyline({
+      path: planned,
+      strokeColor: '#86909c',
+      strokeWeight: 4,
+      strokeOpacity: 0.75,
+      strokeStyle: 'dashed',
+      strokeDasharray: [8, 8],
       lineJoin: 'round',
-    }).addTo(map)
+      lineCap: 'round',
+    })
+    line.setMap(map)
+    overlays.push(line)
   }
 
+  const allMarkers: AMapMarker[] = []
+
+  // 车辆当前位置
   const currentPoint = [...allPoints].reverse().find((p) => p.done)
   if (currentPoint) {
-    const vehicleIcon = L.divIcon({
-      className: 'vehicle-marker',
-      html: '<div class="vehicle-dot">车</div>',
-      iconSize: [30, 30],
-      iconAnchor: [15, 15],
+    const marker = new amap.Marker({
+      position: [currentPoint.lng, currentPoint.lat],
+      offset: new amap.Pixel(-15, -15),
+      content: '<div class="vehicle-marker"><div class="vehicle-dot">车</div></div>',
+      zIndex: 30,
     })
-    L.marker([currentPoint.lat, currentPoint.lng], { icon: vehicleIcon }).addTo(map)
+    marker.setMap(map)
+    overlays.push(marker)
+    allMarkers.push(marker)
   }
 
   // ---- 电子围栏圈：始发点 & 目的地 ----
   const fencePoints = allPoints.filter((p) => p.label === '始发点' || p.label === '目的地')
   fencePoints.forEach((p) => {
-    const isDone = p.done
     const isStart = p.label === '始发点'
-    L.circle([p.lat, p.lng], {
+    const circle = new amap.Circle({
+      center: new amap.LngLat(p.lng, p.lat),
       radius: p.fenceRadius || 500,
-      color: isStart ? '#0e42d2' : '#7a35d8',
-      weight: 2,
-      opacity: isDone ? 0.65 : 0.4,
+      strokeColor: isStart ? '#0e42d2' : '#7a35d8',
+      strokeOpacity: p.done ? 0.65 : 0.4,
+      strokeWeight: 2,
+      strokeStyle: p.done ? 'solid' : 'dashed',
       fillColor: isStart ? '#0e42d2' : '#7a35d8',
-      fillOpacity: isDone ? 0.09 : 0.05,
-      dashArray: isDone ? undefined : '6, 4',
-    }).addTo(map).bindTooltip(`${p.label}电子围栏 ${p.fenceRadius || 500}m`, {
-      permanent: false,
-      direction: 'top',
+      fillOpacity: p.done ? 0.09 : 0.05,
     })
+    circle.setMap(map)
+    overlays.push(circle)
   })
 
-  // ---- 标记点：所有关键事件点都显示 ----
-  const labelColors: Record<string, { bg: string; border: string }> = {
-    '始发点': { bg: '#0e42d2', border: '#0e42d2' },
-    '装车': { bg: '#ff7d00', border: '#ff7d00' },
-    '目的地': { bg: '#7a35d8', border: '#7a35d8' },
-    '卸车': { bg: '#00b42a', border: '#00b42a' },
-  }
+  // ---- 标记点：所有关键事件点（统一蓝/灰），点击弹出信息 ----
+  const doneColor = '#165dff'
+  const pendingColor = '#a9aeb8'
+  const keyPoints = allPoints.filter((p) => p.label)
 
   keyPoints.forEach((p) => {
-    const colors = labelColors[p.label] || { bg: '#86909c', border: '#86909c' }
     const isDone = p.done
+    const color = isDone ? doneColor : pendingColor
     const dotSize = 14
     const outerSize = dotSize + 8
+    const dotHtml = isDone
+      ? `<div class="tm-dot" style="width:${outerSize}px;height:${outerSize}px;background:${color}33;border-color:${color}"><span style="width:${dotSize}px;height:${dotSize}px;background:${color};border-color:${color}"></span></div>`
+      : `<div class="tm-dot tm-pending" style="width:${outerSize}px;height:${outerSize}px;border-color:${color}44"><span style="width:${dotSize}px;height:${dotSize}px;background:${color}88;border-color:${color}44"></span></div>`
 
-    const markerIcon = L.divIcon({
-      className: 'track-marker',
-      html: isDone
-        ? `<div class="tm-dot" style="width:${outerSize}px;height:${outerSize}px;background:${colors.bg}33;border-color:${colors.border}">
-             <span style="width:${dotSize}px;height:${dotSize}px;background:${colors.bg};border-color:${colors.border}"></span>
-           </div>
-           <div class="tm-label">${p.label}</div>`
-        : `<div class="tm-dot tm-pending" style="width:${outerSize}px;height:${outerSize}px;border-color:${colors.border}44">
-             <span style="width:${dotSize}px;height:${dotSize}px;background:${colors.border}88;border-color:${colors.border}44"></span>
-           </div>
-           <div class="tm-label tm-label-pending">${p.label}</div>`,
-      iconSize: [outerSize, outerSize + 20],
-      iconAnchor: [outerSize / 2, outerSize / 2],
+    const marker = new amap.Marker({
+      position: [p.lng, p.lat],
+      offset: new amap.Pixel(-outerSize / 2, -outerSize / 2),
+      content: `<div class="track-marker">${dotHtml}<div class="tm-label${isDone ? '' : ' tm-label-pending'}">${p.label}</div></div>`,
+      zIndex: 20,
     })
+    marker.setMap(map)
+    overlays.push(marker)
+    allMarkers.push(marker)
 
-    const marker = L.marker([p.lat, p.lng], { icon: markerIcon }).addTo(map!)
-
-    const timeHtml = isDone
-      ? `<div class="tm-popup-time">🕐 ${p.time}</div>`
-      : `<div class="tm-popup-time tm-popup-pending">🕐 ${p.time}</div>`
-
-    marker.bindPopup(`
-      <div class="tm-popup">
+    const timeHtml = `<div class="tm-popup-time${isDone ? '' : ' tm-popup-pending'}">🕐 ${p.time}</div>`
+    const info = new amap.InfoWindow({
+      content: `<div class="tm-popup">
         <div class="tm-popup-title">${p.label}</div>
-        <div class="tm-popup-addr">${p.address}</div>
+        <div class="tm-popup-addr">${p.address || ''}</div>
         ${timeHtml}
         ${p.fenceRadius ? `<div class="tm-popup-fence">围栏半径 ${p.fenceRadius}m</div>` : ''}
-      </div>
-    `)
+      </div>`,
+      offset: new amap.Pixel(0, -outerSize / 2 - 10),
+    })
+    marker.on('click', () => info.open(map!, [p.lng, p.lat]))
   })
 
-  // 自动适配边界
-  const bounds = L.latLngBounds(allPoints.map((p) => [p.lat, p.lng] as [number, number]))
-  map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 })
-  setTimeout(() => map?.invalidateSize(), 300)
+  if (allMarkers.length) map.setFitView(allMarkers, false, [60, 60, 60, 60])
 }
 
 onMounted(() => nextTick(() => initMap()))
-
 watch(() => props.track, () => nextTick(() => initMap()), { deep: true })
 
 function focusStartPoint() {
   const startPoint = props.track.find((p) => p.lng != null && p.lat != null)
   if (!map || !startPoint) return
-  map.invalidateSize()
-  map.setView([startPoint.lat, startPoint.lng], 17, { animate: true })
+  map.setZoomAndCenter(17, [startPoint.lng, startPoint.lat])
 }
 
 defineExpose({ focusStartPoint })
 
-onBeforeUnmount(() => { if (map) { map.remove(); map = null } })
+onBeforeUnmount(() => { if (map) { map.destroy(); map = null } })
 </script>
 
 <style scoped>
@@ -197,9 +213,44 @@ onBeforeUnmount(() => { if (map) { map.remove(); map = null } })
   width: 100%;
 }
 
+.map-fullscreen-wrap {
+  position: relative;
+}
+
+.map-fullscreen-wrap:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  background: #f2f3f5;
+
+  .map-container {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+}
+
+.map-fullscreen-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  font-size: 16px;
+  color: #4e5969;
+  background: rgb(255 255 255 / 94%);
+  border: none;
+  border-radius: 4px;
+  box-shadow: 0 3px 10px rgb(0 0 0 / 10%);
+  cursor: pointer;
+}
+
 .map-container {
   width: 100%;
-  height: 360px;
+  height: 440px;
   border-radius: 6px;
   overflow: hidden;
 }
@@ -207,20 +258,20 @@ onBeforeUnmount(() => { if (map) { map.remove(); map = null } })
 .map-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px 14px;
+  gap: 6px 12px;
   align-items: center;
-  padding: 10px 2px 0;
-  font-size: 14px;
-  color: var(--color-text-2);
+  padding: 8px 2px 0;
+  font-size: 12px;
+  color: var(--color-text-3);
 }
 
 .legend-line {
   display: inline-block;
-  width: 28px;
+  width: 18px;
   height: 0;
-  margin-right: 6px;
+  margin-right: 4px;
   vertical-align: middle;
-  border-top: 4px solid #0e42d2;
+  border-top: 3px solid #0e42d2;
   border-radius: 999px;
 }
 
@@ -231,9 +282,9 @@ onBeforeUnmount(() => { if (map) { map.remove(); map = null } })
 
 .legend-dot {
   display: inline-block;
-  width: 10px;
-  height: 10px;
-  margin-right: 6px;
+  width: 8px;
+  height: 8px;
+  margin-right: 4px;
   vertical-align: middle;
   border-radius: 50%;
   background: #0e42d2;
@@ -244,7 +295,8 @@ onBeforeUnmount(() => { if (map) { map.remove(); map = null } })
 }
 
 .legend-weight {
-  padding: 2px 8px;
+  padding: 1px 6px;
+  font-size: 12px;
   color: var(--color-text-1);
   background: var(--color-fill-2);
   border-radius: 4px;
@@ -254,6 +306,7 @@ onBeforeUnmount(() => { if (map) { map.remove(); map = null } })
 <style>
 /* 全局：标记点样式 */
 .track-marker {
+  position: relative;
   background: none !important;
   border: none !important;
 }

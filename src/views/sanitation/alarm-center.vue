@@ -82,9 +82,11 @@
             <icon-star v-else class="table-star" />
           </template>
           <template #cell="{ column, record }">
-            <StatusTag v-if="['level', 'type'].includes(String(column.dataIndex))" :value="record[column.dataIndex]" />
-            <span v-else-if="column.dataIndex === 'fillRate'">{{ record.fillRate ? `${record.fillRate}%` : '-' }}</span>
-            <span v-else-if="column.dataIndex === 'battery'">{{ record.battery ? `${record.battery}%` : '-' }}</span>
+            <StatusTag v-if="['level', 'type', 'boxType'].includes(String(column.dataIndex))" :value="record[column.dataIndex]" />
+            <span v-else-if="column.dataIndex === 'village'">{{ record.village || '-' }}</span>
+            <span v-else-if="column.dataIndex === 'fillRate'">{{ record.fillRate != null ? `${Math.round(record.fillRate)}%` : '-' }}</span>
+            <span v-else-if="column.dataIndex === 'battery'">{{ record.battery != null ? `${Math.round(record.battery)}%` : '-' }}</span>
+            <span v-else-if="column.dataIndex === 'triggerTime'" class="cell-nowrap">{{ fmtTime(record.triggerTime) }}</span>
             <span v-else>{{ record[column.dataIndex] ?? '-' }}</span>
           </template>
           <template #action="{ record }">
@@ -93,6 +95,13 @@
                 <a-tooltip content="查看详情">
                   <a-button size="small" type="text" @click="selectAlarm(record)">
                     <template #icon><icon-eye /></template>
+                  </a-button>
+                </a-tooltip>
+              </span>
+              <span v-if="record.linkedTaskId" class="action-cell">
+                <a-tooltip :content="`查看任务单 ${record.linkedTaskId}`">
+                  <a-button size="small" type="text" @click="openTaskNewWindow(record.linkedTaskId)">
+                    <template #icon><icon-link /></template>
                   </a-button>
                 </a-tooltip>
               </span>
@@ -123,9 +132,17 @@
               <a-descriptions-item label="触发规则">{{ selectedAlarm.ruleName }}</a-descriptions-item>
               <a-descriptions-item label="箱体编号">{{ selectedAlarm.boxNo }}</a-descriptions-item>
               <a-descriptions-item label="具体地址">{{ selectedAlarm.address }}</a-descriptions-item>
-              <a-descriptions-item label="触发时间">{{ selectedAlarm.triggerTime }}</a-descriptions-item>
+              <a-descriptions-item label="触发时间">{{ fmtTime(selectedAlarm.triggerTime) }}</a-descriptions-item>
               <a-descriptions-item label="处理说明">{{ selectedAlarm.offlineRemark || '暂无处理说明' }}</a-descriptions-item>
-              <a-descriptions-item label="关联任务">{{ selectedAlarm.linkedTaskId || '暂未创建' }}</a-descriptions-item>
+              <a-descriptions-item label="关联任务">
+                <template v-if="selectedAlarm.linkedTaskId">
+                  <a-link class="linked-task-icon" @click="openTaskNewWindow(selectedAlarm.linkedTaskId)">
+                    <template #icon><icon-link /></template>
+                    {{ selectedAlarm.linkedTaskId }}
+                  </a-link>
+                </template>
+                <span v-else>暂未创建</span>
+              </a-descriptions-item>
             </a-descriptions>
           </div>
           <div class="detail-actions">
@@ -139,17 +156,16 @@
               </template>
               {{ selectedAlarm?.starred ? '取消星标' : '添加星标' }}
             </a-button>
-            <a-button v-if="selectedAlarm.linkedTaskId" long @click="goTask(selectedAlarm.linkedTaskId)">查看关联任务单</a-button>
           </div>
         </template>
       </aside>
     </div>
 
-    <a-modal v-model:visible="createVisible" title="创建收运任务单" width="760px" @ok="submitTask">
+    <a-modal v-model:visible="createVisible" title="创建收运任务单" width="860px" @ok="submitTask">
       <div class="create-modal-body">
-        <!-- 上半部分：有告警上下文 → 显示告警消息 / 无告警 → 选择箱体 -->
+        <!-- 上半部分：有告警上下文 → 告警信息 + 箱体当前信息 / 无告警 → 选择箱体 -->
         <section v-if="creatingAlarm" class="create-alarm-info">
-          <div class="section-title">告警消息</div>
+          <div class="section-title">告警信息</div>
           <div class="alarm-main">
             <b>{{ creatingAlarm.boxName }}</b>
             <span>{{ creatingAlarm.content }}</span>
@@ -160,11 +176,21 @@
             <a-descriptions-item label="等级">{{ creatingAlarm.level }}</a-descriptions-item>
             <a-descriptions-item label="箱体编号">{{ creatingAlarm.boxNo }}</a-descriptions-item>
             <a-descriptions-item label="箱体类型">{{ creatingAlarm.boxType }}</a-descriptions-item>
-            <a-descriptions-item label="所属乡镇">{{ creatingAlarm.town }}</a-descriptions-item>
+            <a-descriptions-item label="乡镇村庄">{{ creatingTownVillage }}</a-descriptions-item>
             <a-descriptions-item label="具体地址" :span="2">{{ creatingAlarm.address }}</a-descriptions-item>
-            <a-descriptions-item label="触发时间" :span="2">{{ creatingAlarm.triggerTime }}</a-descriptions-item>
+            <a-descriptions-item label="触发时间" :span="2">{{ fmtTime(creatingAlarm.triggerTime) }}</a-descriptions-item>
             <a-descriptions-item label="触发规则" :span="2">{{ creatingAlarm.ruleName }}</a-descriptions-item>
           </a-descriptions>
+
+          <div class="section-title">箱体当前信息</div>
+          <div class="box-info-line">
+            <span><em>箱体编号</em>{{ creatingShortBoxNo }}</span>
+            <span><em>箱体类型</em>{{ creatingAlarm.boxType }}</span>
+            <span><em>收集点</em>{{ creatingCollectionPoint }}</span>
+            <span><em>乡镇村庄</em>{{ creatingTownVillage }}</span>
+            <span><em>满溢率</em><b :class="{ overtime: (creatingAlarm.fillRate ?? 0) >= 90 }">{{ creatingAlarm.fillRate != null ? creatingAlarm.fillRate + '%' : '—' }}</b></span>
+            <span><em>电量</em>{{ creatingBattery }}</span>
+          </div>
         </section>
 
         <!-- 上半部分（无告警）：选择箱体 -->
@@ -187,33 +213,27 @@
               <b>{{ selectedBox.name }}</b>
               <span>{{ selectedBox.currentLocation }}</span>
             </div>
-            <a-descriptions :column="2" size="small" bordered>
-              <a-descriptions-item label="箱体编号">{{ selectedBox.boxNo }}</a-descriptions-item>
-              <a-descriptions-item label="箱体类型">{{ selectedBox.boxType }}</a-descriptions-item>
-              <a-descriptions-item label="所在位置">{{ selectedBox.currentLocation }}</a-descriptions-item>
-              <a-descriptions-item label="所属乡镇">{{ extractTownFromBox(selectedBox) }}</a-descriptions-item>
-              <a-descriptions-item label="任务类型" :span="2">{{ selectedBox.boxType === '小勾臂箱' ? '小勾臂箱满溢收运' : '大勾臂箱满溢转运' }}</a-descriptions-item>
-            </a-descriptions>
+            <div class="box-info-line">
+              <span><em>箱体编号</em>{{ selectedBoxShortNo }}</span>
+              <span><em>箱体类型</em>{{ selectedBox.boxType }}</span>
+              <span><em>收集点</em>{{ selectedBoxCollectionPoint }}</span>
+              <span><em>乡镇村庄</em>{{ selectedBoxTownVillage }}</span>
+              <span><em>满溢率</em><b :class="{ overtime: (selectedBox.fillRate ?? 0) >= 90 }">{{ selectedBox.fillRate != null ? selectedBox.fillRate + '%' : '—' }}</b></span>
+              <span><em>电量</em>{{ selectedBoxBattery }}</span>
+            </div>
           </template>
         </section>
 
-        <!-- 下半部分：操作区 -->
+        <!-- 下半部分：任务派单 -->
         <section class="create-operations">
-          <div class="section-title">任务配置</div>
+          <div class="section-title">任务派单</div>
           <a-form :model="createForm" layout="vertical">
             <a-grid :cols="2" :col-gap="16">
               <a-grid-item>
-                <a-form-item label="驾驶员">
-                  <a-select v-model="createForm.driver" @change="onDriverChange">
-                    <a-option v-for="item in driverOptionList" :key="item.name" :value="item.name" :label="`${item.name}（${item.vehicle}）`">
-                      {{ item.name }}（{{ item.vehicle }}）
-                    </a-option>
+                <a-form-item label="所属机构">
+                  <a-select v-model="createForm.organization">
+                    <a-option v-for="item in organizationOptions" :key="item" :value="item">{{ item }}</a-option>
                   </a-select>
-                </a-form-item>
-              </a-grid-item>
-              <a-grid-item>
-                <a-form-item label="车辆">
-                  <a-input :model-value="createForm.vehicle" readonly />
                 </a-form-item>
               </a-grid-item>
               <a-grid-item>
@@ -224,30 +244,57 @@
                 </a-form-item>
               </a-grid-item>
               <a-grid-item>
-                <a-form-item label="起点地址">
-                  <a-input :model-value="createForm.startAddress" readonly />
+                <a-form-item label="驾驶员">
+                  <a-select v-model="createForm.driver" @change="onDriverChange">
+                    <a-option v-for="item in driverOptionList" :key="item.name" :value="item.name" :label="item.name">
+                      {{ item.name }}
+                    </a-option>
+                  </a-select>
+                </a-form-item>
+              </a-grid-item>
+              <a-grid-item>
+                <a-form-item label="车辆">
+                  <a-select
+                    v-model="createForm.vehicle"
+                    :options="currentDriverVehicleOptions"
+                    placeholder="请选择绑定车辆"
+                    allow-search
+                    allow-clear
+                    @change="onVehicleChange"
+                  />
+                  <div class="bind-hint" :class="{ unbound: !currentDriverBoundVehicle }">
+                    <template v-if="currentDriverBoundVehicle">
+                      <a-link @click="openVehicleArchive">去车辆档案调整</a-link>
+                      <a-tooltip content="刷新绑定信息">
+                        <a-link class="bind-refresh" @click="refreshBinding"><icon-refresh /></a-link>
+                      </a-tooltip>
+                    </template>
+                    <template v-else>
+                      <span class="bind-hint-text">该驾驶员暂无绑定车辆</span>
+                      <a-link @click="openVehicleArchive">去车辆档案绑定</a-link>
+                      <a-tooltip content="刷新绑定信息">
+                        <a-link class="bind-refresh" @click="refreshBinding"><icon-refresh /></a-link>
+                      </a-tooltip>
+                    </template>
+                  </div>
                 </a-form-item>
               </a-grid-item>
               <a-grid-item>
                 <a-form-item label="时效要求">
                   <a-select v-model="createForm.sla">
-                    <a-option :value="60">1小时内完成</a-option>
-                    <a-option :value="90">1.5小时内完成</a-option>
-                    <a-option :value="120">2小时内完成</a-option>
+                    <a-option :value="30">30分钟</a-option>
+                    <a-option :value="60">60分钟</a-option>
+                    <a-option :value="90">90分钟</a-option>
+                    <a-option :value="120">120分钟</a-option>
                   </a-select>
                 </a-form-item>
               </a-grid-item>
               <a-grid-item>
                 <a-form-item label="优先级">
                   <a-select v-model="createForm.priority">
-                    <a-option value="紧急">紧急</a-option>
                     <a-option value="普通">普通</a-option>
+                    <a-option value="紧急">紧急</a-option>
                   </a-select>
-                </a-form-item>
-              </a-grid-item>
-              <a-grid-item :span="2">
-                <a-form-item label="备注">
-                  <a-textarea v-model="createForm.remark" placeholder="填写现场说明或调度要求" />
                 </a-form-item>
               </a-grid-item>
             </a-grid>
@@ -274,7 +321,7 @@ import {
   sanitationAlarms,
   type SanitationAlarm,
 } from './data/alert-task'
-import { boxes } from './data/mock'
+import { boxes, getDriverVehicles, vehicles } from './data/mock'
 
 const prdSections: PrdSection[] = [
   {
@@ -285,10 +332,10 @@ const prdSections: PrdSection[] = [
       { label: '入口', value: '① 右侧详情「基于此消息创建」② 表格行「快速创建」图标（满溢告警行可见）' },
       { label: '任务单状态筛选', value: '支持“全部、未建任务单、已建任务单”；以告警是否存在 linkedTaskId 为判断依据。' },
       { label: '顶部铃铛联动', value: '点击未建任务单的满溢告警时携带告警 ID 进入本页，自动填入“告警编号”，列表仅显示该条数据并打开快速创建任务单弹窗；清空告警编号后恢复完整列表。' },
-      { label: '详情操作', value: '未建任务单的满溢告警显示“基于此消息快速创建”；仅已建任务单的告警显示“查看关联任务单”，避免重复建单。' },
+      { label: '详情操作', value: '未建任务单的满溢告警显示“基于此消息快速创建”；仅已建任务单的告警显示关联任务 ICON，点击新窗口打开任务详情。' },
       { label: '星标操作', value: '列表星标列仅用五角星展示状态（已星标高亮、未星标置灰）；操作列仅保留查看，添加/取消星标统一在告警详情中操作。' },
-      { label: '弹窗布局', value: '上半：告警消息详情（只读）| 下半：任务配置表单（可操作）' },
-      { label: '表单字段', value: '驾驶员（Select 联动车辆只读）、目的地（按箱体类型过滤）、起点（只读）、时效、优先级、备注' },
+      { label: '弹窗布局', value: '上半：告警信息（标题+只读字段）+ 箱体当前信息（短编号/类型/收集点/乡镇村庄/满溢率/电量）| 下半：任务派单表单（可操作）' },
+      { label: '表单字段', value: '所属机构、目的地、驾驶员（Select 联动车辆）、车辆、时效要求、优先级' },
       { label: '默认值', value: '驾驶员按箱体类型匹配（小勾臂→张师傅/豫E3G516，大勾臂→孙师傅/豫E6N109），目的地对应过滤，时效60min，优先级紧急' },
       { label: '提交映射', value: '→ CollectionTask，状态初始「待接单」，轨迹4个占位点，不修改告警星标状态' },
       { label: '模拟新告警', value: '列表最前插入一条满溢告警，整行闪烁3次，不打开详情面板' },
@@ -338,6 +385,8 @@ const createVisible = ref(false)
 const creatingAlarm = ref<SanitationAlarm>()
 const boxSearchKeyword = ref('')
 const selectedBox = ref<(typeof boxes)[number] | null>(null)
+// 操作员是否已手动选择过车辆（手动选择后，刷新/换驾驶员不再自动覆盖）
+const manualVehicleOverride = ref(false)
 
 const filteredBoxes = computed(() => {
   const kw = boxSearchKeyword.value.trim()
@@ -353,6 +402,19 @@ function extractTownFromBox(box: (typeof boxes)[number]): string {
   return '-'
 }
 
+// 从具体地址中提取村庄（如“马投涧镇牛家窑村文化广场” → 牛家窑村），无村庄返回 '-'
+function extractVillage(address: string): string {
+  if (!address) return '-'
+  const matches = address.match(/([\u4e00-\u9fa5]{1,4}村)/g) || []
+  const village = matches[matches.length - 1]
+  return village ? village.replace(/^[镇乡街道]+/, '') : '-'
+}
+
+function fmtTime(t?: string): string {
+  if (!t) return '-'
+  return String(t).replace(/:\d{2}$/, '')
+}
+
 function onAutoCompleteSelect(value: string) {
   const boxNo = value.split(' - ')[0].trim()
   const box = boxes.find((b) => b.boxNo === boxNo)
@@ -366,9 +428,10 @@ function onBoxSelect(box: (typeof boxes)[number]) {
   createForm.taskType = box.boxType === '小勾臂箱' ? '小勾臂箱满溢收运' : '大勾臂箱满溢转运'
   const defaultDriver = drivers.find((d) => (box.boxType === '小勾臂箱' ? d.vehicleType === '小勾臂车' : d.vehicleType === '大勾臂车')) || drivers[0]
   createForm.driver = defaultDriver.name
-  createForm.vehicle = defaultDriver.vehicle
+  manualVehicleOverride.value = false
+  const bound = getDriverVehicles(defaultDriver.name)
+  createForm.vehicle = bound[0]?.plateNo || ''
   createForm.destination = box.boxType === '小勾臂箱' ? '马投涧中转站' : '龙安生活垃圾焚烧厂'
-  createForm.startAddress = box.currentLocation || box.locationName || ''
   createForm.priority = '紧急'
   createForm.sla = 60
   boxSearchKeyword.value = ''
@@ -376,13 +439,12 @@ function onBoxSelect(box: (typeof boxes)[number]) {
 const createForm = reactive({
   boxName: '',
   taskType: '',
+  organization: '河南龙淼钧泽环卫有限公司',
   driver: '张师傅',
-  vehicle: '豫E3G516',
+  vehicle: '',
   destination: '马投涧中转站',
   sla: 60,
   priority: '紧急',
-  startAddress: '',
-  remark: '',
 })
 
 const isCreateMode = computed(() => route.path.includes('workOrderCreate'))
@@ -391,15 +453,110 @@ const readStatusFilters = ['全部', '未读', '已读']
 const taskStatusFilters = ['全部', '未建任务单', '已建任务单']
 const starredFilters = ['全部', '星标消息']
 const driverOptions = computed(() => drivers.map((item) => item.name))
+// 车辆下拉选项：仅展示当前驾驶员绑定的车辆（通常 0~2 条）
+const currentDriverVehicleOptions = computed(() => getDriverVehicles(createForm.driver).map((v) => ({ label: `${v.plateNo} · ${v.vehicleType}`, value: v.plateNo })))
+// 驾驶员下拉：仅展示名称
 const driverOptionList = computed(() => drivers)
+// 当前驾驶员绑定的车辆（提示行用）
+const currentDriverBoundVehicle = computed(() => getDriverVehicles(createForm.driver)[0] || null)
 
 function onDriverChange(name: string) {
-  const driver = drivers.find((item) => item.name === name)
-  if (driver) createForm.vehicle = driver.vehicle
+  manualVehicleOverride.value = false
+  const bound = getDriverVehicles(name)
+  createForm.vehicle = bound[0]?.plateNo || ''
 }
+
+function onVehicleChange() {
+  manualVehicleOverride.value = true
+}
+
+function openVehicleArchive() {
+  const href = router.resolve({ path: '/sanitation/vehicleArchive' }).href
+  window.open(href, '_blank')
+}
+
+function refreshBinding() {
+  if (!manualVehicleOverride.value) {
+    const bound = getDriverVehicles(createForm.driver)
+    createForm.vehicle = bound[0]?.plateNo || ''
+  }
+  ArcoMessage.success('绑定信息已刷新')
+}
+// 所属机构下拉：仅当前机构
+const organizationOptions = ['河南龙淼钧泽环卫有限公司']
 const destinationOptions = computed(() => {
   if (creatingAlarm.value?.boxType === '大勾臂箱') return destinations.filter((item) => item.type === '焚烧厂').map((item) => item.name)
   return destinations.filter((item) => item.type === '中转站').map((item) => item.name)
+})
+
+type BoxRecord = (typeof boxes)[number] & {
+  battery?: number | null
+  locationMatches?: Array<{ type: string; name: string }>
+}
+
+function displayBoxNo(box: BoxRecord): string {
+  return sanitationAlarms.find((a) => a.boxName === box.name)?.boxNo || box.boxNo
+}
+
+function getBoxCollectionPoints(box: BoxRecord): string[] {
+  const matches = box.locationMatches
+    ?.filter((m) => m.type === 'collectionPoint')
+    .map((m) => m.name)
+  if (matches && matches.length) return matches
+  if (box.locationType === 'collectionPoint' && box.locationName) return [box.locationName]
+  return []
+}
+
+function extractVillageFromBox(box: BoxRecord): string {
+  // 小勾臂箱名称以村庄开头，如“牛家窑2号小勾臂箱”“南坡村1号小勾臂箱”
+  const m = String(box.name || '').match(/^([\u4e00-\u9fa5]+?)(?=\d)/)
+  return m ? m[1] : '-'
+}
+
+function boxTownVillage(box: BoxRecord | null): string {
+  if (!box) return '-'
+  const town = extractTownFromBox(box)
+  const village = extractVillageFromBox(box)
+  return [town, village].filter((v) => v !== '-').join(' ') || '-'
+}
+
+// 有告警上下文：箱体短编号 / 收集点 / 乡镇村庄 / 满溢率 / 电量
+const creatingBox = computed<BoxRecord | null>(() => {
+  if (!creatingAlarm.value) return null
+  return (boxes.find((b) => b.name === creatingAlarm.value?.boxName) as BoxRecord) || null
+})
+const creatingShortBoxNo = computed(() => {
+  if (creatingAlarm.value) return displayBoxNo({ ...creatingAlarm.value } as BoxRecord)
+  return creatingBox.value ? displayBoxNo(creatingBox.value) : '-'
+})
+const creatingCollectionPoint = computed(() => {
+  const points = creatingBox.value ? getBoxCollectionPoints(creatingBox.value) : []
+  return points[0] || creatingAlarm.value?.address || '-'
+})
+const creatingTownVillage = computed(() => {
+  // 优先取箱体档案的乡镇/村庄；箱体档案找不到时退回告警自带的乡镇 + 地址提取村庄
+  const fromBox = boxTownVillage(creatingBox.value)
+  if (fromBox !== '-') return fromBox
+  const alarm = creatingAlarm.value
+  if (!alarm) return '-'
+  const village = extractVillage(alarm.address)
+  return [alarm.town, village].filter((v) => v && v !== '-').join(' ') || '-'
+})
+const creatingBattery = computed(() => {
+  const battery = creatingBox.value?.battery ?? creatingAlarm.value?.battery
+  return battery != null ? `${battery}%` : '—'
+})
+// 无告警（选择箱体）：箱体短编号 / 收集点 / 乡镇村庄 / 电量
+const selectedBoxShortNo = computed(() => (selectedBox.value ? displayBoxNo(selectedBox.value as BoxRecord) : '-'))
+const selectedBoxCollectionPoint = computed(() => {
+  if (!selectedBox.value) return '-'
+  const points = getBoxCollectionPoints(selectedBox.value as BoxRecord)
+  return points[0] || selectedBox.value.currentLocation || '-'
+})
+const selectedBoxTownVillage = computed(() => boxTownVillage(selectedBox.value as BoxRecord | null))
+const selectedBoxBattery = computed(() => {
+  const battery = (selectedBox.value as BoxRecord | null)?.battery
+  return battery != null ? `${battery}%` : '—'
 })
 
 const metrics = computed(() => {
@@ -428,10 +585,24 @@ const baseColumns = [
   { title: '操作', slotName: 'action', width: 80, align: 'center' as const, fixed: 'right' as const },
 ]
 
-// “告警建任务单”列表不展示阅读状态；告警中心保持原有列不变。
-const columns = computed(() => isCreateMode.value
-  ? baseColumns.filter((column) => column.dataIndex !== 'readStatus')
-  : baseColumns)
+// “告警建任务单”列表列顺序：序号、箱体编号、乡镇、村庄、触发时间、满溢率、电量、告警类型、箱体类型、星标、告警编号、操作
+const createModeColumns = [
+  { title: '序号', width: 70, align: 'center' as const, fixed: 'left' as const, render: ({ rowIndex }: any) => rowIndex + 1 },
+  { title: '箱体编号', dataIndex: 'boxNo', width: 90, fixed: 'left' as const, ellipsis: true, tooltip: true },
+  { title: '乡镇', dataIndex: 'town', width: 110 },
+  { title: '村庄', dataIndex: 'village', width: 120 },
+  { title: '触发时间', dataIndex: 'triggerTime', width: 165 },
+  { title: '满溢率', dataIndex: 'fillRate', width: 90 },
+  { title: '电量', dataIndex: 'battery', width: 90 },
+  { title: '告警类型', dataIndex: 'type', width: 120 },
+  { title: '箱体类型', dataIndex: 'boxType', width: 110 },
+  { title: '星标', dataIndex: 'starred', slotName: 'starred', width: 80, align: 'center' as const },
+  { title: '告警编号', dataIndex: 'id', width: 150, ellipsis: true, tooltip: true },
+  { title: '操作', slotName: 'action', width: 100, align: 'center' as const, fixed: 'right' as const },
+]
+
+// “告警建任务单”使用 createModeColumns；告警中心保持原有列不变。
+const columns = computed(() => isCreateMode.value ? createModeColumns : baseColumns)
 
 const filteredAlarms = computed(() => {
   let result = sanitationAlarms
@@ -462,7 +633,8 @@ const filteredAlarms = computed(() => {
     if (a.readStatus !== '未读' && b.readStatus === '未读') return 1
     return 0
   })
-  return result
+  // 列表补充派生字段：村庄（从地址提取）
+  return result.map((item) => ({ ...item, village: extractVillage(item.address) }))
 })
 
 function selectAlarm(record: SanitationAlarm) {
@@ -484,9 +656,10 @@ function openCreate(record: SanitationAlarm) {
   createForm.taskType = record.boxType === '小勾臂箱' ? '小勾臂箱满溢收运' : '大勾臂箱满溢转运'
   const defaultDriver = drivers.find((d) => (record.boxType === '小勾臂箱' ? d.vehicleType === '小勾臂车' : d.vehicleType === '大勾臂车')) || drivers[0]
   createForm.driver = defaultDriver.name
-  createForm.vehicle = defaultDriver.vehicle
+  manualVehicleOverride.value = false
+  const bound = getDriverVehicles(defaultDriver.name)
+  createForm.vehicle = bound[0]?.plateNo || ''
   createForm.destination = record.boxType === '小勾臂箱' ? '马投涧中转站' : '龙安生活垃圾焚烧厂'
-  createForm.startAddress = record.address
   createForm.priority = '紧急'
   createForm.sla = 60
   createVisible.value = true
@@ -501,9 +674,10 @@ function openFirstPendingOverflow() {
 }
 
 function submitTask() {
+  const chosenVehicle = vehicles.find((v) => v.plateNo === createForm.vehicle)
   // 有告警上下文 → 基于告警创建；无告警 → 基于选中的箱体创建
   if (creatingAlarm.value) {
-    const task = createCollectionTaskFromAlarm(creatingAlarm.value, createForm.driver, createForm.destination)
+    const task = createCollectionTaskFromAlarm(creatingAlarm.value, createForm.driver, createForm.destination, createForm.vehicle || undefined, chosenVehicle?.vehicleType)
     selectedAlarm.value = creatingAlarm.value
     ArcoMessage.success(`已创建收运任务单 ${task.id}`)
   } else if (selectedBox.value) {
@@ -523,7 +697,7 @@ function submitTask() {
       starred: false,
       content: `${selectedBox.value.name} — 手动创建收运任务单。`,
     }
-    const task = createCollectionTaskFromAlarm(alarmStub, createForm.driver, createForm.destination)
+    const task = createCollectionTaskFromAlarm(alarmStub, createForm.driver, createForm.destination, createForm.vehicle || undefined, chosenVehicle?.vehicleType)
     ArcoMessage.success(`已创建收运任务单 ${task.id}`)
   } else {
     ArcoMessage.warning('请先选择箱体')
@@ -541,8 +715,10 @@ function toggleStar(record: SanitationAlarm) {
   ArcoMessage.success(record.starred ? '已添加星标' : '已取消星标')
 }
 
-function goTask(taskId?: string) {
-  router.push({ path: '/sanitation/workOrderMonitor', query: { taskId } })
+function openTaskNewWindow(taskId?: string) {
+  if (!taskId) return
+  const href = router.resolve({ path: '/sanitation/workOrderMonitor', query: { taskId } }).href
+  window.open(href, '_blank')
 }
 
 function getRowClass(record: SanitationAlarm) {
@@ -638,6 +814,26 @@ function refreshFlash() {
   min-width: 0;
 }
 
+/* 车辆绑定提示行 */
+.bind-hint {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  flex-basis: 100%;
+  gap: 8px;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--color-text-3);
+
+  &.unbound .bind-hint-text {
+    color: rgb(var(--orange-6));
+  }
+
+  .bind-refresh {
+    font-size: 14px;
+  }
+}
+
 .table-panel,
 .detail-panel {
   min-width: 0;
@@ -682,6 +878,10 @@ function refreshFlash() {
 .table-star {
   color: #c9cdd4;
   font-size: 18px;
+}
+
+.cell-nowrap {
+  white-space: nowrap;
 }
 
 .table-star--active {
@@ -772,6 +972,35 @@ function refreshFlash() {
   color: var(--color-text-1);
   padding-bottom: 8px;
   border-bottom: 1px solid var(--color-border-2);
+}
+
+/* 箱体当前信息：紧凑信息行（与收运单监控-快速创建任务一致） */
+.box-info-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 20px;
+  margin-top: 2px;
+  padding: 5px 12px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--color-text-1);
+  background: var(--color-fill-1);
+  border-radius: 4px;
+
+  span {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+
+    em {
+      font-style: normal;
+      color: var(--color-text-3);
+    }
+  }
+}
+
+.overtime {
+  color: rgb(var(--danger-6));
 }
 
 :deep(.row-flash) {

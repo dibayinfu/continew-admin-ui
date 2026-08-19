@@ -8,7 +8,7 @@
       :module="config.module"
     >
       <template #extra>
-        <a-button v-if="props.pageKey !== 'taskOrderStats'" type="primary" @click="handleAdd">
+        <a-button v-if="props.pageKey !== 'taskOrderStats' && props.pageKey !== 'vehicleArchive'" type="primary" @click="handleAdd">
           <template #icon><icon-plus /></template>
           新增
         </a-button>
@@ -37,7 +37,7 @@
             style="width: 130px;"
           />
           <template v-for="mf in config.multiFilters || []" :key="mf.key">
-            <span class="filter-label">{{ mf.key === 'collectionStatus' ? '收运状态' : mf.key === 'overtimeStatus' ? '超时状态' : mf.key === 'overflowStatus' ? '满溢状态' : mf.key === 'batteryStatus' ? '电量状态' : mf.key === 'archiveStatus' ? '启用状态' : mf.key }}</span>
+            <span class="filter-label">{{ mf.key === 'vehicleType' ? '车辆类型' : mf.key === 'collectionStatus' ? '收运状态' : mf.key === 'overtimeStatus' ? '超时状态' : mf.key === 'overflowStatus' ? '满溢状态' : mf.key === 'batteryStatus' ? '电量状态' : mf.key === 'archiveStatus' ? '启用状态' : mf.key }}</span>
             <a-select v-model="filterStates[mf.key]" class="filter-select">
               <a-option v-for="opt in mf.options" :key="opt" :value="opt">{{ opt }}</a-option>
             </a-select>
@@ -110,7 +110,7 @@
             <a-tooltip v-if="props.pageKey === 'smallBoxState'" content="远程开锁">
               <a-link @click="handleRemoteOpen(record)"><icon-unlock /></a-link>
             </a-tooltip>
-            <a-popconfirm v-if="!['smallBoxState', 'bigBoxState', 'taskOrderStats'].includes(props.pageKey)" content="确定要删除该记录吗？" @ok="handleDelete(record)">
+            <a-popconfirm v-if="!['smallBoxState', 'bigBoxState', 'taskOrderStats', 'vehicleArchive'].includes(props.pageKey)" content="确定要删除该记录吗？" @ok="handleDelete(record)">
               <a-tooltip content="删除">
                 <a-link status="danger"><icon-delete /></a-link>
               </a-tooltip>
@@ -319,6 +319,29 @@
           </a-col>
         </a-row>
       </a-form>
+
+      <!-- 车辆档案：驾驶员绑定信息（有绑定其它车辆时才展示） -->
+      <template v-if="props.pageKey === 'vehicleArchive' && formData.driver && otherBoundVehicles.length > 0">
+        <div class="driver-bind-title">「{{ formData.driver }}」有绑定过其它车辆，可以先解绑再保存</div>
+        <a-table
+          row-key="id"
+          :data="otherBoundVehicles"
+          :columns="boundVehicleColumns"
+          :pagination="false"
+          size="small"
+          :scroll="{ x: 460 }"
+          class="driver-bind-table"
+        >
+          <template #driverAction="{ record }">
+            <a-popconfirm
+              content="确定解除该驾驶员与这辆车的绑定关系吗？"
+              @ok="unbindDriver(record)"
+            >
+              <a-button size="mini" type="outline" status="danger">解绑</a-button>
+            </a-popconfirm>
+          </template>
+        </a-table>
+      </template>
     </a-modal>
 
     <!-- 地图选点弹窗 -->
@@ -334,7 +357,7 @@
 <script setup lang="ts">
 import type { TableColumnData } from '@arco-design/web-vue'
 import { Modal } from '@arco-design/web-vue'
-import { computed, h, ref, watch } from 'vue'
+import { computed, h, reactive, ref, watch } from 'vue'
 import ModuleHeader from './ModuleHeader.vue'
 import MetricGrid from './MetricGrid.vue'
 import StatusTag from './StatusTag.vue'
@@ -352,7 +375,7 @@ interface FormField {
   key: string
   label: string
   type: 'input' | 'select' | 'number' | 'textarea' | 'mapCoord' | 'areaCascade'
-  options?: string[]
+  options?: Array<string | { label: string; value: string }>
   span?: number
   min?: number
   max?: number
@@ -412,7 +435,8 @@ const detailTask = computed(() => {
   return collectionTasks.find((t) => t.id === selectedRecord.value.id) || null
 })
 
-const config = computed<PrototypePageConfig>(() => pageConfigs[props.pageKey] || pageConfigs.townArchive).value
+// 使用 reactive 包裹，保证新增/编辑/删除对 rows 的变更能触发表格刷新
+const config = reactive<PrototypePageConfig>(pageConfigs[props.pageKey] || pageConfigs.townArchive)
 const keyword = ref('')
 const startDate = ref<string | undefined>()
 const endDate = ref<string | undefined>()
@@ -521,6 +545,31 @@ watch(() => formData.value.driver, (driverName: string | undefined) => {
   }
 })
 
+// 车辆档案：已选驾驶员绑定的其它车辆（排除当前编辑车辆，用于展示与快捷解绑）
+const otherBoundVehicles = computed(() => {
+  if (props.pageKey !== 'vehicleArchive') return []
+  const name = formData.value.driver
+  if (!name) return []
+  return config.rows.filter((v: any) => v.driver === name && v.id !== editingId.value)
+})
+
+const boundVehicleColumns = [
+  { title: '车牌号', dataIndex: 'plateNo', width: 120 },
+  { title: '车辆类型', dataIndex: 'vehicleType', width: 110 },
+  { title: '驾驶员姓名', dataIndex: 'driver', width: 100 },
+  { title: '操作', slotName: 'driverAction', width: 120, align: 'center' },
+]
+
+// 车辆档案：解除驾驶员与车辆的绑定关系
+function unbindDriver(record: Record<string, any>) {
+  const index = config.rows.findIndex((item) => item.id === record.id)
+  if (index !== -1) {
+    config.rows[index].driver = '-'
+    config.rows[index].driverPhone = ''
+    config.rows[index].driverType = ''
+  }
+}
+
 // 中转站档案、收集点档案、焚烧厂档案：联系人变动 → 自动带出电话
 watch(() => formData.value.contactPerson, (personName: string | undefined) => {
   if (!['stationArchive', 'collectionPoint', 'plantArchive'].includes(props.pageKey) || !personName) return
@@ -561,7 +610,8 @@ const formFields = computed<FormField[]>(() => {
 
   // 编辑时不可修改的字段（按 pageKey 区分）
   const readonlyKeys: Record<string, string[]> = {
-    vehicleArchive: ['driverType', 'driverPhone'],
+    // 车辆档案：仅维护车辆-驾驶员关联，车辆基础属性（机构/VIN/类型/车牌）只读
+    vehicleArchive: ['organization', 'vin', 'vehicleType', 'plateNo'],
     stationArchive: ['contactPhone'],
     collectionPoint: ['contactPhone'],
     plantArchive: ['contactPhone'],
@@ -582,11 +632,18 @@ const formFields = computed<FormField[]>(() => {
   for (const col of config.columns) {
     const key = col.dataIndex
     const label = col.title
-    // 跳过经纬度、省市区、位置标签字段（已特殊处理）
-    if (['longitude', 'latitude', 'province', 'city', 'area', 'atPoint', 'onVehicle', 'currentLocation', 'locationType', 'locationName', 'locationMatchLabel', 'overflowStatus', 'onlineStatus', 'batteryStatus', 'temperatureStatus', 'doorStatus', 'fillRate', 'temperature', 'battery'].includes(key)) continue
+    // 跳过经纬度、省市区、位置标签、驾驶员电话等仅列表展示字段（已特殊处理）
+    if (['longitude', 'latitude', 'province', 'city', 'area', 'atPoint', 'onVehicle', 'currentLocation', 'locationType', 'locationName', 'locationMatchLabel', 'overflowStatus', 'onlineStatus', 'batteryStatus', 'temperatureStatus', 'doorStatus', 'fillRate', 'temperature', 'battery', 'driverPhone'].includes(key)) continue
 
     if (fieldOptions[key]) {
-      fields.push({ key, label, type: 'select', options: fieldOptions[key], span: 12, readonly: isPageReadonly(key) })
+      // 车辆档案：驾驶员下拉展示「姓名 + 电话」
+      let options: Array<string | { label: string; value: string }> = fieldOptions[key]
+      if (props.pageKey === 'vehicleArchive' && key === 'driver') {
+        options = peopleRows.map((p) => ({ label: `${p.name} ${p.phone}`, value: p.name }))
+      }
+      // 车辆档案的驾驶员字段独占整行，避免下拉展示姓名+电话时过窄
+      const span = (props.pageKey === 'vehicleArchive' && key === 'driver') ? 24 : 12
+      fields.push({ key, label, type: 'select', options, span, readonly: isPageReadonly(key) })
     } else if (['status', 'level', 'type', 'personType', 'vehicleType', 'boxType', 'routeType', 'objectType', 'alarmType', 'scaleStatus', 'openStatus', 'online', 'result', 'deviceStatus', 'source', 'progress'].includes(key)) {
       fields.push({ key, label, type: 'select', options: inferFallbackOptions(key), span: 12 })
     } else if (['population', 'households', 'containers', 'points', 'slots', 'alarms', 'workOrders', 'score', 'coverage', 'timely', 'safety', 'dataQuality', 'mileage', 'speed', 'fillRate', 'battery', 'temperature', 'confidence', 'villages', 'radius'].includes(key)) {
@@ -597,6 +654,14 @@ const formFields = computed<FormField[]>(() => {
       fields.push({ key, label, type: 'textarea', span: 24 })
     } else {
       fields.push({ key, label, type: 'input', span: 12, readonly: isPageReadonly(key) })
+    }
+  }
+
+  // 车辆档案：驾驶员独占整行并置于表单最后，保证其余字段成对排列（车牌号 | 所属机构）
+  if (props.pageKey === 'vehicleArchive') {
+    const idx = fields.findIndex((f) => f.key === 'driver')
+    if (idx > -1) {
+      fields.push(fields.splice(idx, 1)[0])
     }
   }
 
@@ -973,6 +1038,16 @@ function onMapPickConfirm(data: { longitude: number; latitude: number }) {
 
 .filter-select {
   width: 120px;
+}
+
+.driver-bind-title {
+  margin-bottom: 10px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.driver-bind-table {
+  margin-bottom: 4px;
 }
 
 /* 表头允许换行显示 */

@@ -1,3 +1,7 @@
+export interface AMapOverlay {
+  setMap: (map: AMapInstance | null) => void
+}
+
 export interface AMapMarker {
   setMap: (map: AMapInstance | null) => void
   on: (event: string, handler: () => void) => void
@@ -5,6 +9,15 @@ export interface AMapMarker {
 
 export interface AMapCircle {
   setMap: (map: AMapInstance | null) => void
+}
+
+export interface AMapPolyline {
+  setMap: (map: AMapInstance | null) => void
+}
+
+export interface AMapInfoWindow {
+  open: (map: AMapInstance, position?: [number, number]) => void
+  close: () => void
 }
 
 export interface AMapInstance {
@@ -22,6 +35,8 @@ export interface AMapNamespace {
   Map: new (container: HTMLElement, options: Record<string, unknown>) => AMapInstance
   Marker: new (options: Record<string, unknown>) => AMapMarker
   Circle: new (options: Record<string, unknown>) => AMapCircle
+  Polyline: new (options: Record<string, unknown>) => AMapPolyline
+  InfoWindow: new (options: Record<string, unknown>) => AMapInfoWindow
   LngLat: new (lng: number, lat: number) => unknown
   Pixel: new (x: number, y: number) => unknown
 }

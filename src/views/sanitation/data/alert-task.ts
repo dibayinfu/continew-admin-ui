@@ -78,11 +78,13 @@ export interface CollectionTask {
   track: TrackPoint[]
 }
 
+// 驾驶员名录；vehicle/vehicleType/phone 与「车辆档案」绑定（mock.ts vehicles[].driver）保持一致
+// 张师傅→豫E7A031(小三轮) 李师傅→豫E3G516(小勾臂车) 孙师傅→豫E6N109(大勾臂车) 王师傅→豫E8K270(大勾臂车)
 export const drivers = [
-  { name: '张师傅', phone: '13900010001', vehicle: '豫E3G516', vehicleType: '小勾臂车' },
-  { name: '李师傅', phone: '13900010002', vehicle: '豫E2M883', vehicleType: '小勾臂车' },
-  { name: '孙师傅', phone: '13900010005', vehicle: '豫E6N109', vehicleType: '大勾臂车' },
-  { name: '王师傅', phone: '13900010023', vehicle: '豫E8K270', vehicleType: '大勾臂车' },
+  { name: '张师傅', phone: '13900010001', vehicle: '豫E7A031', vehicleType: '小三轮' },
+  { name: '李师傅', phone: '13900010002', vehicle: '豫E3G516', vehicleType: '小勾臂车' },
+  { name: '孙师傅', phone: '13900010023', vehicle: '豫E6N109', vehicleType: '大勾臂车' },
+  { name: '王师傅', phone: '13900010021', vehicle: '豫E8K270', vehicleType: '大勾臂车' },
 ]
 
 export const destinations = [
@@ -92,13 +94,20 @@ export const destinations = [
   { type: '焚烧厂', name: '龙安生活垃圾焚烧厂', address: '龙安区静脉产业园焚烧厂' },
 ]
 
+/** 生成最近 minutesAgo 分钟前的告警时间（演示 12 小时内未关联运单的告警） */
+function recentAlarmTime(minutesAgo: number): string {
+  const d = new Date(Date.now() - minutesAgo * 60 * 1000)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:00`
+}
+
 export const sanitationAlarms: SanitationAlarm[] = reactive([
   {
     id: 'AL20260520001',
     type: '满溢告警',
     level: '严重',
     boxType: '小勾臂箱',
-    boxNo: 'XB-MTJ-002',
+    boxNo: '028',
     boxName: '牛家窑2号小勾臂箱',
     town: '马投涧镇',
     address: '马投涧镇牛家窑村文化广场收集点',
@@ -117,7 +126,7 @@ export const sanitationAlarms: SanitationAlarm[] = reactive([
     type: '满溢告警',
     level: '严重',
     boxType: '大勾臂箱',
-    boxNo: 'DB-MTJ-003',
+    boxNo: '117',
     boxName: '马投涧压缩箱C',
     town: '马投涧镇',
     address: '马投涧中转站压缩箱区 C 位',
@@ -136,7 +145,7 @@ export const sanitationAlarms: SanitationAlarm[] = reactive([
     type: '低电量告警',
     level: '重要',
     boxType: '小勾臂箱',
-    boxNo: 'XB-LQ-002',
+    boxNo: '062',
     boxName: '陈家庄2号小勾臂箱',
     town: '龙泉镇',
     address: '龙泉镇陈家庄村东口',
@@ -155,7 +164,7 @@ export const sanitationAlarms: SanitationAlarm[] = reactive([
     type: '满溢告警',
     level: '严重',
     boxType: '小勾臂箱',
-    boxNo: 'XB-LQ-004',
+    boxNo: '093',
     boxName: '西上庄村1号小勾臂箱',
     town: '龙泉镇',
     address: '龙泉镇西上庄村村委会西侧',
@@ -173,7 +182,7 @@ export const sanitationAlarms: SanitationAlarm[] = reactive([
     type: '设备离线',
     level: '一般',
     boxType: '大勾臂箱',
-    boxNo: 'DB-SY-001',
+    boxNo: '105',
     boxName: '善应压缩箱A',
     town: '善应镇',
     address: '善应中转站东环路南段',
@@ -185,6 +194,42 @@ export const sanitationAlarms: SanitationAlarm[] = reactive([
     handleStatus: '不需处理',
     starred: false,
     content: '满溢传感器超过 30 分钟未上报。',
+  },
+  {
+    id: 'AL20260818006',
+    type: '满溢告警',
+    level: '严重',
+    boxType: '小勾臂箱',
+    boxNo: '028',
+    boxName: '牛家窑2号小勾臂箱',
+    town: '马投涧镇',
+    address: '马投涧镇牛家窑村文化广场收集点',
+    fillRate: 91,
+    battery: 72,
+    ruleName: '小勾臂箱满溢率 >= 90%',
+    triggerTime: recentAlarmTime(30),
+    readStatus: '未读',
+    handleStatus: '待处理',
+    starred: false,
+    content: '箱体满溢 91%，需尽快安排清运。',
+  },
+  {
+    id: 'AL20260818007',
+    type: '满溢告警',
+    level: '重要',
+    boxType: '小勾臂箱',
+    boxNo: 'XB-MTJ-001',
+    boxName: '南坡村1号小勾臂箱',
+    town: '马投涧镇',
+    address: '马投涧镇南坡村东口路边',
+    fillRate: 68,
+    battery: 84,
+    ruleName: '小勾臂箱满溢率 >= 60%',
+    triggerTime: recentAlarmTime(150),
+    readStatus: '未读',
+    handleStatus: '待处理',
+    starred: false,
+    content: '箱体满溢 68%，建议尽快清运。',
   },
 ])
 
@@ -398,7 +443,7 @@ const locationCoords: Record<string, { lng: number; lat: number }> = {
   '龙安生活垃圾焚烧厂': { lng: 114.352, lat: 36.068 },
 }
 
-export function createCollectionTaskFromAlarm(alarm: SanitationAlarm, driverName = '张师傅', destinationName?: string) {
+export function createCollectionTaskFromAlarm(alarm: SanitationAlarm, driverName = '张师傅', destinationName?: string, vehicleName?: string, vehicleType?: string) {
   const driver = drivers.find((item) => item.name === driverName) || drivers[0]
   const destination = alarm.boxType === '小勾臂箱'
     ? destinations.find((item) => item.name === destinationName && item.type === '中转站') || destinations[0]
@@ -422,8 +467,8 @@ export function createCollectionTaskFromAlarm(alarm: SanitationAlarm, driverName
     destinationAddress: destination.address,
     driver: driver.name,
     driverPhone: driver.phone,
-    vehicle: driver.vehicle,
-    vehicleType: driver.vehicleType,
+    vehicle: vehicleName || driver.vehicle,
+    vehicleType: vehicleType || driver.vehicleType,
     priority: '紧急',
     slaMinutes: 60,
     createTime: '2026-05-20 10:18:00',

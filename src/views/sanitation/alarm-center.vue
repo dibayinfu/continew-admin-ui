@@ -183,13 +183,19 @@
           </a-descriptions>
 
           <div class="section-title">箱体当前信息</div>
-          <div class="box-info-line">
-            <span><em>箱体编号</em>{{ creatingShortBoxNo }}</span>
-            <span><em>箱体类型</em>{{ creatingAlarm.boxType }}</span>
-            <span><em>收集点</em>{{ creatingCollectionPoint }}</span>
-            <span><em>乡镇村庄</em>{{ creatingTownVillage }}</span>
-            <span><em>满溢率</em><b :class="{ overtime: (creatingAlarm.fillRate ?? 0) >= 90 }">{{ creatingAlarm.fillRate != null ? creatingAlarm.fillRate + '%' : '—' }}</b></span>
-            <span><em>电量</em>{{ creatingBattery }}</span>
+          <template v-if="creatingHasCollectionPoint">
+            <div class="box-info-line">
+              <span><em>箱体编号</em>{{ creatingShortBoxNo }}</span>
+              <span><em>箱体类型</em>{{ creatingAlarm.boxType }}</span>
+              <span><em>收集点</em>{{ creatingCollectionPoint }}</span>
+              <span><em>乡镇村庄</em>{{ creatingTownVillage }}</span>
+              <span><em>满溢率</em><b :class="{ overtime: (creatingAlarm.fillRate ?? 0) >= 90 }">{{ creatingAlarm.fillRate != null ? creatingAlarm.fillRate + '%' : '—' }}</b></span>
+              <span><em>电量</em>{{ creatingBattery }}</span>
+            </div>
+          </template>
+          <div v-else class="box-no-point-hint">
+            当前箱体不在收集点，
+            <a-link class="box-no-point-link" @click="openCollectionPointArchive">去箱体档案中添加收集点</a-link>
           </div>
         </section>
 
@@ -213,13 +219,19 @@
               <b>{{ selectedBox.name }}</b>
               <span>{{ selectedBox.currentLocation }}</span>
             </div>
-            <div class="box-info-line">
-              <span><em>箱体编号</em>{{ selectedBoxShortNo }}</span>
-              <span><em>箱体类型</em>{{ selectedBox.boxType }}</span>
-              <span><em>收集点</em>{{ selectedBoxCollectionPoint }}</span>
-              <span><em>乡镇村庄</em>{{ selectedBoxTownVillage }}</span>
-              <span><em>满溢率</em><b :class="{ overtime: (selectedBox.fillRate ?? 0) >= 90 }">{{ selectedBox.fillRate != null ? selectedBox.fillRate + '%' : '—' }}</b></span>
-              <span><em>电量</em>{{ selectedBoxBattery }}</span>
+            <template v-if="selectedBoxHasCollectionPoint">
+              <div class="box-info-line">
+                <span><em>箱体编号</em>{{ selectedBoxShortNo }}</span>
+                <span><em>箱体类型</em>{{ selectedBox.boxType }}</span>
+                <span><em>收集点</em>{{ selectedBoxCollectionPoint }}</span>
+                <span><em>乡镇村庄</em>{{ selectedBoxTownVillage }}</span>
+                <span><em>满溢率</em><b :class="{ overtime: (selectedBox.fillRate ?? 0) >= 90 }">{{ selectedBox.fillRate != null ? selectedBox.fillRate + '%' : '—' }}</b></span>
+                <span><em>电量</em>{{ selectedBoxBattery }}</span>
+              </div>
+            </template>
+            <div v-else class="box-no-point-hint">
+              当前箱体不在收集点，
+              <a-link class="box-no-point-link" @click="openCollectionPointArchive">去箱体档案中添加收集点</a-link>
             </div>
           </template>
         </section>
@@ -453,8 +465,8 @@ const readStatusFilters = ['全部', '未读', '已读']
 const taskStatusFilters = ['全部', '未建任务单', '已建任务单']
 const starredFilters = ['全部', '星标消息']
 const driverOptions = computed(() => drivers.map((item) => item.name))
-// 车辆下拉选项：仅展示当前驾驶员绑定的车辆（通常 0~2 条）
-const currentDriverVehicleOptions = computed(() => getDriverVehicles(createForm.driver).map((v) => ({ label: `${v.plateNo} · ${v.vehicleType}`, value: v.plateNo })))
+// 车辆下拉选项：仅展示当前驾驶员绑定的车辆（通常 0~2 条），下拉只显示车牌号
+const currentDriverVehicleOptions = computed(() => getDriverVehicles(createForm.driver).map((v) => ({ label: v.plateNo, value: v.plateNo })))
 // 驾驶员下拉：仅展示名称
 const driverOptionList = computed(() => drivers)
 // 当前驾驶员绑定的车辆（提示行用）
@@ -472,6 +484,11 @@ function onVehicleChange() {
 
 function openVehicleArchive() {
   const href = router.resolve({ path: '/sanitation/vehicleArchive' }).href
+  window.open(href, '_blank')
+}
+
+function openCollectionPointArchive() {
+  const href = router.resolve({ path: '/sanitation/collectionPoint' }).href
   window.open(href, '_blank')
 }
 
@@ -529,9 +546,13 @@ const creatingShortBoxNo = computed(() => {
   if (creatingAlarm.value) return displayBoxNo({ ...creatingAlarm.value } as BoxRecord)
   return creatingBox.value ? displayBoxNo(creatingBox.value) : '-'
 })
+const creatingHasCollectionPoint = computed(() => {
+  const points = creatingBox.value ? getBoxCollectionPoints(creatingBox.value) : []
+  return points.length > 0
+})
 const creatingCollectionPoint = computed(() => {
   const points = creatingBox.value ? getBoxCollectionPoints(creatingBox.value) : []
-  return points[0] || creatingAlarm.value?.address || '-'
+  return points[0] || '-'
 })
 const creatingTownVillage = computed(() => {
   // 优先取箱体档案的乡镇/村庄；箱体档案找不到时退回告警自带的乡镇 + 地址提取村庄
@@ -548,10 +569,14 @@ const creatingBattery = computed(() => {
 })
 // 无告警（选择箱体）：箱体短编号 / 收集点 / 乡镇村庄 / 电量
 const selectedBoxShortNo = computed(() => (selectedBox.value ? displayBoxNo(selectedBox.value as BoxRecord) : '-'))
+const selectedBoxHasCollectionPoint = computed(() => {
+  if (!selectedBox.value) return false
+  return getBoxCollectionPoints(selectedBox.value as BoxRecord).length > 0
+})
 const selectedBoxCollectionPoint = computed(() => {
   if (!selectedBox.value) return '-'
   const points = getBoxCollectionPoints(selectedBox.value as BoxRecord)
-  return points[0] || selectedBox.value.currentLocation || '-'
+  return points[0] || '-'
 })
 const selectedBoxTownVillage = computed(() => boxTownVillage(selectedBox.value as BoxRecord | null))
 const selectedBoxBattery = computed(() => {
@@ -996,6 +1021,17 @@ function refreshFlash() {
       font-style: normal;
       color: var(--color-text-3);
     }
+  }
+}
+
+/* 箱体未匹配到收集点提示（与收运单监控-快速创建任务一致） */
+.box-no-point-hint {
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
+
+  .box-no-point-link {
+    font-size: 14px;
   }
 }
 

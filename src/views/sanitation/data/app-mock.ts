@@ -69,6 +69,8 @@ export interface BoxMonitorItem {
   status: 'normal' | 'warning' | 'overflow' | 'offline'
   lastReport: string
   lockStatus: string
+  /** 匹配的收集点名称；无则视为未匹配收集点（派单弹层提示去收集点档案添加） */
+  collectionPoint?: string
   /** 在线状态 0=在线 1=离线（与地图模式一致；部分页面未填） */
   onlineStatus?: number
   /** 设备编号（与地图模式一致；部分页面未填） */
@@ -81,14 +83,14 @@ export interface BoxMonitorItem {
 }
 
 export const boxMonitorList: BoxMonitorItem[] = [
-  { id: 'BM001', boxNo: 'XB-MTJ-001', boxName: '南坡村1号小勾臂箱', boxType: '小勾臂箱', town: '马投涧镇', village: '南坡村', fillRate: 45, battery: 82, status: 'normal', lastReport: '2026-06-11 10:15:22', lockStatus: '关锁' },
-  { id: 'BM002', boxNo: 'XB-MTJ-002', boxName: '牛家窑2号小勾臂箱', boxType: '小勾臂箱', town: '马投涧镇', village: '牛家窑村', fillRate: 91, battery: 66, status: 'overflow', lastReport: '2026-06-11 10:12:20', lockStatus: '开锁' },
+  { id: 'BM001', boxNo: 'XB-MTJ-001', boxName: '南坡村1号小勾臂箱', boxType: '小勾臂箱', town: '马投涧镇', village: '南坡村', fillRate: 45, battery: 82, status: 'normal', lastReport: '2026-06-11 10:15:22', lockStatus: '关锁', collectionPoint: '南坡村东口收集点' },
+  { id: 'BM002', boxNo: 'XB-MTJ-002', boxName: '牛家窑2号小勾臂箱', boxType: '小勾臂箱', town: '马投涧镇', village: '牛家窑村', fillRate: 91, battery: 66, status: 'overflow', lastReport: '2026-06-11 10:12:20', lockStatus: '开锁', collectionPoint: '牛家窑文化广场收集点' },
   { id: 'BM003', boxNo: 'DB-MTJ-003', boxName: '马投涧压缩箱C', boxType: '移动压缩箱', town: '马投涧镇', village: '-', fillRate: 94, battery: 67, status: 'overflow', lastReport: '2026-06-11 10:08:00', lockStatus: '关锁' },
-  { id: 'BM004', boxNo: 'XB-LQ-003', boxName: '石岩村南收集点箱体', boxType: '小勾臂箱', town: '龙泉镇', village: '石岩村', fillRate: 78, battery: 31, status: 'offline', lastReport: '2026-06-11 08:11:03', lockStatus: '未知' },
-  { id: 'BM005', boxNo: 'XB-LQ-004', boxName: '西上庄村1号小勾臂箱', boxType: '小勾臂箱', town: '龙泉镇', village: '西上庄村', fillRate: 95, battery: 44, status: 'overflow', lastReport: '2026-06-11 09:50:00', lockStatus: '关锁' },
+  { id: 'BM004', boxNo: 'XB-LQ-003', boxName: '石岩村南收集点箱体', boxType: '小勾臂箱', town: '龙泉镇', village: '石岩村', fillRate: 78, battery: 31, status: 'offline', lastReport: '2026-06-11 08:11:03', lockStatus: '未知', collectionPoint: '石岩村南收集点' },
+  { id: 'BM005', boxNo: 'XB-LQ-004', boxName: '西上庄村1号小勾臂箱', boxType: '小勾臂箱', town: '龙泉镇', village: '西上庄村', fillRate: 95, battery: 44, status: 'overflow', lastReport: '2026-06-11 09:50:00', lockStatus: '关锁', collectionPoint: '西上庄村东收集点' },
   { id: 'BM006', boxNo: 'DB-SY-001', boxName: '善应压缩箱A', boxType: '大勾臂箱', town: '善应镇', village: '-', fillRate: 82, battery: 91, status: 'warning', lastReport: '2026-06-11 10:05:00', lockStatus: '关锁' },
-  { id: 'BM007', boxNo: 'XB-LQ-002', boxName: '陈家庄2号小勾臂箱', boxType: '小勾臂箱', town: '龙泉镇', village: '陈家庄', fillRate: 73, battery: 8, status: 'warning', lastReport: '2026-06-11 09:38:00', lockStatus: '关锁' },
-  { id: 'BM008', boxNo: 'XB-MTJ-005', boxName: '盘龙寺村收集点箱体', boxType: '小勾臂箱', town: '马投涧镇', village: '盘龙寺村', fillRate: 32, battery: 95, status: 'normal', lastReport: '2026-06-11 10:18:00', lockStatus: '关锁' },
+  { id: 'BM007', boxNo: 'XB-LQ-002', boxName: '陈家庄2号小勾臂箱', boxType: '小勾臂箱', town: '龙泉镇', village: '陈家庄', fillRate: 73, battery: 8, status: 'warning', lastReport: '2026-06-11 09:38:00', lockStatus: '关锁', collectionPoint: '陈家庄村东收集点' },
+  { id: 'BM008', boxNo: 'XB-MTJ-005', boxName: '盘龙寺村收集点箱体', boxType: '小勾臂箱', town: '马投涧镇', village: '盘龙寺村', fillRate: 32, battery: 95, status: 'normal', lastReport: '2026-06-11 10:18:00', lockStatus: '关锁', collectionPoint: '盘龙寺村收集点' },
 ]
 
 // ==================== 告警列表 ====================
@@ -113,6 +115,7 @@ export const alertList: AlertItem[] = reactive([
   { id: 'AL003', type: '满溢告警', level: '严重', title: '马投涧压缩箱C满溢', content: '移动压缩箱满溢 94%，需转运至焚烧厂。', source: '马投涧压缩箱C', time: '2026-06-11 07:45', readStatus: '已读', handleStatus: '已处理', starred: false, linkedTaskId: 'ST002' },
   { id: 'AL004', type: '低电量告警', level: '重要', title: '陈家庄2号箱低电量', content: '电量仅 8%，建议运维人员线下更换电池。', source: '陈家庄2号小勾臂箱', time: '2026-06-11 09:38', readStatus: '未读', handleStatus: '待处理', starred: false },
   { id: 'AL005', type: '设备离线', level: '一般', title: '石岩村南箱体离线', content: '满溢传感器超过 2 小时未上报。', source: '石岩村南收集点箱体', time: '2026-06-11 08:11', readStatus: '未读', handleStatus: '待处理', starred: false },
+  { id: 'AL006', type: '满溢告警', level: '严重', title: '善应压缩箱A满溢', content: '压缩箱满溢 82%，需派车转运至焚烧厂。', source: '善应压缩箱A', time: '2026-06-11 10:05', readStatus: '未读', handleStatus: '待处理', starred: false },
 ])
 
 // ==================== 运单列表 ====================

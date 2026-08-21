@@ -39,12 +39,29 @@
                   </div>
                 </div>
                 <div class="dispatch-section">
-                  <div class="ds-label">任务配置</div>
+                  <div class="ds-label">箱体当前信息</div>
+                  <template v-if="dispatchHasCollectionPoint">
+                    <div class="ds-box-info">
+                      <span><em>箱体编号</em>{{ dispatchBox?.boxNo }}</span>
+                      <span><em>箱体类型</em>{{ dispatchBox?.boxType }}</span>
+                      <span><em>收集点</em>{{ dispatchCollectionPoint }}</span>
+                      <span><em>乡镇村庄</em>{{ dispatchTownVillage }}</span>
+                      <span><em>满溢率</em><b>{{ dispatchBox?.fillRate != null ? dispatchBox.fillRate + '%' : '—' }}</b></span>
+                      <span><em>电量</em>{{ dispatchBox?.battery != null ? dispatchBox.battery + '%' : '—' }}</span>
+                    </div>
+                  </template>
+                  <div v-else class="ds-no-point-hint">
+                    当前箱体不在收集点，
+                    <a-link class="ds-no-point-link" @click="openCollectionPointArchive">去箱体档案中添加收集点</a-link>
+                  </div>
+                </div>
+                <div class="dispatch-section">
+                  <div class="ds-label">任务派单</div>
                   <div class="ds-form">
                     <div class="ds-field">
-                      <label>驾驶员</label>
-                      <select v-model="createForm.driver">
-                        <option v-for="d in driverList" :key="d" :value="d">{{ d }}</option>
+                      <label>所属机构</label>
+                      <select v-model="createForm.organization">
+                        <option value="河南龙淼钧泽环卫有限公司">河南龙淼钧泽环卫有限公司</option>
                       </select>
                     </div>
                     <div class="ds-field">
@@ -54,7 +71,19 @@
                       </select>
                     </div>
                     <div class="ds-field">
-                      <label>时效</label>
+                      <label>驾驶员</label>
+                      <select v-model="createForm.driver">
+                        <option v-for="d in driverList" :key="d" :value="d">{{ d }}</option>
+                      </select>
+                    </div>
+                    <div class="ds-field">
+                      <label>车辆</label>
+                      <select v-model="createForm.vehicle">
+                        <option v-for="v in vehicleList" :key="v" :value="v">{{ v }}</option>
+                      </select>
+                    </div>
+                    <div class="ds-field">
+                      <label>时效要求</label>
                       <select v-model="createForm.deadline">
                         <option value="30">30分钟</option>
                         <option value="60">60分钟</option>
@@ -65,15 +94,15 @@
                     <div class="ds-field">
                       <label>优先级</label>
                       <select v-model="createForm.priority">
+                        <option value="一般">一般</option>
                         <option value="紧急">紧急</option>
-                        <option value="普通">普通</option>
                       </select>
                     </div>
                   </div>
                 </div>
               </div>
               <div class="dispatch-sheet-footer">
-                <a-button type="primary" long size="large" @click="submitDispatch">创建任务单</a-button>
+                <a-button type="primary" long size="large" :disabled="!dispatchHasCollectionPoint" @click="submitDispatch">创建任务单</a-button>
               </div>
             </div>
           </div>
@@ -344,15 +373,20 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import { Message as ArcoMessage } from '@arco-design/web-vue'
+import { useRouter } from 'vue-router'
 import ModuleHeader from './components/ModuleHeader.vue'
 import PrdPanel from './components/PrdPanel.vue'
 import type { PrdSection } from './data/pageConfigs'
 import {
   alertList,
+  boxMonitorList,
   waybillList,
   type AlertItem,
+  type BoxMonitorItem,
   type WaybillItem,
 } from './data/app-mock'
+
+const router = useRouter()
 
 const prdSections: PrdSection[] = [
   {
@@ -371,7 +405,7 @@ const prdSections: PrdSection[] = [
       { label: '星标', value: '可对告警消息添加/取消星标，便于标记需要关注的消息。星标消息在列表中以黄色五角星标识。' },
       { label: '展开详情', value: '点击卡片本条下拉展开详情（告警编号、等级、来源、阅读状态、处理状态、关联任务），不跳新页；再次点击收起' },
       { label: '派单入口', value: '仅「满溢告警」且尚未关联任务时显示「派单」按钮' },
-      { label: '派单流程', value: '点击派单 → 底部弹出层（遮罩+圆角面板从下往上滑入）。上半展示告警消息详情（只读），下半任务配置表单：驾驶员 Select、目的地 Select、时效 Select（30/60/90/120min）、优先级 Select（紧急/普通）→ 点击「创建任务单」提交，自动生成 linkedTaskId 并添加星标' },
+      { label: '派单流程', value: '点击派单 → 底部弹出层（遮罩+圆角面板从下往上滑入）。依次展示告警消息（只读）→ 箱体当前信息（箱体编号/类型/收集点/乡镇村庄/满溢率/电量）；箱体未匹配收集点时显示「当前箱体不在收集点，去箱体档案中添加收集点」且「创建任务单」按钮禁用不可提交 → 「任务派单」表单（所属机构、目的地、驾驶员、车辆、时效 30/60/90/120min、优先级 一般/紧急 默认一般）→ 点击「创建任务单」提交，自动生成 linkedTaskId 并添加星标' },
       { label: '查看任务', value: '已关联任务时显示「查看任务」按钮，点击提示跳转至具体收运任务单信息' },
       { label: '数据来源', value: '告警列表来自 app-mock.ts 的 alertList，含满溢告警、低电量告警、设备离线等类型' },
     ],
@@ -394,7 +428,7 @@ const prdSections: PrdSection[] = [
       { label: '✓ 告警统计筛选', value: '点击统计卡切换筛选，计数准确；今日告警=总数，未读/星标消息各自准确' },
       { label: '✓ 星标切换', value: '点击星标按钮可添加/取消星标，按钮文字和图标即时切换' },
       { label: '✓ 展开/收起', value: '点击卡片展开详情，再次点击收起；展开时标记已读' },
-      { label: '✓ 派单弹层', value: '底部弹出层 slideUp 动画；遮罩点击关闭；表单字段完整；提交后 linkedTaskId 生成，自动添加星标' },
+      { label: '✓ 派单弹层', value: '底部弹出层 slideUp 动画；遮罩点击关闭；表单字段完整（所属机构/目的地/驾驶员/车辆/时效/优先级）；箱体无收集点时展示提示且按钮禁用；提交后 linkedTaskId 生成，自动添加星标' },
       { label: '✓ 双 Tab 切换', value: '运单监控/全部运单切换流畅，列表独立过滤' },
       { label: '✓ 全部运单筛选', value: '搜索 + 状态 + 超时 + 日期范围，联合过滤正确' },
       { label: '✓ 运单详情', value: '全屏浮层展示完整信息；地图轨迹可视化；未完成显示操作按钮' },
@@ -412,15 +446,31 @@ const alertTabFilter = ref<'all' | 'unread' | 'starred'>('all')
 const expandedAlertId = ref<string | null>(null)
 const dispatchAlarm = ref<AlertItem | null>(null)
 
+// 派单告警对应的箱体（按告警来源箱体名匹配 boxMonitorList）
+const dispatchBox = computed<BoxMonitorItem | null>(() => {
+  if (!dispatchAlarm.value) return null
+  return boxMonitorList.find((b) => b.boxName === dispatchAlarm.value?.source) || null
+})
+const dispatchCollectionPoint = computed(() => dispatchBox.value?.collectionPoint || null)
+const dispatchHasCollectionPoint = computed(() => Boolean(dispatchBox.value?.collectionPoint))
+const dispatchTownVillage = computed(() => {
+  const box = dispatchBox.value
+  if (!box) return '-'
+  return [box.town, box.village].filter((v) => v && v !== '-').join(' ') || '-'
+})
+
 const createForm = reactive({
+  organization: '河南龙淼钧泽环卫有限公司',
   driver: '张师傅',
   destination: '龙泉镇中转站',
+  vehicle: '豫E3G516',
   deadline: '60',
-  priority: '紧急' as '紧急' | '普通',
+  priority: '一般' as '一般' | '紧急',
 })
 
 const driverList = ['张师傅', '李师傅', '孙师傅', '王师傅']
 const destList = ['龙泉镇中转站', '马投涧中转站', '城北焚烧厂', '城南焚烧厂']
+const vehicleList = ['豫E3G516', '豫E2M883', '豫E6N109', '豫E8K270', '豫E7A031']
 
 const unreadCount = computed(() => alertList.filter(a => a.readStatus === '未读').length)
 const starredCount = computed(() => alertList.filter(a => a.starred).length)
@@ -438,12 +488,16 @@ function toggleExpand(a: AlertItem) {
 function toggleStar(a: AlertItem) { a.readStatus = '已读'; a.starred = !a.starred; ArcoMessage.success(a.starred ? '已添加星标' : '已取消星标') }
 function openDispatch(a: AlertItem) { dispatchAlarm.value = a }
 function closeDispatch() { dispatchAlarm.value = null }
+function openCollectionPointArchive() {
+  const href = router.resolve({ path: '/sanitation/collectionPoint' }).href
+  window.open(href, '_blank')
+}
 function submitDispatch() {
   const a = dispatchAlarm.value!
   a.linkedTaskId = 'WB_DISP_' + Date.now()
   a.starred = true
   a.readStatus = '已读'
-  ArcoMessage.success(`已派单：${a.title} → ${createForm.driver}，目的地：${createForm.destination}`)
+  ArcoMessage.success(`已派单：${a.title} → ${createForm.driver}（${createForm.vehicle}），目的地：${createForm.destination}`)
   closeDispatch()
 }
 function viewTask(a: AlertItem) {
@@ -559,6 +613,27 @@ function doTransfer() {
 .ds-form { display: flex; flex-direction: column; gap: 8px; }
 .ds-field { display: flex; align-items: center; justify-content: space-between; background: #f7f8fa; border-radius: 8px; padding: 10px 12px; label { font-size: 13px; color: #1d2129; font-weight: 500; } select { font-size: 13px; color: #4e5969; border: 1px solid #e5e6eb; border-radius: 4px; padding: 4px 8px; background: #fff; } }
 .dispatch-section { display: flex; flex-direction: column; gap: 8px; }
+/* 派单弹层-箱体当前信息 */
+.ds-box-info {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #1d2129;
+  background: #f7f8fa;
+  border-radius: 8px;
+  span { display: inline-flex; align-items: baseline; gap: 4px; em { font-style: normal; color: #86909c; } }
+}
+/* 派单弹层-未匹配收集点提示 */
+.ds-no-point-hint {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  color: #4e5969;
+  .ds-no-point-link { font-size: 12px; }
+}
 /* 转单 */
 .ts-field { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: #f7f8fa; border-radius: 8px; label { font-size: 13px; color: #86909c; } b { font-size: 13px; color: #1d2129; } select { font-size: 13px; border: 1px solid #e5e6eb; border-radius: 4px; padding: 4px 8px; } }
 /* 运单 */

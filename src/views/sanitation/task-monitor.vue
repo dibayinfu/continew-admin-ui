@@ -218,11 +218,19 @@
                   @search="boxSearchKeyword = $event"
                   @clear="clearBoxSelection"
                 >
-                  <a-option v-for="opt in filteredBoxOptions" :key="opt.key" :value="opt.key" :label="opt.boxNo">
+                  <a-option
+                    v-for="opt in filteredBoxOptions"
+                    :key="opt.key"
+                    :value="opt.key"
+                    :label="opt.boxNo"
+                    :disabled="opt.inTask"
+                    :class="{ 'box-opt-task-option': opt.inTask }"
+                  >
                     <div class="box-opt">
                       <span class="box-opt-no">{{ opt.boxNo }}</span>
                       <span v-if="opt.collectionPoint" class="box-opt-point">{{ opt.collectionPoint }}</span>
                       <span v-if="opt.fillRate != null" class="box-opt-rate" :class="rateTone(opt.fillRate)">{{ opt.fillRate }}%</span>
+                      <span v-if="opt.inTask" class="box-opt-task">任务中</span>
                     </div>
                   </a-option>
                 </a-select>
@@ -234,7 +242,8 @@
           </a-form>
 
           <div v-if="selectedBox && !selectedCollectionPoint" class="box-no-point-hint">
-            <a-link class="box-no-point-link" @click="openCollectionPointArchive">去收集点档案中添加收集点</a-link>
+            当前箱体不在收集点，
+            <a-link class="box-no-point-link" @click="openCollectionPointArchive">去箱体档案中添加收集点</a-link>
           </div>
 
           <template v-if="selectedBox && selectedCollectionPoint">
@@ -466,8 +475,8 @@ const createForm = reactive({
 
 // 操作员是否已手动选择过车辆（手动选择后，刷新/换驾驶员不再自动覆盖）
 const manualVehicleOverride = ref(false)
-// 车辆下拉选项：仅展示当前驾驶员绑定的车辆（通常 0~2 条）
-const currentDriverVehicleOptions = computed(() => getDriverVehicles(createForm.driver).map((v) => ({ label: `${v.plateNo} · ${v.vehicleType}`, value: v.plateNo })))
+// 车辆下拉选项：仅展示当前驾驶员绑定的车辆（通常 0~2 条），下拉只显示车牌号
+const currentDriverVehicleOptions = computed(() => getDriverVehicles(createForm.driver).map((v) => ({ label: v.plateNo, value: v.plateNo })))
 // 驾驶员下拉：仅展示名称
 const driverOptionList = computed(() => drivers)
 // 当前驾驶员绑定的车辆（提示行用）
@@ -493,6 +502,8 @@ interface BoxOption {
   boxNo: string
   fillRate: number | null
   collectionPoint: string | null
+  /** 该箱体当前是否有进行中的收运任务（待接单/已接单/收运中），有则下拉置灰不可选 */
+  inTask: boolean
   box: BoxRecord
 }
 
@@ -513,12 +524,14 @@ const boxOptions = computed<BoxOption[]>(() => {
   const list: BoxOption[] = []
   ;(boxes as BoxRecord[]).forEach((box) => {
     if (box.boxType !== '小勾臂箱' && box.boxType !== '大勾臂箱') return
+    // 任务中 = 存在该箱体的未完成运单（待接单/已接单/收运中），此类箱体仅展示不可选
+    const inTask = collectionTasks.some((t) => t.boxName === box.name && t.collectionStatus !== '已完成')
     const points = getBoxCollectionPoints(box)
     if (points.length === 0) {
-      list.push({ key: `${box.id}::none`, boxNo: displayBoxNo(box), fillRate: box.fillRate, collectionPoint: null, box })
+      list.push({ key: `${box.id}::none`, boxNo: displayBoxNo(box), fillRate: box.fillRate, collectionPoint: null, inTask, box })
     } else {
       points.forEach((point, index) => {
-        list.push({ key: `${box.id}::${index}`, boxNo: displayBoxNo(box), fillRate: box.fillRate, collectionPoint: point, box })
+        list.push({ key: `${box.id}::${index}`, boxNo: displayBoxNo(box), fillRate: box.fillRate, collectionPoint: point, inTask, box })
       })
     }
   })
@@ -997,6 +1010,23 @@ function forceComplete() {
   &.danger {
     background: rgb(var(--danger-6));
   }
+}
+
+/* 任务中标签：该箱体已有未完成运单，展示但不可选 */
+.box-opt-task {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 6px;
+  font-size: 11px;
+  line-height: 18px;
+  border-radius: 999px;
+  color: #fff;
+  background: rgb(var(--purple-6));
+}
+
+/* 任务中选项：淡紫底微衬托（不可选但保持可读） */
+.box-opt-task-option {
+  background-color: rgba(var(--purple-6), 0.06);
 }
 
 .box-opt-point {

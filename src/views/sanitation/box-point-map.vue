@@ -344,20 +344,30 @@ function matchTownshipForPoint(point: CollectionPoint) {
   if (townshipFilter.value === UNMATCHED) return !township
   return township === townshipFilter.value
 }
-/** 箱体 -> 所属乡镇/村庄（来自收集点数据 townshipName/villageName，与箱体地图一致） */
+/** 箱体 -> 所属乡镇/村庄（仅以收集点名称关联，不能使用车辆/箱体编号） */
 const boxAreas = new Map<number, { township: string, village: string }>()
+function isCollectionPointNameKey(key: string) {
+  return !/^\d+$/.test(key) && !/^[\u4E00-\u9FFF][A-Z][A-Z0-9]{5,6}$/.test(key)
+}
 function assignBoxAreas(boxList: Box[], pointList: CollectionPoint[]) {
   boxAreas.clear()
   for (const box of boxList) {
-    let hit: CollectionPoint | undefined
     try {
       const keys = Object.keys(JSON.parse(box.matchObject || '{}'))
-      for (const key of keys) {
-        const p = pointList.find((pp) => pp.pointName === key || pp.pointCode === key || String(pp.id) === key)
-        if (p) { hit = p; break }
-      }
+      // matchObject 同时含收集点、车辆等对象。纯数字（如 190、164）及车牌不能按
+      // 收集点 ID/编码关联，否则会把车辆所在乡镇误当成箱体归属。
+      const candidates = pointList.filter((point) => keys.some((key) =>
+        isCollectionPointNameKey(key) && point.pointName === key,
+      ))
+      // 一个箱体可能命中多个收集点，按与箱体坐标的距离确定归属，不能依赖 JSON 键顺序。
+      const hit = candidates.reduce<CollectionPoint | undefined>((nearest, point) => {
+        if (!nearest) return point
+        const distance = (point.longitude - box.longitude) ** 2 + (point.latitude - box.latitude) ** 2
+        const nearestDistance = (nearest.longitude - box.longitude) ** 2 + (nearest.latitude - box.latitude) ** 2
+        return distance < nearestDistance ? point : nearest
+      }, undefined)
+      if (hit) boxAreas.set(box.id, { township: hit.townshipName, village: hit.villageName || '' })
     } catch { /* 忽略 */ }
-    if (hit) boxAreas.set(box.id, { township: hit.townshipName, village: hit.villageName || '' })
   }
 }
 /** 「未匹配」筛选值：无收集点归属（无村庄）的箱体专用 sentinel，不会与真实村庄名冲突 */

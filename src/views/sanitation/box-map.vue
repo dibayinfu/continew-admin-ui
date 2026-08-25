@@ -247,23 +247,31 @@ function openLogin() {
   daasAuth.visible = true
 }
 
-/** 箱体 -> 所属乡镇/村庄（来自收集点数据 townshipName/villageName） */
+/** 箱体 -> 所属乡镇/村庄（仅以收集点名称关联，不能使用车辆/箱体编号） */
 const boxAreas = new Map<number, { township: string, village: string }>()
+function isCollectionPointNameKey(key: string) {
+  return !/^\d+$/.test(key) && !/^[\u4E00-\u9FFF][A-Z][A-Z0-9]{5,6}$/.test(key)
+}
 
-// 按业务逻辑：只有当箱体 matchObject 匹配到「收集点」时，才建立乡镇/村庄归属；
-// 匹配到车辆/中转站/焚烧厂或未匹配时，箱体无乡镇/村庄归属（只出现在「全部」下）。
+// matchObject 同时含收集点、车辆等对象。只接受非纯数字的收集点名称；
+// 不能把 190、164 等车辆标识按收集点 ID/编码关联。
 function assignBoxAreas(boxList: Box[], pointList: CollectionPoint[]) {
   boxAreas.clear()
   for (const box of boxList) {
-    let hit: CollectionPoint | undefined
     try {
       const keys = Object.keys(JSON.parse(box.matchObject || '{}'))
-      for (const key of keys) {
-        const p = pointList.find((pp) => pp.pointName === key || pp.pointCode === key || String(pp.id) === key)
-        if (p) { hit = p; break }
-      }
+      const candidates = pointList.filter((point) => keys.some((key) =>
+        isCollectionPointNameKey(key) && point.pointName === key,
+      ))
+      // 多个收集点命中时按坐标最近者确定归属，不依赖 JSON 键顺序。
+      const hit = candidates.reduce<CollectionPoint | undefined>((nearest, point) => {
+        if (!nearest) return point
+        const distance = (point.longitude - box.longitude) ** 2 + (point.latitude - box.latitude) ** 2
+        const nearestDistance = (nearest.longitude - box.longitude) ** 2 + (nearest.latitude - box.latitude) ** 2
+        return distance < nearestDistance ? point : nearest
+      }, undefined)
+      if (hit) boxAreas.set(box.id, { township: hit.townshipName, village: hit.villageName || '' })
     } catch { /* 忽略 */ }
-    if (hit) boxAreas.set(box.id, { township: hit.townshipName, village: hit.villageName || '' })
   }
 }
 

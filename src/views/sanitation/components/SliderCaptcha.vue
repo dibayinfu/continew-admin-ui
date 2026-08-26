@@ -9,7 +9,12 @@
     </div>
     <div class="sc-track">
       <div class="sc-track-fill" :style="{ width: `${moveX}px` }"></div>
-      <div class="sc-handle" :class="{ 'is-dragging': dragging }" @pointerdown.prevent="onDown">
+      <div
+        class="sc-handle"
+        :class="{ 'is-dragging': dragging }"
+        :style="{ transform: `translateX(${moveX}px)` }"
+        @pointerdown="onDown"
+      >
         <icon-right />
       </div>
     </div>
@@ -49,6 +54,8 @@ let startX = 0
 let startY = 0
 let startTime = 0
 let track: Array<{ x: number, y: number, type: string, t: number }> = []
+let activePointerId: number | undefined
+let dragTarget: HTMLElement | undefined
 
 async function loadCaptcha() {
   loading.value = true
@@ -79,8 +86,14 @@ function formatTime(date: Date) {
 }
 
 function onDown(e: PointerEvent) {
-  if (passed.value || loading.value || checking.value || !captchaId.value) return
+  // 仅接收主指针；避免多指触控或右键导致轨迹异常。
+  if (!e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0) || passed.value || loading.value || checking.value || !captchaId.value) return
+  e.preventDefault()
   dragging.value = true
+  activePointerId = e.pointerId
+  dragTarget = e.currentTarget as HTMLElement
+  // 手指移出滑块范围后仍持续接收 move/up，避免移动端丢失拖动状态。
+  dragTarget.setPointerCapture?.(e.pointerId)
   startX = e.clientX
   startY = e.clientY
   startTime = Date.now()
@@ -88,10 +101,12 @@ function onDown(e: PointerEvent) {
   track = [{ x: 0, y: 0, type: 'down', t: 0 }]
   window.addEventListener('pointermove', onMove)
   window.addEventListener('pointerup', onUp)
+  window.addEventListener('pointercancel', onCancel)
 }
 
 function onMove(e: PointerEvent) {
-  if (!dragging.value) return
+  if (!dragging.value || e.pointerId !== activePointerId) return
+  e.preventDefault()
   const x = Math.max(0, Math.min(CAPTCHA_END, Math.round(e.clientX - startX)))
   const y = Math.round(e.clientY - startY)
   moveX.value = x
@@ -99,14 +114,32 @@ function onMove(e: PointerEvent) {
 }
 
 function onUp(e: PointerEvent) {
-  if (!dragging.value) return
-  dragging.value = false
-  window.removeEventListener('pointermove', onMove)
-  window.removeEventListener('pointerup', onUp)
+  if (!dragging.value || e.pointerId !== activePointerId) return
   const x = Math.max(0, Math.min(CAPTCHA_END, Math.round(e.clientX - startX)))
   const y = Math.round(e.clientY - startY)
   track.push({ x, y, type: 'up', t: Date.now() - startTime })
+  stopDragging()
   submitCheck()
+}
+
+/** 浏览器把手势交还给滚动容器时取消本次拖动，不提交残缺轨迹。 */
+function onCancel(e: PointerEvent) {
+  if (!dragging.value || e.pointerId !== activePointerId) return
+  moveX.value = 0
+  track = []
+  stopDragging()
+}
+
+function stopDragging() {
+  if (activePointerId !== undefined && dragTarget?.hasPointerCapture?.(activePointerId)) {
+    dragTarget.releasePointerCapture(activePointerId)
+  }
+  dragging.value = false
+  activePointerId = undefined
+  dragTarget = undefined
+  window.removeEventListener('pointermove', onMove)
+  window.removeEventListener('pointerup', onUp)
+  window.removeEventListener('pointercancel', onCancel)
 }
 
 async function submitCheck() {
@@ -149,8 +182,7 @@ function reset() {
 }
 
 onBeforeUnmount(() => {
-  window.removeEventListener('pointermove', onMove)
-  window.removeEventListener('pointerup', onUp)
+  stopDragging()
 })
 
 loadCaptcha()
@@ -158,7 +190,7 @@ defineExpose({ reset })
 </script>
 
 <style scoped lang="scss">
-.slider-captcha { width: 260px; user-select: none; }
+.slider-captcha { width: 260px; max-width: 100%; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 .sc-visual { position: relative; width: 260px; height: 159px; overflow: hidden; border-radius: 4px; background: #e5e6eb; cursor: pointer; }
 .sc-bg { width: 260px; height: 159px; display: block; }
 .sc-template { position: absolute; left: 0; top: 0; width: 49px; height: 159px; will-change: transform; pointer-events: none; }
@@ -167,7 +199,7 @@ defineExpose({ reset })
 .sc-refresh { position: absolute; top: 6px; right: 6px; display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 50%; background: rgb(255 255 255 / 88%); color: #4e5969; font-size: 14px; cursor: pointer; }
 .sc-track { position: relative; width: 260px; height: 42px; margin-top: 8px; border-radius: 4px; background: #e5e6eb; overflow: hidden; }
 .sc-track-fill { position: absolute; left: 0; top: 0; bottom: 0; background: #94bfff; }
-.sc-handle { position: absolute; left: 0; top: 0; width: 54px; height: 42px; display: flex; align-items: center; justify-content: center; border-radius: 4px; background: #fff; box-shadow: 0 2px 6px rgb(29 33 41 / 20%); color: #4e5969; font-size: 16px; cursor: grab; }
+.sc-handle { position: absolute; left: 0; top: 0; width: 54px; height: 42px; display: flex; align-items: center; justify-content: center; border-radius: 4px; background: #fff; box-shadow: 0 2px 6px rgb(29 33 41 / 20%); color: #4e5969; font-size: 16px; cursor: grab; touch-action: none; -webkit-tap-highlight-color: transparent; }
 .sc-handle.is-dragging { cursor: grabbing; color: #165dff; }
 .sc-tip { margin-top: 6px; color: #86909c; font-size: 12px; }
 </style>

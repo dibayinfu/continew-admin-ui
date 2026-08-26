@@ -131,13 +131,14 @@ export const systemRoutes: RouteRecordRaw[] = [
       {
         path: '/sanitation/temp-tools',
         name: 'SanitationTempTools',
-        redirect: '/sanitation/boxMap',
+        redirect: '/sanitation/temp-command-center',
         meta: { title: '临时工具', icon: 'tool', hidden: false, alwaysShow: true },
         children: [
           { path: '/sanitation/boxMap', name: 'SanitationBoxMap', component: () => import('@/views/sanitation/box-map.vue'), meta: { title: '箱体地图', icon: 'location', hidden: false } },
           { path: '/sanitation/smallBoxMonitor', name: 'SanitationSmallBoxMonitor', component: () => import('@/views/sanitation/small-box-monitor.vue'), meta: { title: '小勾臂箱监控', icon: 'storage', hidden: false } },
           { path: '/sanitation/boxPointMap', name: 'SanitationBoxPointMap', component: () => import('@/views/sanitation/box-point-map.vue'), meta: { title: '箱体收集点地图', icon: 'apps', hidden: false } },
           { path: '/sanitation/swap-statistics', name: 'SanitationSwapStatistics', component: () => import('@/views/sanitation/swap-statistics.vue'), meta: { title: '换箱统计', icon: 'swap', hidden: false } },
+          { path: '/sanitation/temp-command-center', name: 'SanitationTempCommandCenter', component: () => import('@/views/sanitation/temp-command-center.vue'), meta: { title: '临时大屏', icon: 'dashboard', hidden: false } },
           { path: '/sanitation/dataHiddenConfig', name: 'SanitationDataHiddenConfig', component: () => import('@/views/sanitation/data-hidden-config.vue'), meta: { title: '数据隐藏配置', icon: 'eye-invisible', hidden: false } },
         ],
       },

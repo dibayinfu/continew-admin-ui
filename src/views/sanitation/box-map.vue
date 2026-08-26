@@ -61,8 +61,9 @@
         <a-card class="map-card" :bordered="false">
           <div ref="mapRef" class="amap-container"></div>
           <div class="map-stats">
-            <div class="map-stat"><span>箱体总数</span><b>{{ boxes.length }}</b></div>
+            <div class="map-stat"><span>箱体总数</span><b>{{ visibleBoxes.length }}</b></div>
             <div class="map-stat danger"><span>满溢预警</span><b>{{ overflowCount }}</b></div>
+            <div class="map-stat warning"><span>接近满溢</span><b>{{ nearOverflowCount }}</b></div>
           </div>
           <div class="map-controls">
             <div class="map-theme-picker">
@@ -337,7 +338,9 @@ const visibleBoxes = computed(() => {
     && matchTownship(box)
     && matchVillage(box))
 })
-const overflowCount = computed(() => boxes.value.filter((box) => box.overflowStatus === 1).length)
+// 汇总卡片与地图保持同一筛选范围；橙色箱体沿用既有判定：非满溢且垃圾占比 >= 70%。
+const overflowCount = computed(() => visibleBoxes.value.filter((box) => box.overflowStatus === 1).length)
+const nearOverflowCount = computed(() => visibleBoxes.value.filter((box) => box.overflowStatus !== 1 && box.fillLevel >= 70).length)
 const matchedBoxes = computed<Set<Box> | null>(() => {
   const query = keyword.value.trim().toLowerCase()
   if (!query) return null
@@ -507,12 +510,12 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); markers.forEach((marker) =>
 .detail-card .detail-scroll { flex: 1; min-height: 0; overflow-y: auto; }
 .detail-card .detail-actions { flex-shrink: 0; padding-top: 16px; }
 .amap-container { width: 100%; height: 100%; background: #f2f3f5; }
-.map-stats { position: absolute; top: 16px; left: 16px; display: flex; gap: 10px; z-index: 1; }
+.map-stats { position: absolute; top: 16px; left: 16px; display: flex; gap: 8px; z-index: 1; }
 .map-controls { position: absolute; z-index: 1; top: 16px; right: 16px; display: flex; align-items: center; gap: 8px; }
 .map-theme-picker { height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 9px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; }.map-theme-picker :deep(.arco-select) { width: 88px; }
 .map-fullscreen-btn { height: 32px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; }.map-fullscreen-btn.active { color: #165dff; border-color: #165dff; }
-.map-stat { min-width: 106px; padding: 9px 14px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; }
-.map-stat b { display: block; color: #165dff; font-size: 22px; line-height: 28px; }.map-stat.danger b { color: #f53f3f; }
+.map-stat { min-width: 82px; padding: 7px 8px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; white-space: nowrap; }
+.map-stat b { display: block; color: #165dff; font-size: 20px; line-height: 25px; }.map-stat.danger b { color: #f53f3f; }.map-stat.warning b { color: #ff7d00; }
 .map-error { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px; color: #f53f3f; background: #f7f8fa; }
 .detail-heading { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 18px; }.detail-heading h3 { margin: 4px 0 0; color: #1d2129; font-size: 17px; }.box-no, .section-label { color: #86909c; font-size: 12px; }
 .detail-card :deep(.arco-card-header) { align-items: center; }.detail-close-btn { color: #86909c; }.detail-close-btn:hover { color: #1d2129; }

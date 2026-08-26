@@ -56,7 +56,7 @@
       <span>后重试。</span>
     </div>
 
-    <div class="map-layout" :class="{ 'has-detail': selectedBox }">
+    <div class="map-layout">
       <div ref="mapFullscreenRef" class="map-card-wrap">
         <a-card class="map-card" :bordered="false">
           <div ref="mapRef" class="amap-container"></div>
@@ -86,48 +86,66 @@
             <span>{{ mapError }}</span>
           </div>
         </a-card>
-      </div>
 
-      <a-card v-if="selectedBox" class="detail-card" :bordered="false" title="箱体详情">
-          <template #extra>
+        <a-card v-if="selectedBox" class="detail-card" :bordered="false">
+          <div class="detail-panel-header">
+            <div>
+              <span class="box-no">箱体编号</span>
+              <h2>{{ selectedBox.containerNo }}</h2>
+            </div>
             <a-button type="text" size="mini" class="detail-close-btn" @click="selectedBox = undefined">
               <template #icon><icon-close /></template>
             </a-button>
-          </template>
+          </div>
           <div class="detail-scroll">
           <div class="detail-heading">
-            <div>
-              <span class="box-no">箱体编号 {{ selectedBox.containerNo }}</span>
-              <h3>{{ selectedBox.containerName }}</h3>
-            </div>
             <a-tag :color="statusColor(selectedBox)">{{ statusText(selectedBox) }}</a-tag>
+            <a-tag v-if="selectedBox.onlineStatus !== 0" color="red">设备离线</a-tag>
+            <span class="report-time">上报时间：{{ selectedBox.reportTime }}</span>
           </div>
-          <a-descriptions :column="2" size="small" layout="vertical" :label-style="{ color: '#86909c' }">
-            <a-descriptions-item label="在线状态">{{ selectedBox.onlineStatus === 0 ? '在线' : '离线' }}</a-descriptions-item>
-            <a-descriptions-item label="上报时间">{{ selectedBox.reportTime }}</a-descriptions-item>
-            <a-descriptions-item label="垃圾占比">{{ selectedBox.fillLevel }}%</a-descriptions-item>
-            <a-descriptions-item label="容量">{{ selectedBox.capacity }} 吨</a-descriptions-item>
-            <a-descriptions-item label="温度">{{ selectedBox.temperature }} ℃</a-descriptions-item>
-            <a-descriptions-item label="电量">{{ selectedBox.voltage }}%</a-descriptions-item>
-            <a-descriptions-item label="开关状态">{{ selectedBox.switchStatus === '0' ? '关' : '开' }}</a-descriptions-item>
-            <a-descriptions-item label="设备号">{{ selectedBox.deviceNo }}</a-descriptions-item>
-          </a-descriptions>
-          <div class="coordinate-block">
-            <span>原始坐标（WGS84）</span><code>{{ selectedBox.longitude }}, {{ selectedBox.latitude }}</code>
-            <span>地图坐标（GCJ-02）</span><code>{{ selectedGcj ? `${selectedGcj.lng.toFixed(6)}, ${selectedGcj.lat.toFixed(6)}` : '-' }}</code>
+          <div class="fill-summary" :class="markerTone(selectedBox)">
+            <span>垃圾占比</span>
+            <strong>{{ formatFillLevel(selectedBox) }}%</strong>
+            <div class="fill-track"><i :style="{ width: `${fillLevelPercent(selectedBox)}%` }"></i></div>
           </div>
-          <div class="matched-block">
-            <span class="section-label">匹配对象</span>
-            <a-empty v-if="!matchedObjects.length" description="未匹配" :image-style="{ height: '34px' }" />
-            <div v-for="item in matchedObjects" v-else :key="item.name" class="matched-item">
-              <b>{{ item.name }}</b><span>{{ item.longitude }}, {{ item.latitude }}</span>
+          <div class="location-summary">
+            <span class="section-label">乡镇村庄</span>
+            <b>{{ selectedArea.township || '未匹配乡镇' }} · {{ selectedArea.village || '未匹配村庄' }}</b>
+            <span class="matched-point">{{ selectedArea.pointName || '未匹配收集点' }}</span>
+          </div>
+          <div v-if="matchedVehiclePlates.length" class="vehicle-summary">
+            <span class="section-label">运输车辆</span>
+            <a-tag v-for="vehicle in matchedVehiclePlates" :key="vehicle.name" color="arcoblue">{{ vehicle.name }}</a-tag>
+          </div>
+          <details class="more-details">
+            <summary>更多设备信息</summary>
+            <div class="detail-grid">
+              <div class="detail-grid-item full"><span>箱体名称</span><b>{{ selectedBox.containerName }}</b></div>
+              <div class="detail-grid-item"><span>容量</span><b>{{ selectedBox.capacity }} 吨</b></div>
+              <div class="detail-grid-item"><span>温度</span><b>{{ selectedBox.temperature }} ℃</b></div>
+              <div class="detail-grid-item"><span>电量</span><b>{{ selectedBox.voltage }}%</b></div>
+              <div class="detail-grid-item"><span>开关状态</span><b>{{ selectedBox.switchStatus === '0' ? '关' : '开' }}</b></div>
+              <div class="detail-grid-item full"><span>设备号</span><b>{{ selectedBox.deviceNo }}</b></div>
             </div>
+            <div class="coordinate-block">
+              <span>原始坐标（WGS84）</span><code>{{ selectedBox.longitude }}, {{ selectedBox.latitude }}</code>
+              <div class="coordinate-title">
+                <span>地图坐标（GCJ-02）</span>
+                <a-button size="mini" type="outline" @click="openAmap">高德打开</a-button>
+              </div>
+              <code>{{ selectedGcj ? `${selectedGcj.lng.toFixed(6)}, ${selectedGcj.lat.toFixed(6)}` : '-' }}</code>
+            </div>
+            <div class="matched-block">
+              <span class="section-label">全部匹配对象</span>
+              <a-empty v-if="!matchedObjects.length" description="未匹配" :image-style="{ height: '30px' }" />
+              <div v-for="item in matchedObjects" v-else :key="item.name" class="matched-item">
+                <b>{{ item.name }}</b><span v-if="item.longitude !== undefined && item.latitude !== undefined">{{ item.longitude }}, {{ item.latitude }}</span>
+              </div>
+            </div>
+          </details>
           </div>
-          </div>
-          <div class="detail-actions">
-            <a-button type="primary" long @click="openAmap">在高德地图中打开</a-button>
-          </div>
-      </a-card>
+        </a-card>
+      </div>
     </div>
 
     <a-modal v-model:visible="importVisible" title="导入最新箱体数据" :width="680" @before-ok="importBoxes">
@@ -189,6 +207,11 @@ interface CollectionPoint {
   longitude: number
   latitude: number
 }
+interface MatchedObject {
+  name: string
+  longitude?: number
+  latitude?: number
+}
 
 const initialBoxes: Box[] = [
   { id: 48, deviceNo: '13820260721000000026', containerNo: '132', containerName: '小勾臂箱132号设备', onlineStatus: 0, overflowStatus: 0, matchObject: '{"龙泉镇中转站（临时）":{"latitude":36.064611,"longitude":114.247368},"6225420055":{"latitude":36.068728,"longitude":114.242248},"6226170009":{"latitude":36.068764,"longitude":114.242648}}', fillLevel: 0, capacity: 1.5, longitude: 114.242817, latitude: 36.069452, reportTime: '2026-08-06 18:56:04', temperature: 34.37, voltage: 40, switchStatus: '0' },
@@ -249,10 +272,11 @@ function openLogin() {
 }
 
 /** 箱体 -> 所属乡镇/村庄（仅以收集点名称关联，不能使用车辆/箱体编号） */
-const boxAreas = new Map<number, { township: string, village: string }>()
+const boxAreas = new Map<number, { township: string, village: string, pointName: string }>()
 function isCollectionPointNameKey(key: string) {
   return !/^\d+$/.test(key) && !/^[\u4E00-\u9FFF][A-Z][A-Z0-9]{5,6}$/.test(key)
 }
+function isVehiclePlate(value: string) { return /^[\u4E00-\u9FFF][A-Z][A-Z0-9]{5,6}$/.test(value) }
 
 // matchObject 同时含收集点、车辆等对象。只接受非纯数字的收集点名称；
 // 不能把 190、164 等车辆标识按收集点 ID/编码关联。
@@ -271,7 +295,7 @@ function assignBoxAreas(boxList: Box[], pointList: CollectionPoint[]) {
         const nearestDistance = (nearest.longitude - box.longitude) ** 2 + (nearest.latitude - box.latitude) ** 2
         return distance < nearestDistance ? point : nearest
       }, undefined)
-      if (hit) boxAreas.set(box.id, { township: hit.townshipName, village: hit.villageName || '' })
+      if (hit) boxAreas.set(box.id, { township: hit.townshipName, village: hit.villageName || '', pointName: hit.pointName })
     } catch { /* 忽略 */ }
   }
 }
@@ -348,13 +372,15 @@ const matchedBoxes = computed<Set<Box> | null>(() => {
 })
 const matchedCount = computed(() => matchedBoxes.value?.size ?? 0)
 const selectedGcj = computed(() => selectedBox.value ? getGcjPoint(selectedBox.value) : undefined)
-const matchedObjects = computed(() => {
+const selectedArea = computed(() => selectedBox.value ? (boxAreas.get(selectedBox.value.id) || { township: '', village: '', pointName: '' }) : { township: '', village: '', pointName: '' })
+const matchedObjects = computed<MatchedObject[]>(() => {
   if (!selectedBox.value?.matchObject) return []
   try {
-    return Object.entries(JSON.parse(selectedBox.value.matchObject) as Record<string, { longitude: number, latitude: number }>)
+    return Object.entries(JSON.parse(selectedBox.value.matchObject) as Record<string, { longitude?: number, latitude?: number }>)
       .map(([name, point]) => ({ name, ...point }))
   } catch { return [] }
 })
+const matchedVehiclePlates = computed(() => matchedObjects.value.filter((item) => isVehiclePlate(item.name)))
 
 function toGcj(lng: number, lat: number): GcjPoint {
   if (lng < 72.004 || lng > 137.8347 || lat < 0.8293 || lat > 55.8271) return { lng, lat }
@@ -411,6 +437,8 @@ function focusMatchedBox() {
 }
 function statusText(box: Box) { return box.overflowStatus === 1 ? '满溢' : box.fillLevel >= 70 ? '接近满溢' : '正常' }
 function statusColor(box: Box) { return box.overflowStatus === 1 ? 'red' : box.fillLevel >= 70 ? 'orange' : 'green' }
+function fillLevelPercent(box: Box) { return Math.min(100, Math.max(0, box.fillLevel)) }
+function formatFillLevel(box: Box) { return Math.round(box.fillLevel) }
 function locationUrl() {
   const box = selectedBox.value
   if (!box) return ''
@@ -501,14 +529,14 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); markers.forEach((marker) =>
 .chip.unmatched:hover { border-color: #86909c; color: #4e5969; }
 .chip.unmatched.active { background: #4e5969; border-color: #4e5969; color: #fff; }
 .chip-more { border-style: dashed; color: #165dff; }.chip-more:hover { border-color: #165dff; color: #165dff; }
-.map-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); gap: 16px; overflow: hidden; }.map-layout.has-detail { grid-template-columns: minmax(0, 1fr) 360px; }
-.map-card-wrap { min-height: 0; overflow: hidden; display: flex; }.map-card-wrap .map-card { flex: 1; min-height: 0; }.map-card-wrap:fullscreen { position: fixed; inset: 0; z-index: 1001; background: #f2f3f5; }
-.map-card, .detail-card { min-height: 0; overflow: hidden; }
+.map-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); overflow: hidden; }
+.map-card-wrap { position: relative; min-height: 0; overflow: hidden; display: flex; }.map-card-wrap .map-card { flex: 1; min-height: 0; }.map-card-wrap:fullscreen { position: fixed; inset: 0; z-index: 1001; background: #f2f3f5; }
+.map-card { min-height: 0; overflow: hidden; }
 .map-card :deep(.arco-card-body) { height: 100%; padding: 0; }
-.detail-card { display: flex; flex-direction: column; }
-.detail-card :deep(.arco-card-body) { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
-.detail-card .detail-scroll { flex: 1; min-height: 0; overflow-y: auto; }
-.detail-card .detail-actions { flex-shrink: 0; padding-top: 16px; }
+.detail-card { position: absolute; top: 16px; right: 16px; z-index: 2; width: 304px; max-height: calc(100% - 32px); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 8px 24px rgb(29 33 41 / 18%); }
+.detail-card :deep(.arco-card-body) { min-height: 0; padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.detail-panel-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 16px 14px 12px; border-bottom: 1px solid #f2f3f5; }.detail-panel-header h2 { margin: 1px 0 0; color: #1d2129; font-size: 28px; line-height: 34px; }
+.detail-card .detail-scroll { flex: 1; min-height: 0; padding: 14px; overflow-y: auto; }
 .amap-container { width: 100%; height: 100%; background: #f2f3f5; }
 .map-stats { position: absolute; top: 16px; left: 16px; display: flex; gap: 8px; z-index: 1; }
 .map-controls { position: absolute; z-index: 1; top: 16px; right: 16px; display: flex; align-items: center; gap: 8px; }
@@ -517,14 +545,14 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); markers.forEach((marker) =>
 .map-stat { min-width: 82px; padding: 7px 8px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; white-space: nowrap; }
 .map-stat b { display: block; color: #165dff; font-size: 20px; line-height: 25px; }.map-stat.danger b { color: #f53f3f; }.map-stat.warning b { color: #ff7d00; }
 .map-error { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px; color: #f53f3f; background: #f7f8fa; }
-.detail-heading { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 18px; }.detail-heading h3 { margin: 4px 0 0; color: #1d2129; font-size: 17px; }.box-no, .section-label { color: #86909c; font-size: 12px; }
+.detail-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }.box-no, .section-label { color: #86909c; font-size: 12px; }.report-time { flex-basis: 100%; overflow: hidden; color: #86909c; font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }
 .detail-card :deep(.arco-card-header) { align-items: center; }.detail-close-btn { color: #86909c; }.detail-close-btn:hover { color: #1d2129; }
-.coordinate-block { display: grid; gap: 5px; margin: 18px 0; }.coordinate-block span { color: #86909c; font-size: 12px; }.coordinate-block code { margin-bottom: 8px; padding: 8px; border-radius: 3px; background: #f7f8fa; color: #4e5969; font-size: 12px; }
-.matched-block { margin-bottom: 18px; }.matched-item { display: grid; gap: 2px; padding: 9px 0; border-bottom: 1px solid #f2f3f5; }.matched-item b { color: #4e5969; font-size: 13px; }.matched-item span { color: #86909c; font-size: 12px; }
+.fill-summary { padding: 12px; border-radius: 6px; background: #f2f3f5; }.fill-summary > span { color: #4e5969; font-size: 13px; }.fill-summary strong { display: block; margin: 2px 0 9px; color: #165dff; font-size: 28px; line-height: 34px; }.fill-summary.warning strong { color: #ff7d00; }.fill-summary.overflow strong { color: #f53f3f; }.fill-track { height: 6px; overflow: hidden; border-radius: 3px; background: #e5e6eb; }.fill-track i { display: block; height: 100%; border-radius: inherit; background: #165dff; }.fill-summary.warning .fill-track i { background: #ff7d00; }.fill-summary.overflow .fill-track i { background: #f53f3f; }
+.location-summary { display: grid; gap: 5px; padding: 16px 0 12px; }.location-summary b { color: #1d2129; font-size: 14px; }.matched-point { color: #4e5969; font-size: 13px; }.vehicle-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 0 16px; }.vehicle-summary .section-label { flex-basis: 100%; }.more-details { border-top: 1px solid #f2f3f5; }.more-details summary { padding: 12px 0; color: #4e5969; font-size: 13px; cursor: pointer; }.detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }.detail-grid-item { display: grid; gap: 3px; min-width: 0; }.detail-grid-item.full { grid-column: 1 / -1; }.detail-grid-item span { color: #86909c; font-size: 12px; white-space: nowrap; }.detail-grid-item b { overflow: hidden; color: #4e5969; font-size: 13px; font-weight: 500; white-space: nowrap; text-overflow: ellipsis; }.coordinate-block { display: grid; gap: 5px; margin: 12px 0; }.coordinate-block span { color: #86909c; font-size: 12px; }.coordinate-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }.coordinate-title :deep(.arco-btn) { flex-shrink: 0; }.coordinate-block code { margin-bottom: 4px; padding: 6px; overflow-wrap: anywhere; border-radius: 3px; background: #f7f8fa; color: #4e5969; font-size: 11px; }.matched-block { display: grid; gap: 6px; padding-top: 4px; }.matched-item { display: grid; gap: 2px; padding: 8px 0; border-bottom: 1px solid #f2f3f5; }.matched-item b { color: #4e5969; font-size: 13px; }.matched-item span { color: #86909c; font-size: 11px; }
 .modal-tip { margin-top: 0; color: #4e5969; }.modal-tip code { padding: 1px 4px; background: #f2f3f5; }
 .token-expired-banner { display: flex; align-items: center; gap: 6px; padding: 9px 14px; border: 1px solid #fbaca3; border-radius: 4px; background: #ffece8; color: #f53f3f; font-size: 13px; }
 .token-reset-link { color: #165dff; cursor: pointer; text-decoration: underline; }
 :global(.box-map-marker) { position: relative; min-width: 36px; height: 26px; padding: 0 8px; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; border-radius: 4px; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 12px; font-weight: 600; }
 :global(.box-map-marker::after) { content: ''; position: absolute; bottom: -6px; left: 50%; width: 10px; height: 10px; border-right: 1px solid #fff; border-bottom: 1px solid #fff; background: inherit; transform: translateX(-50%) rotate(45deg); }.box-map-page :global(.box-map-marker.warning) { background: #ff7d00; }.box-map-page :global(.box-map-marker.overflow) { background: #f53f3f; }.box-map-page :global(.box-map-marker.matched) { box-shadow: 0 0 0 3px #00b42a, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.1); z-index: 1; }.box-map-page :global(.box-map-marker.selected) { border: 2px solid #fff; box-shadow: 0 0 0 3px #165dff, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.15); opacity: 1; z-index: 2; }
-@media (max-width: 960px) { .map-layout { grid-template-columns: 1fr; grid-template-rows: minmax(0, 45vh) minmax(0, 45vh); overflow: hidden; }.detail-card { min-height: 0; }.page-header { align-items: flex-start; gap: 12px; flex-direction: column; } }
+@media (max-width: 960px) { .detail-card { top: auto; right: 10px; bottom: 10px; left: 10px; width: auto; max-height: 58%; }.page-header { align-items: flex-start; gap: 12px; flex-direction: column; } }
 </style>

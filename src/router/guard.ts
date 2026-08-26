@@ -51,7 +51,7 @@ const handleNotification = () => {
  * @returns {Promise<string|null>} 返回 ETag 或 Last-Modified 值
  */
 const getVersionTag = async () => {
-  const response = await fetch('/', {
+  const response = await fetch(import.meta.env.BASE_URL, {
     cache: 'no-cache',
   })
   return response.headers.get('etag') || response.headers.get('last-modified')
@@ -136,10 +136,13 @@ export const setupRouterGuard = (router: Router) => {
       }
     }
 
-    // 生产环境开启检测版本更新
+    // 版本检查不能阻塞路由。GitHub Pages 的跨境网络抖动时，等待首页请求会让
+    // 首次进入和每次页面切换都卡住；校验结果只影响后续的更新提示。
     const isProd = import.meta.env.PROD
     if (isProd) {
-      await compareTag()
+      void compareTag().catch(() => {
+        // 静态站点临时网络失败不应影响当前页面使用。
+      })
     }
   })
 

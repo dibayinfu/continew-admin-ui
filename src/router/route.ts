@@ -16,7 +16,8 @@ export const systemRoutes: RouteRecordRaw[] = [
     path: '/',
     name: 'Dashboard',
     component: Layout,
-    redirect: '/sanitation/overview',
+    // GitHub Pages 使用 prototype 模式时，从根地址直接进入指定演示首页。
+    redirect: isPrototypeMode ? prototypeHomePath : '/sanitation/overview',
     meta: { title: '仪表盘', icon: 'dashboard', hidden: false },
     children: [
       {

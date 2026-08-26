@@ -58,6 +58,14 @@ export default defineConfig(({ command, mode }) => {
       // 静态资源打包到dist下的不同目录
       rollupOptions: {
         output: {
+          // 将变更频率低的依赖固定拆包。GitHub Pages 的文件名带 hash，后续业务发版时
+          // 浏览器可继续复用这些依赖缓存，避免重复下载整个入口包。
+          manualChunks: {
+            vue: ['vue', 'vue-router', 'pinia'],
+            arco: ['@arco-design/web-vue', '@arco-design/web-vue/es/icon'],
+            echarts: ['echarts', 'vue-echarts'],
+            utils: ['axios', 'dayjs', 'lodash-es', '@vueuse/core'],
+          },
           chunkFileNames: 'static/js/[name]-[hash].js',
           entryFileNames: 'static/js/[name]-[hash].js',
           assetFileNames: 'static/[ext]/[name]-[hash].[ext]',

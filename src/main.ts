@@ -1,12 +1,10 @@
 import { createApp } from 'vue'
-import ArcoVue, { Card, Drawer, Modal } from '@arco-design/web-vue'
+import { Card, Drawer, Modal } from '@arco-design/web-vue'
 import '@/styles/arco-ui/index.less'
 import '@/styles/tailwind.css'
 // import '@arco-themes/vue-gi-demo/index.less'
 // import '@arco-design/web-vue/dist/arco.css'
 
-// 额外引入 Arco Design Icon图标库
-import ArcoVueIcon from '@arco-design/web-vue/es/icon'
 import App from './App.vue'
 import router from './router'
 
@@ -34,8 +32,6 @@ Drawer._context = app._context
 
 app.use(router)
 app.use(pinia)
-app.use(ArcoVue)
-app.use(ArcoVueIcon)
 app.use(directives)
 
 app.mount('#app')

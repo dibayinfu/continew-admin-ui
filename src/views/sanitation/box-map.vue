@@ -468,15 +468,18 @@ watch(mapTheme, (theme) => map?.setMapStyle(`amap://styles/${theme}`))
 async function loadFromCloud(silent = false) {
   cloudLoading.value = true
   let ok = false
-  let boxList: Box[] | undefined
-  try {
-    const data = await daasRequest<{ list: Box[] }>(BOX_MONITOR_PATH, { body: { current: 1, size: 1000 } })
-    if (Array.isArray(data?.list)) { boxList = data.list; ok = true }
-  } catch { /* 单个失败不影响另一个 */ }
-  try {
-    const data = await daasRequest<{ list: CollectionPoint[] }>(COLLECTION_POINTS_PATH, { method: 'GET', query: COLLECTION_POINTS_QUERY })
-    if (Array.isArray(data?.list)) { points.value = data.list; ok = true }
-  } catch { /* 单个失败不影响另一个 */ }
+  const [boxesResult, pointsResult] = await Promise.allSettled([
+    daasRequest<{ list: Box[] }>(BOX_MONITOR_PATH, { body: { current: 1, size: 1000 } }),
+    daasRequest<{ list: CollectionPoint[] }>(COLLECTION_POINTS_PATH, { method: 'GET', query: COLLECTION_POINTS_QUERY }),
+  ])
+  const boxList = boxesResult.status === 'fulfilled' && Array.isArray(boxesResult.value?.list)
+    ? boxesResult.value.list
+    : undefined
+  const pointList = pointsResult.status === 'fulfilled' && Array.isArray(pointsResult.value?.list)
+    ? pointsResult.value.list
+    : undefined
+  if (boxList) ok = true
+  if (pointList) { points.value = pointList; ok = true }
   // 先分配箱体归属，再赋值 boxes（避免渲染时 boxAreas 为空导致筛选选项缓存为空）
   if (boxList?.length && points.value.length) assignBoxAreas(boxList, points.value)
   if (boxList) { boxes.value = boxList; gcjPoints = new WeakMap<Box, GcjPoint>(); selectedBox.value = undefined; saveCachedBoxes(boxList) }
@@ -504,10 +507,11 @@ onMounted(async () => {
   })
   if (!mapRef.value) return
   try {
+    // 地图脚本与云端数据相互独立，提前发起数据请求，避免串行等待。
+    void loadFromCloud(true)
     amap = await loadAmapJsApi()
     map = new amap.Map(mapRef.value, { zoom: 13, center: [114.1, 36.04], viewMode: '2D', mapStyle: `amap://styles/${mapTheme.value}`, resizeEnable: true, animateEnable: false, jogEnable: false })
     drawMarkers()
-    loadFromCloud(true)
   } catch (error) { mapError.value = error instanceof Error ? error.message : '高德地图加载失败，请检查地图配置' }
 })
 onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); markers.forEach((marker) => marker.setMap(null)); map?.destroy() })

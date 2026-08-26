@@ -18,13 +18,14 @@
     </div>
     <script type="module" src="/src/main.ts"></script>
     <script>
-      var _hmt = _hmt || [];
-      (function() {
-        var hm = document.createElement("script");
-        hm.src = "https://hm.baidu.com/hm.js?246a935992138d6770cabe711402315c";
-        var s = document.getElementsByTagName("script")[0];
-        s.parentNode.insertBefore(hm, s);
-      })();
+      // 统计脚本不参与首屏网络竞争，弱网下优先保证应用代码下载。
+      window.addEventListener('load', function () {
+        var _hmt = window._hmt = window._hmt || [];
+        var hm = document.createElement('script');
+        hm.src = 'https://hm.baidu.com/hm.js?246a935992138d6770cabe711402315c';
+        hm.async = true;
+        document.head.appendChild(hm);
+      });
     </script>
   </body>
 </html>

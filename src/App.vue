@@ -13,14 +13,18 @@
     >
       <router-view></router-view>
     </a-watermark>
-    <DaasLoginModal />
+    <DaasLoginModal v-if="daasAuth.visible" />
   </a-config-provider>
 </template>
 
 <script setup lang="ts">
+import { defineAsyncComponent } from 'vue'
 import { useAppStore, useUserStore } from '@/stores'
 import { withBase } from '@/utils'
-import DaasLoginModal from '@/views/sanitation/components/DaasLoginModal.vue'
+import { daasAuth } from '@/utils/daas'
+
+// 登录弹窗包含滑块验证逻辑；仅在用户实际需要登录时才下载。
+const DaasLoginModal = defineAsyncComponent(() => import('@/views/sanitation/components/DaasLoginModal.vue'))
 
 defineOptions({ name: 'App' })
 const userStore = useUserStore()

@@ -140,6 +140,7 @@ export const systemRoutes: RouteRecordRaw[] = [
           { path: '/sanitation/boxPointMap', name: 'SanitationBoxPointMap', component: () => import('@/views/sanitation/box-point-map.vue'), meta: { title: '箱体收集点地图', icon: 'apps', hidden: false } },
           { path: '/sanitation/swap-statistics', name: 'SanitationSwapStatistics', component: () => import('@/views/sanitation/swap-statistics.vue'), meta: { title: '换箱统计', icon: 'swap', hidden: false } },
           { path: '/sanitation/temp-command-center', name: 'SanitationTempCommandCenter', component: () => import('@/views/sanitation/temp-command-center.vue'), meta: { title: '临时大屏', icon: 'dashboard', hidden: false } },
+          { path: '/sanitation/weighing-analysis', name: 'SanitationWeighingAnalysis', component: () => import('@/views/sanitation/weighing-analysis.vue'), meta: { title: '称重分析', icon: 'line-chart', hidden: false } },
           { path: '/sanitation/dataHiddenConfig', name: 'SanitationDataHiddenConfig', component: () => import('@/views/sanitation/data-hidden-config.vue'), meta: { title: '数据隐藏配置', icon: 'eye-invisible', hidden: false } },
         ],
       },

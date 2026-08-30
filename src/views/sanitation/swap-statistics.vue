@@ -35,10 +35,10 @@
         <a-spin :loading="loading" class="chart-wrap">
           <a-empty v-if="!daily.length" description="当前区间暂无换箱记录" />
           <div v-else class="bar-chart">
-            <button v-for="item in daily" :key="item.day" class="bar-column" :class="{ active: selectedDay === item.day }" type="button" @click="selectDay(item.day)">
+            <button v-for="item in daily" :key="item.day" class="bar-column" :class="{ active: selectedDay === item.day }" type="button" :title="item.day" @click="selectDay(item.day)">
               <span class="bar-value">{{ item.boxCount }}</span>
               <span class="bar-track"><span class="bar-fill" :style="{ height: `${barHeight(item.boxCount)}%` }" /></span>
-              <span class="bar-label">{{ item.day.slice(5) }}</span>
+              <span class="bar-label">{{ dayLabel(item.day) }}</span>
             </button>
           </div>
         </a-spin>
@@ -178,6 +178,8 @@ function endpoint(path: string) { return `${collectorBaseUrl}/api/collector/stat
 function query(params: Record<string, string>) { return new URLSearchParams(params).toString() }
 function barHeight(count: number) { return Math.max((count / maxCount.value) * 100, 5) }
 function rankWidth(count: number) { return Math.max((count / maxTownshipCount.value) * 100, 4) }
+/** 柱条较密集时只显示“日”（悬停可看完整日期），避免横坐标标签换行。 */
+function dayLabel(day: string) { return daily.value.length > 18 ? day.slice(8) : day.slice(5) }
 function formatDateTime(value: string) { return value ? value.replace('T', ' ').slice(0, 16) : '-' }
 function formatPercent(value: number | null) { return value === null || value === undefined ? '-' : `${Math.round(value)}%` }
 function openLogin() { daasAuth.visible = true }
@@ -324,17 +326,17 @@ onMounted(async () => {
 .query-toolbar { padding: 10px 0; border-block: 1px solid var(--color-border-2); }
 .toolbar-divider { width: 1px; height: 16px; background: var(--color-border-2); }
 .date-separator, .filter-label { color: var(--color-text-2); font-size: 13px; }
-.overview-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(280px, 1fr); gap: 14px; }
+.overview-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(220px, 1fr); gap: 14px; }
 .trend-card, .rank-card, .record-card { border-radius: 6px; }
-.chart-wrap { min-height: 220px; }
-.bar-chart { display: flex; align-items: end; justify-content: space-around; gap: 8px; height: 220px; padding: 6px 6px 0; }
-.bar-column { display: grid; grid-template-rows: 22px 150px 20px; align-items: end; min-width: 38px; flex: 1; padding: 0; border: 0; background: transparent; color: var(--color-text-3); cursor: pointer; }
+.chart-wrap { display: block; width: 100%; min-height: 220px; }
+.bar-chart { display: flex; align-items: end; gap: 4px; height: 220px; padding: 6px 6px 0; }
+.bar-column { display: grid; grid-template-rows: 22px 150px 20px; align-items: end; min-width: 0; flex: 1; padding: 0; border: 0; background: transparent; color: var(--color-text-3); cursor: pointer; }
 .bar-column:hover, .bar-column.active { color: rgb(var(--arcoblue-6)); }
 .bar-value { text-align: center; font-size: 13px; font-weight: 600; }
 .bar-track { display: flex; align-items: end; justify-content: center; height: 150px; border-bottom: 1px solid var(--color-border-2); }
 .bar-fill { width: min(34px, 60%); min-height: 5px; border-radius: 5px 5px 0 0; background: rgb(var(--arcoblue-4)); transition: height .2s; }
 .bar-column:hover .bar-fill, .bar-column.active .bar-fill { background: rgb(var(--arcoblue-6)); }
-.bar-label { padding-top: 6px; text-align: center; font-size: 12px; }
+.bar-label { padding-top: 6px; text-align: center; font-size: 12px; white-space: nowrap; }
 .rank-list { display: grid; gap: 12px; padding-block: 5px; }
 .rank-item { display: grid; grid-template-columns: 20px 62px minmax(30px, 1fr) 24px; align-items: center; gap: 8px; min-width: 0; font-size: 13px; }
 .rank-no { color: var(--color-text-4); text-align: center; }.rank-no.top { color: rgb(var(--orange-6)); }

@@ -124,8 +124,14 @@ export async function daasRequest<T = unknown>(path: string, options: DaasReques
     let url = `${DAS_API_BASE}${path}`
     if (options.query) {
       const qs = new URLSearchParams()
-      Object.entries(options.query).forEach(([k, v]) => {
-        if (v !== undefined && v !== null) qs.set(k, String(v))
+      Object.entries(options.query).forEach(([key, value]) => {
+        if (Array.isArray(value)) {
+          // Spring 的 List<String> 查询参数需要重复传参：start2end=a&start2end=b，
+          // 不能拼成一个 "a,b" 字符串。
+          value.forEach((item) => { if (item !== undefined && item !== null) qs.append(key, String(item)) })
+        } else if (value !== undefined && value !== null) {
+          qs.set(key, String(value))
+        }
       })
       const q = qs.toString()
       if (q) url += `?${q}`

@@ -30,6 +30,9 @@
         <a-button :type="overflowOnly ? 'primary' : 'outline'" :status="overflowOnly ? 'danger' : 'normal'" @click="overflowOnly = !overflowOnly">
           {{ overflowOnly ? '已筛选满溢' : '只看满溢' }}
         </a-button>
+        <a-button :type="transportingOnly ? 'primary' : 'outline'" @click="transportingOnly = !transportingOnly">
+          {{ transportingOnly ? '已筛选运输中' : '只看运输中' }}
+        </a-button>
         <span class="filter-result">{{ keyword.trim() ? `匹配到 ${matchedCount} 个箱体` : `当前显示 ${visibleBoxes.length} 个箱体` }}</span>
       </div>
       <div class="filter-block">
@@ -117,6 +120,16 @@
             <span class="section-label">运输车辆</span>
             <a-tag v-for="vehicle in matchedVehiclePlates" :key="vehicle.name" color="arcoblue">{{ vehicle.name }}</a-tag>
           </div>
+          <div v-if="selectedTransportTask" class="transport-task-summary">
+            <div class="transport-task-title"><span class="transport-task-icon">运</span><span>正在运输</span></div>
+            <div class="transport-task-grid">
+              <span>任务单号</span><b>{{ transportTaskValue(selectedTransportTask, 'taskNo', 'transportTaskNo', 'orderNo', 'code', 'id') }}</b>
+              <span>任务状态</span><b>{{ transportTaskValue(selectedTransportTask, 'status', 'taskStatus') }}</b>
+              <span>创建时间</span><b>{{ transportTaskValue(selectedTransportTask, 'createTime', 'startTime', 'taskTime') }}</b>
+              <span>运输车辆</span><b>{{ transportTaskValue(selectedTransportTask, 'plateNum', 'vehicleNo', 'vehiclePlate', 'plateNo', 'vehicleName') }}</b>
+              <span>驾驶员</span><b>{{ transportTaskValue(selectedTransportTask, 'driverName', 'driver', 'driverRealName') }}</b>
+            </div>
+          </div>
           <details class="more-details">
             <summary>更多设备信息</summary>
             <div class="detail-grid">
@@ -168,16 +181,14 @@ import { Message } from '@arco-design/web-vue'
 import { useFullscreen } from '@vueuse/core'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { type AMapInstance, type AMapMarker, loadAmapJsApi } from '@/utils/amap'
-import { daasAuth, daasRequest, getHiddenBoxIds, setDaasToken } from '@/utils/daas'
+import { daasAuth, getHiddenBoxIds, setDaasToken } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
 
 defineOptions({ name: 'SanitationBoxMap' })
 
-/** 箱体监控真实接口路径（走全局 daas 登录/请求，size=1000 一次性拉取全部） */
-const BOX_MONITOR_PATH = '/domestic/waste/containers/sbgMonitoring'
-/** 收集点接口：用于给箱体匹配所属乡镇/村庄（townshipName/villageName） */
-const COLLECTION_POINTS_PATH = '/domestic/waste/v/collection-points/page'
-const COLLECTION_POINTS_QUERY = { keyword: '', organizationId: 506, page: 0, size: 1000 }
+/** DAAS 实际返回英文枚举；只有未接单、已接单、运输中任务显示“运”角标。 */
+const TRANSPORTING_STATUSES = new Set(['pending', 'accepted', 'transporting'])
+const COLLECTOR_API_BASE_URL = (import.meta.env.VITE_COLLECTOR_API_BASE_URL || '').replace(/\/$/, '')
 
 interface GcjPoint { lng: number, lat: number }
 type MapTheme = 'normal' | 'light'
@@ -212,6 +223,17 @@ interface MatchedObject {
   longitude?: number
   latitude?: number
 }
+interface TransportTask extends Record<string, unknown> {
+  boxNo?: string
+  containerNo?: string
+  status?: string
+  taskStatus?: string
+  statusName?: string
+  taskStatusName?: string
+  createTime?: string
+  startTime?: string
+  taskTime?: string
+}
 
 const initialBoxes: Box[] = [
   { id: 48, deviceNo: '13820260721000000026', containerNo: '132', containerName: '小勾臂箱132号设备', onlineStatus: 0, overflowStatus: 0, matchObject: '{"龙泉镇中转站（临时）":{"latitude":36.064611,"longitude":114.247368},"6225420055":{"latitude":36.068728,"longitude":114.242248},"6226170009":{"latitude":36.068764,"longitude":114.242648}}', fillLevel: 0, capacity: 1.5, longitude: 114.242817, latitude: 36.069452, reportTime: '2026-08-06 18:56:04', temperature: 34.37, voltage: 40, switchStatus: '0' },
@@ -234,6 +256,7 @@ const { isFullscreen: isMapFullscreen, toggle: toggleMapFullscreen } = useFullsc
 })
 const keyword = ref('')
 const overflowOnly = ref(false)
+const transportingOnly = ref(false)
 const mapTheme = ref<MapTheme>('light')
 const boxes = ref<Box[]>(initialBoxes)
 const points = ref<CollectionPoint[]>([])
@@ -248,6 +271,8 @@ const importVisible = ref(false)
 const importText = ref('')
 const tokenModalVisible = ref(false)
 const tokenInput = ref(daasAuth.token)
+/** boxNo -> 最近一条临时视为“正在运输”的任务单 */
+const transportTasksByBoxNo = ref<Map<string, TransportTask>>(new Map())
 let map: AMapInstance | undefined
 let markers: AMapMarker[] = []
 let amap: Awaited<ReturnType<typeof loadAmapJsApi>> | undefined
@@ -359,6 +384,7 @@ const visibleBoxes = computed(() => {
   return boxes.value.filter((box) => Number.isFinite(box.longitude) && Number.isFinite(box.latitude)
     && !hidden.has(box.id)
     && (!overflowOnly.value || box.overflowStatus === 1)
+    && (!transportingOnly.value || hasTransportTask(box))
     && matchTownship(box)
     && matchVillage(box))
 })
@@ -373,6 +399,7 @@ const matchedBoxes = computed<Set<Box> | null>(() => {
 const matchedCount = computed(() => matchedBoxes.value?.size ?? 0)
 const selectedGcj = computed(() => selectedBox.value ? getGcjPoint(selectedBox.value) : undefined)
 const selectedArea = computed(() => selectedBox.value ? (boxAreas.get(selectedBox.value.id) || { township: '', village: '', pointName: '' }) : { township: '', village: '', pointName: '' })
+const selectedTransportTask = computed(() => selectedBox.value ? transportTasksByBoxNo.value.get(normalizeBoxNo(selectedBox.value.containerNo)) : undefined)
 const matchedObjects = computed<MatchedObject[]>(() => {
   if (!selectedBox.value?.matchObject) return []
   try {
@@ -395,9 +422,32 @@ function toGcj(lng: number, lat: number): GcjPoint {
 function markerTone(box: Box) { return box.overflowStatus === 1 ? 'overflow' : box.fillLevel >= 70 ? 'warning' : '' }
 function markerClass(box: Box) {
   const classes = ['box-map-marker', markerTone(box)]
+  if (hasTransportTask(box)) classes.push('transporting')
   if (box === selectedBox.value) classes.push('selected')
   if (matchedBoxes.value?.has(box)) classes.push('matched')
   return classes.filter(Boolean).join(' ')
+}
+function normalizeBoxNo(value: unknown) { return String(value ?? '').trim() }
+function taskStatus(task: TransportTask) { return String(task.status ?? task.taskStatus ?? task.statusName ?? task.taskStatusName ?? '').trim() }
+function taskTimestamp(task: TransportTask) {
+  const value = task.createTime ?? task.startTime ?? task.taskTime ?? task.updateTime
+  const timestamp = typeof value === 'string' ? new Date(value.replace(/-/g, '/')).getTime() : 0
+  return Number.isFinite(timestamp) ? timestamp : 0
+}
+function hasTransportTask(box: Box) { return transportTasksByBoxNo.value.has(normalizeBoxNo(box.containerNo)) }
+function transportTaskValue(task: TransportTask, ...keys: string[]) {
+  const value = keys.map((key) => task[key]).find((item) => item !== undefined && item !== null && item !== '')
+  return value === undefined ? '-' : String(value)
+}
+function indexTransportTasks(tasks: TransportTask[]) {
+  const indexed = new Map<string, TransportTask>()
+  for (const task of tasks) {
+    const boxNo = normalizeBoxNo(task.boxNo ?? task.containerNo)
+    if (!boxNo || !TRANSPORTING_STATUSES.has(taskStatus(task))) continue
+    const current = indexed.get(boxNo)
+    if (!current || taskTimestamp(task) > taskTimestamp(current)) indexed.set(boxNo, task)
+  }
+  transportTasksByBoxNo.value = indexed
 }
 function getGcjPoint(box: Box) {
   const cached = gcjPoints.get(box)
@@ -462,31 +512,37 @@ function importBoxes() {
 }
 
 watch(keyword, () => drawMarkers(false))
-watch([overflowOnly, townshipFilter, villageFilter], drawMarkers)
+watch([overflowOnly, transportingOnly, townshipFilter, villageFilter], drawMarkers)
 watch(boxes, drawMarkers)
 watch(mapTheme, (theme) => map?.setMapStyle(`amap://styles/${theme}`))
 async function loadFromCloud(silent = false) {
   cloudLoading.value = true
-  let ok = false
-  const [boxesResult, pointsResult] = await Promise.allSettled([
-    daasRequest<{ list: Box[] }>(BOX_MONITOR_PATH, { body: { current: 1, size: 1000 } }),
-    daasRequest<{ list: CollectionPoint[] }>(COLLECTION_POINTS_PATH, { method: 'GET', query: COLLECTION_POINTS_QUERY }),
-  ])
-  const boxList = boxesResult.status === 'fulfilled' && Array.isArray(boxesResult.value?.list)
-    ? boxesResult.value.list
-    : undefined
-  const pointList = pointsResult.status === 'fulfilled' && Array.isArray(pointsResult.value?.list)
-    ? pointsResult.value.list
-    : undefined
-  if (boxList) ok = true
-  if (pointList) { points.value = pointList; ok = true }
-  // 先分配箱体归属，再赋值 boxes（避免渲染时 boxAreas 为空导致筛选选项缓存为空）
-  if (boxList?.length && points.value.length) assignBoxAreas(boxList, points.value)
-  if (boxList) { boxes.value = boxList; gcjPoints = new WeakMap<Box, GcjPoint>(); selectedBox.value = undefined; saveCachedBoxes(boxList) }
-  if (points.value.length) saveCachedPoints(points.value)
-  cloudLoading.value = false
-  if (ok) { if (!silent) Message.success(`已从云端更新 ${boxes.value.length} 个箱体`) }
-  else if (!silent) Message.warning('云端数据加载失败，请检查网络或稍后重试')
+  try {
+    const response = await fetch(`${COLLECTOR_API_BASE_URL}/api/collector/box-map/data`)
+    if (!response.ok) {
+      const message = await response.text()
+      // 只有 Redis 未配置 Token 或 DAAS 明确返回未授权时，才要求浏览器重新登录并把新 Token 写回 Redis。
+      if (response.status === 401 || response.status === 503) { daasAuth.expired = true; openLogin() }
+      throw new Error(message || `HTTP ${response.status}`)
+    }
+    const result = await response.json() as { boxes?: Box[], points?: CollectionPoint[], transportTasks?: TransportTask[] }
+    const boxList = Array.isArray(result.boxes) ? result.boxes : []
+    const pointList = Array.isArray(result.points) ? result.points : []
+    const transportTaskList = Array.isArray(result.transportTasks) ? result.transportTasks : []
+    points.value = pointList
+    indexTransportTasks(transportTaskList)
+    // 先分配箱体归属，再赋值 boxes（避免渲染时 boxAreas 为空导致筛选选项缓存为空）
+    if (boxList.length && pointList.length) assignBoxAreas(boxList, pointList)
+    boxes.value = boxList
+    gcjPoints = new WeakMap<Box, GcjPoint>()
+    selectedBox.value = undefined
+    saveCachedBoxes(boxList)
+    saveCachedPoints(pointList)
+    drawMarkers(false)
+    if (!silent) Message.success(`已从云端更新 ${boxList.length} 个箱体`)
+  } catch (error) {
+    if (!silent) Message.warning(`云端数据加载失败：${error instanceof Error ? error.message : '网络异常'}`)
+  } finally { cloudLoading.value = false }
 }
 let offBoxes: () => void
 let offPoints: () => void
@@ -552,11 +608,11 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); markers.forEach((marker) =>
 .detail-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }.box-no, .section-label { color: #86909c; font-size: 12px; }.report-time { flex-basis: 100%; overflow: hidden; color: #86909c; font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }
 .detail-card :deep(.arco-card-header) { align-items: center; }.detail-close-btn { color: #86909c; }.detail-close-btn:hover { color: #1d2129; }
 .fill-summary { padding: 12px; border-radius: 6px; background: #f2f3f5; }.fill-summary > span { color: #4e5969; font-size: 13px; }.fill-summary strong { display: block; margin: 2px 0 9px; color: #165dff; font-size: 28px; line-height: 34px; }.fill-summary.warning strong { color: #ff7d00; }.fill-summary.overflow strong { color: #f53f3f; }.fill-track { height: 6px; overflow: hidden; border-radius: 3px; background: #e5e6eb; }.fill-track i { display: block; height: 100%; border-radius: inherit; background: #165dff; }.fill-summary.warning .fill-track i { background: #ff7d00; }.fill-summary.overflow .fill-track i { background: #f53f3f; }
-.location-summary { display: grid; gap: 5px; padding: 16px 0 12px; }.location-summary b { color: #1d2129; font-size: 14px; }.matched-point { color: #4e5969; font-size: 13px; }.vehicle-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 0 16px; }.vehicle-summary .section-label { flex-basis: 100%; }.more-details { border-top: 1px solid #f2f3f5; }.more-details summary { padding: 12px 0; color: #4e5969; font-size: 13px; cursor: pointer; }.detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }.detail-grid-item { display: grid; gap: 3px; min-width: 0; }.detail-grid-item.full { grid-column: 1 / -1; }.detail-grid-item span { color: #86909c; font-size: 12px; white-space: nowrap; }.detail-grid-item b { overflow: hidden; color: #4e5969; font-size: 13px; font-weight: 500; white-space: nowrap; text-overflow: ellipsis; }.coordinate-block { display: grid; gap: 5px; margin: 12px 0; }.coordinate-block span { color: #86909c; font-size: 12px; }.coordinate-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }.coordinate-title :deep(.arco-btn) { flex-shrink: 0; }.coordinate-block code { margin-bottom: 4px; padding: 6px; overflow-wrap: anywhere; border-radius: 3px; background: #f7f8fa; color: #4e5969; font-size: 11px; }.matched-block { display: grid; gap: 6px; padding-top: 4px; }.matched-item { display: grid; gap: 2px; padding: 8px 0; border-bottom: 1px solid #f2f3f5; }.matched-item b { color: #4e5969; font-size: 13px; }.matched-item span { color: #86909c; font-size: 11px; }
+.location-summary { display: grid; gap: 5px; padding: 16px 0 12px; }.location-summary b { color: #1d2129; font-size: 14px; }.matched-point { color: #4e5969; font-size: 13px; }.vehicle-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 0 16px; }.vehicle-summary .section-label { flex-basis: 100%; }.transport-task-summary { margin-bottom: 16px; padding: 10px; border: 1px solid #bedaff; border-radius: 6px; background: #f2f7ff; }.transport-task-title { display: flex; align-items: center; gap: 6px; margin-bottom: 9px; color: #165dff; font-size: 13px; font-weight: 600; }.transport-task-icon { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: #165dff; color: #fff; font-size: 11px; }.transport-task-grid { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 6px 8px; font-size: 12px; }.transport-task-grid span { color: #86909c; }.transport-task-grid b { overflow: hidden; color: #4e5969; font-weight: 500; white-space: nowrap; text-overflow: ellipsis; }.more-details { border-top: 1px solid #f2f3f5; }.more-details summary { padding: 12px 0; color: #4e5969; font-size: 13px; cursor: pointer; }.detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }.detail-grid-item { display: grid; gap: 3px; min-width: 0; }.detail-grid-item.full { grid-column: 1 / -1; }.detail-grid-item span { color: #86909c; font-size: 12px; white-space: nowrap; }.detail-grid-item b { overflow: hidden; color: #4e5969; font-size: 13px; font-weight: 500; white-space: nowrap; text-overflow: ellipsis; }.coordinate-block { display: grid; gap: 5px; margin: 12px 0; }.coordinate-block span { color: #86909c; font-size: 12px; }.coordinate-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }.coordinate-title :deep(.arco-btn) { flex-shrink: 0; }.coordinate-block code { margin-bottom: 4px; padding: 6px; overflow-wrap: anywhere; border-radius: 3px; background: #f7f8fa; color: #4e5969; font-size: 11px; }.matched-block { display: grid; gap: 6px; padding-top: 4px; }.matched-item { display: grid; gap: 2px; padding: 8px 0; border-bottom: 1px solid #f2f3f5; }.matched-item b { color: #4e5969; font-size: 13px; }.matched-item span { color: #86909c; font-size: 11px; }
 .modal-tip { margin-top: 0; color: #4e5969; }.modal-tip code { padding: 1px 4px; background: #f2f3f5; }
 .token-expired-banner { display: flex; align-items: center; gap: 6px; padding: 9px 14px; border: 1px solid #fbaca3; border-radius: 4px; background: #ffece8; color: #f53f3f; font-size: 13px; }
 .token-reset-link { color: #165dff; cursor: pointer; text-decoration: underline; }
 :global(.box-map-marker) { position: relative; min-width: 36px; height: 26px; padding: 0 8px; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; border-radius: 4px; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 12px; font-weight: 600; }
-:global(.box-map-marker::after) { content: ''; position: absolute; bottom: -6px; left: 50%; width: 10px; height: 10px; border-right: 1px solid #fff; border-bottom: 1px solid #fff; background: inherit; transform: translateX(-50%) rotate(45deg); }.box-map-page :global(.box-map-marker.warning) { background: #ff7d00; }.box-map-page :global(.box-map-marker.overflow) { background: #f53f3f; }.box-map-page :global(.box-map-marker.matched) { box-shadow: 0 0 0 3px #00b42a, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.1); z-index: 1; }.box-map-page :global(.box-map-marker.selected) { border: 2px solid #fff; box-shadow: 0 0 0 3px #165dff, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.15); opacity: 1; z-index: 2; }
+:global(.box-map-marker::after) { content: ''; position: absolute; bottom: -6px; left: 50%; width: 10px; height: 10px; border-right: 1px solid #fff; border-bottom: 1px solid #fff; background: inherit; transform: translateX(-50%) rotate(45deg); }.box-map-page :global(.box-map-marker.transporting::before) { content: '运'; position: absolute; top: -9px; right: -9px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; border-radius: 50%; background: #165dff; box-shadow: 0 1px 4px rgb(29 33 41 / 25%); color: #fff; font-size: 10px; font-weight: 700; }.box-map-page :global(.box-map-marker.warning) { background: #ff7d00; }.box-map-page :global(.box-map-marker.overflow) { background: #f53f3f; }.box-map-page :global(.box-map-marker.matched) { box-shadow: 0 0 0 3px #00b42a, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.1); z-index: 1; }.box-map-page :global(.box-map-marker.selected) { border: 2px solid #fff; box-shadow: 0 0 0 3px #165dff, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.15); opacity: 1; z-index: 2; }
 @media (max-width: 960px) { .detail-card { top: auto; right: 10px; bottom: 10px; left: 10px; width: auto; max-height: 58%; }.page-header { align-items: flex-start; gap: 12px; flex-direction: column; } }
 </style>

@@ -186,8 +186,8 @@ import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, sub
 
 defineOptions({ name: 'SanitationBoxMap' })
 
-/** DAAS 实际返回英文枚举；只有未接单、已接单、运输中任务显示“运”角标。 */
-const TRANSPORTING_STATUSES = new Set(['pending', 'accepted', 'transporting'])
+/** DAAS 状态：pending/accepted/collecting/completed；前三种显示“运”角标。 */
+const TRANSPORTING_STATUSES = new Set(['pending', 'accepted', 'collecting'])
 const COLLECTOR_API_BASE_URL = (import.meta.env.VITE_COLLECTOR_API_BASE_URL || '').replace(/\/$/, '')
 
 interface GcjPoint { lng: number, lat: number }

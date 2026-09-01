@@ -121,7 +121,7 @@ const movingAverageRecords = computed(() => records.value.map((point, index) => 
 const chartOption = computed<EChartsOption>(() => ({
   animation: false, grid: { left: 68, right: 28, top: 56, bottom: 86 }, tooltip: { trigger: 'axis', valueFormatter: value => formatWeight(value) }, legend: { top: 10, data: ['真实重量', '平均重量（9点）'] },
   toolbox: { right: 18, feature: { brush: { type: ['lineX', 'clear'] }, restore: {} } }, brush: { xAxisIndex: 'all', brushMode: 'single', throttleType: 'debounce', throttleDelay: 300 },
-  xAxis: { type: 'time', axisLabel: { formatter: (value: number) => formatTime(new Date(value).toISOString()) } }, yAxis: { type: 'value', name: '重量(kg)', scale: true },
+  xAxis: { type: 'time', axisLabel: { formatter: (value: number) => formatChartAxisTime(value) } }, yAxis: { type: 'value', name: '重量(kg)', scale: true },
   dataZoom: [{ type: 'inside', xAxisIndex: 0 }, { type: 'slider', xAxisIndex: 0, bottom: 12, height: 24 }],
   series: [
     { type: 'line', name: '真实重量', showSymbol: false, sampling: 'lttb', lineStyle: { width: 1.5, type: 'solid', color: '#165dff' }, areaStyle: { color: 'rgba(22,93,255,.08)' }, data: records.value.map(item => [item.weighTime, item.weight]) },
@@ -138,6 +138,11 @@ async function apiFetch(input: RequestInfo | URL, init?: RequestInit, timeout = 
   finally { window.clearTimeout(timer) }
 }
 function formatTime(value?: string) { return value ? value.replace('T', ' ').slice(0, 19) : '-' }
+/** 横轴必须使用浏览器本地时区；toISOString 会转 UTC，造成标签与悬停时间相差 8 小时。 */
+function formatChartAxisTime(value: number) {
+  const date = new Date(value); const pad = (part: number) => String(part).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
 function formatTableTime(value?: string) { return value ? value.replace('T', ' ').slice(5, 16) : '-' }
 function formatPeriod(start?: string, end?: string) { const from = formatTableTime(start); const to = formatTableTime(end); return start?.slice(0, 10) === end?.slice(0, 10) ? `${from} — ${to.slice(-5)}` : `${from} — ${to}` }
 function formatWeight(value: unknown) { const number = Number(value); return Number.isFinite(number) ? `${number.toLocaleString('zh-CN', { maximumFractionDigits: 1 })} kg` : '-' }

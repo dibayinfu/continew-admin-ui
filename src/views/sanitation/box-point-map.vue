@@ -32,10 +32,10 @@
 
     <a-card class="filter-card" :bordered="false">
       <div class="filter-block">
-        <a-input v-model="keyword" allow-clear placeholder="输入箱体编号，回车定位" style="width: 320px" @press-enter="focusMatchedBox">
+        <a-input v-model="keyword" allow-clear placeholder="输入箱体编号或收集点名称，回车定位" style="width: 320px" @press-enter="focusMatchedObject">
           <template #prefix><icon-search /></template>
         </a-input>
-        <span v-if="keyword.trim()" class="filter-result">箱体匹配到 {{ matchedCount }} 个，回车定位</span>
+        <span v-if="keyword.trim()" class="filter-result">箱体匹配 {{ matchedBoxCount }} 个 / 收集点匹配 {{ matchedPointCount }} 个，回车定位</span>
       </div>
       <div class="filter-block">
         <span class="filter-label">乡镇</span>
@@ -430,7 +430,7 @@ const overflowFilter = ref<'all' | 'overflow'>('all')
 const visiblePoints = computed(() => {
   if (!showPoints.value) return []
   const hidden = getHiddenPointIds()
-  // 关键字不再隐藏收集点（与箱体一致：仅用于箱体高亮定位），仍受开关/隐藏/乡镇/村庄/多箱点筛选约束
+  // 关键字仅用于高亮定位，不隐藏未命中的收集点，仍受开关/隐藏/乡镇/村庄/多箱点筛选约束
   return points.value.filter((p) => Number.isFinite(p.longitude) && Number.isFinite(p.latitude)
     && !hidden.has(p.id)
     && matchTownshipForPoint(p)
@@ -455,12 +455,22 @@ const matchedBoxes = computed<Set<Box> | null>(() => {
   if (!query) return null
   return new Set(boxes.value.filter((box) => box.containerNo.toLowerCase().includes(query) || box.containerName.toLowerCase().includes(query)))
 })
-const matchedCount = computed(() => matchedBoxes.value?.size ?? 0)
-function focusMatchedBox() {
-  const matched = matchedBoxes.value
-  if (!matched || matched.size === 0) return
-  if (matched.size > 1) { Message.info(`匹配到 ${matched.size} 个箱体，请输入更精确的编号`); return }
-  selectBox([...matched][0])
+/** 输入收集点名称命中的收集点：仅高亮定位，不隐藏其它收集点 */
+const matchedPoints = computed<Set<CollectionPoint> | null>(() => {
+  const query = keyword.value.trim().toLowerCase()
+  if (!query) return null
+  return new Set(points.value.filter((point) => point.pointName.toLowerCase().includes(query)))
+})
+const matchedBoxCount = computed(() => matchedBoxes.value?.size ?? 0)
+const matchedPointCount = computed(() => matchedPoints.value?.size ?? 0)
+const matchedCount = computed(() => matchedBoxCount.value + matchedPointCount.value)
+function focusMatchedObject() {
+  const boxes = matchedBoxes.value ? [...matchedBoxes.value] : []
+  const points = matchedPoints.value ? [...matchedPoints.value] : []
+  if (matchedCount.value === 0) { Message.info('未找到匹配的箱体或收集点'); return }
+  if (matchedCount.value > 1) { Message.info(`匹配到 ${matchedCount.value} 个对象，请输入更精确的编号或收集点名称`); return }
+  if (boxes.length) selectBox(boxes[0])
+  else selectPoint(points[0])
 }
 
 function toGcj(lng: number, lat: number): GcjPoint {
@@ -497,6 +507,12 @@ function boxMarkerClass(box: Box) {
   return classes.filter(Boolean).join(' ')
 }
 function pointTone(point: CollectionPoint) { return point.containerCount >= 2 ? 'multi' : '' }
+function pointMarkerClass(point: CollectionPoint) {
+  const classes = ['point-map-marker', pointTone(point)]
+  if (point === selectedPoint.value) classes.push('selected')
+  if (matchedPoints.value?.has(point)) classes.push('matched')
+  return classes.filter(Boolean).join(' ')
+}
 function boxStatusText(box: Box) { return box.overflowStatus === 1 ? '满溢' : box.fillLevel >= 70 ? '接近满溢' : '正常' }
 function boxStatusColor(box: Box) { return box.overflowStatus === 1 ? 'red' : box.fillLevel >= 70 ? 'orange' : 'green' }
 
@@ -508,7 +524,7 @@ function drawMarkers(fit = true) {
   // 收集点：圆形标记 + 服务半径圈
   visiblePoints.value.forEach((point) => {
     const gcj = getPointGcj(point)
-    const marker = new amap.Marker({ position: [gcj.lng, gcj.lat], offset: new amap.Pixel(-16, -16), content: `<div class="point-map-marker ${pointTone(point)}">${escapeHtml(point.containerCount)}</div>`, title: point.pointName })
+    const marker = new amap.Marker({ position: [gcj.lng, gcj.lat], offset: new amap.Pixel(-16, -16), content: `<div class="${pointMarkerClass(point)}">${escapeHtml(point.containerCount)}</div>`, title: point.pointName })
     marker.on('click', () => selectPoint(point))
     marker.setMap(map!)
     pointMarkers.push(marker)
@@ -601,7 +617,7 @@ function importData() {
   } catch { Message.error('JSON 格式不正确：需要包含 data.boxes 或 data.points 数组'); return false }
 }
 
-// 关键字仅高亮定位，不重缩放（与箱体地图一致）；筛选条件变化时按筛选结果重新缩放适配
+// 关键字仅高亮定位，不重缩放；筛选条件变化时按筛选结果重新缩放适配
 watch(keyword, () => drawMarkers(false))
 watch([multiFilter, overflowFilter, townshipFilter, villageFilter, showBoxes, showPoints], drawMarkers)
 watch(boxes, drawMarkers)
@@ -723,6 +739,8 @@ onBeforeUnmount(() => {
 .modal-tip { margin-top: 0; color: #4e5969; }.modal-tip code { padding: 1px 4px; background: #f2f3f5; }
 :global(.point-map-marker) { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; border-radius: 50%; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 13px; font-weight: 600; }
 .box-point-map-page :global(.point-map-marker.multi) { background: #ff7d00; }
+.box-point-map-page :global(.point-map-marker.matched) { box-shadow: 0 0 0 3px #00b42a, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.12); z-index: 1; }
+.box-point-map-page :global(.point-map-marker.selected) { border: 2px solid #fff; box-shadow: 0 0 0 3px #165dff, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.15); z-index: 2; }
 :global(.box-map-marker) { position: relative; min-width: 36px; height: 26px; padding: 0 8px; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; border-radius: 4px; background: #00b42a; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 12px; font-weight: 600; }
 :global(.box-map-marker::after) { content: ''; position: absolute; bottom: -6px; left: 50%; width: 10px; height: 10px; border-right: 1px solid #fff; border-bottom: 1px solid #fff; background: inherit; transform: translateX(-50%) rotate(45deg); }.box-point-map-page :global(.box-map-marker.warning) { background: #ff7d00; }.box-point-map-page :global(.box-map-marker.overflow) { background: #f53f3f; }.box-point-map-page :global(.box-map-marker.matched) { box-shadow: 0 0 0 3px #00b42a, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.1); z-index: 1; }.box-point-map-page :global(.box-map-marker.selected) { border: 2px solid #fff; box-shadow: 0 0 0 3px #165dff, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.15); opacity: 1; z-index: 2; }
 :global(.point-radius-label) { position: relative; padding: 1px 6px; border-radius: 3px; background: rgb(22 93 255 / 90%); color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; box-shadow: 0 1px 4px rgb(29 33 41 / 25%); }

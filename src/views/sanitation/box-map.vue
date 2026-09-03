@@ -1,5 +1,5 @@
 <template>
-  <div class="gi_page box-map-page">
+  <div ref="pageFullscreenRef" class="gi_page box-map-page">
     <div class="page-header">
       <div>
         <div class="page-title">箱体地图</div>
@@ -10,6 +10,14 @@
           <template #icon><icon-sync /></template>
           更新
         </a-button>
+        <a-tooltip :content="isPageFullscreen ? '退出全屏' : '主体全屏'">
+          <a-button :type="isPageFullscreen ? 'primary' : 'secondary'" @click="togglePageFullscreen">
+            <template #icon>
+              <icon-fullscreen-exit v-if="isPageFullscreen" />
+              <icon-fullscreen v-else />
+            </template>
+          </a-button>
+        </a-tooltip>
         <a-dropdown position="br">
           <a-button>更多<icon-down /></a-button>
           <template #content>
@@ -249,7 +257,11 @@ const initialBoxes: Box[] = [
 ]
 
 const mapRef = ref<HTMLDivElement>()
+const pageFullscreenRef = ref<HTMLElement | null>(null)
 const mapFullscreenRef = ref<HTMLElement | null>(null)
+const { isFullscreen: isPageFullscreen, toggle: togglePageFullscreen } = useFullscreen(pageFullscreenRef, {
+  onFullscreenChange: () => { nextTick(() => map?.resize()) },
+})
 const { isFullscreen: isMapFullscreen, toggle: toggleMapFullscreen } = useFullscreen(mapFullscreenRef, {
   // 进入/退出全屏后地图容器尺寸变化，通知高德地图重算视口
   onFullscreenChange: () => { nextTick(() => map?.resize()) },
@@ -575,6 +587,7 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); markers.forEach((marker) =>
 
 <style scoped lang="scss">
 .box-map-page { min-height: calc(100vh - 112px); display: flex; flex-direction: column; gap: 16px; }
+.box-map-page:fullscreen { width: 100%; height: 100%; min-height: 0; padding: 16px; overflow: auto; box-sizing: border-box; background: #f2f3f5; }
 .page-header { display: flex; align-items: center; justify-content: space-between; padding: 2px 0; }
 .page-title { color: #1d2129; font-size: 20px; font-weight: 600; line-height: 30px; }
 .page-subtitle, .filter-result { color: #86909c; font-size: 13px; }

@@ -134,8 +134,7 @@
           <div v-if="selectedTransportTask" class="transport-task-summary">
             <div class="transport-task-title"><span class="transport-task-icon">运</span><span>正在运输</span></div>
             <div class="transport-task-grid">
-              <span>任务单号</span><b>{{ transportTaskValue(selectedTransportTask, 'taskNo', 'transportTaskNo', 'orderNo', 'code', 'id') }}</b>
-              <span>任务状态</span><b>{{ transportTaskValue(selectedTransportTask, 'status', 'taskStatus') }}</b>
+              <span>任务状态</span><b>{{ transportTaskStatusText(selectedTransportTask) }}</b>
               <span>创建时间</span><b>{{ transportTaskValue(selectedTransportTask, 'createTime', 'startTime', 'taskTime') }}</b>
               <span>运输车辆</span><b>{{ transportTaskValue(selectedTransportTask, 'plateNum', 'vehicleNo', 'vehiclePlate', 'plateNo', 'vehicleName') }}</b>
               <span>驾驶员</span><b>{{ transportTaskValue(selectedTransportTask, 'driverName', 'driver', 'driverRealName') }}</b>
@@ -169,33 +168,36 @@
           </details>
           </div>
         </a-card>
+
+        <section v-if="historyVisible" class="history-overlay">
+          <header class="history-overlay-header">
+            <div class="history-title"><span>箱体编号</span><h2>{{ selectedBox?.containerNo }}</h2></div>
+            <a-button type="text" size="large" class="history-close-btn" aria-label="关闭历史轨迹" @click="closeHistoryTrack"><template #icon><icon-close /></template></a-button>
+          </header>
+          <div class="history-toolbar">
+            <a-radio-group v-model="historyRange" type="button" size="small" @change="loadHistoryTrack">
+              <a-radio value="1">近 24 小时</a-radio><a-radio value="3">近 3 天</a-radio><a-radio value="7">近 7 天</a-radio>
+            </a-radio-group>
+            <span v-if="historyData" class="history-summary">{{ historyData.summary.uniquePointCount }} 个收集点 · {{ historyData.summary.visitCount }} 次停靠</span>
+          </div>
+          <div class="history-layout">
+            <div class="history-map-wrap"><div ref="historyMapRef" class="history-map"></div><a-spin v-if="historyLoading" class="history-loading" /></div>
+            <aside class="history-visits">
+              <div class="history-visits-title">经过收集点</div>
+              <a-empty v-if="!historyLoading && !historyData?.pointVisits.length" description="该时段未识别到收集点停留" />
+              <button v-for="(visit, index) in historyData?.pointVisits || []" :key="`${visit.pointId}-${visit.arrivalTime}`" type="button" class="history-visit" @click="focusHistoryVisit(visit)">
+                <b>{{ index + 1 }}</b><span><strong>{{ visit.pointName }}</strong><em>{{ visit.townshipName || '未匹配乡镇' }} · {{ visit.villageName || '未匹配村庄' }}</em><em>{{ formatTrackTime(visit.arrivalTime) }} ～ {{ formatTrackTime(visit.departureTime) }}</em><small>停留 {{ formatStayDuration(visit.stayMinutes) }}</small></span>
+              </button>
+            </aside>
+          </div>
+          <div v-if="!historyLoading && historyData && !historyData.track.length" class="history-empty">该时段没有有效位置快照</div>
+        </section>
       </div>
     </div>
 
     <a-modal v-model:visible="importVisible" title="导入最新箱体数据" :width="680" @before-ok="importBoxes">
       <p class="modal-tip">粘贴接口完整 JSON，格式需包含 <code>data.list</code> 数组（云端格式为 <code>data.points</code>）。导入后仅更新当前页面数据。</p>
       <a-textarea v-model="importText" :auto-size="{ minRows: 12, maxRows: 18 }" placeholder="粘贴完整接口 JSON" />
-    </a-modal>
-
-    <a-modal v-model:visible="historyVisible" :footer="false" :width="'calc(100vw - 48px)'" :mask-closable="false" unmount-on-close class="history-track-modal" @close="destroyHistoryMap">
-      <template #title>小勾臂箱 {{ selectedBox?.containerNo }} · 历史轨迹</template>
-      <div class="history-toolbar">
-        <a-radio-group v-model="historyRange" type="button" size="small" @change="loadHistoryTrack">
-          <a-radio value="1">近 24 小时</a-radio><a-radio value="3">近 3 天</a-radio><a-radio value="7">近 7 天</a-radio>
-        </a-radio-group>
-        <span v-if="historyData" class="history-summary">{{ historyData.summary.uniquePointCount }} 个收集点 · {{ historyData.summary.visitCount }} 次停靠 · {{ historyData.summary.snapshotCount }} 个快照</span>
-      </div>
-      <div class="history-layout">
-        <div class="history-map-wrap"><div ref="historyMapRef" class="history-map"></div><a-spin v-if="historyLoading" class="history-loading" /></div>
-        <aside class="history-visits">
-          <div class="history-visits-title">经过收集点</div>
-          <a-empty v-if="!historyLoading && !historyData?.pointVisits.length" description="该时段未识别到收集点停留" />
-          <button v-for="(visit, index) in historyData?.pointVisits || []" :key="`${visit.pointId}-${visit.arrivalTime}`" type="button" class="history-visit" @click="focusHistoryVisit(visit)">
-            <b>{{ index + 1 }}</b><span><strong>{{ visit.pointName }}</strong><em>{{ visit.townshipName || '未匹配乡镇' }} · {{ visit.villageName || '未匹配村庄' }}</em><em>{{ formatTrackTime(visit.arrivalTime) }} ～ {{ formatTrackTime(visit.departureTime) }}</em><small>停留 {{ formatStayDuration(visit.stayMinutes) }}</small></span>
-          </button>
-        </aside>
-      </div>
-      <div v-if="!historyLoading && historyData && !historyData.track.length" class="history-empty">该时段没有有效位置快照</div>
     </a-modal>
 
     <a-modal v-model:visible="tokenModalVisible" title="手动配置 Token（兜底）" :width="640" @ok="saveToken">
@@ -475,6 +477,10 @@ function markerClass(box: Box) {
 }
 function normalizeBoxNo(value: unknown) { return String(value ?? '').trim() }
 function taskStatus(task: TransportTask) { return String(task.status ?? task.taskStatus ?? task.statusName ?? task.taskStatusName ?? '').trim() }
+function transportTaskStatusText(task: TransportTask) {
+  const labels: Record<string, string> = { pending: '待接单', accepted: '已接单', collecting: '运输中' }
+  return labels[taskStatus(task)] || taskStatus(task) || '-'
+}
 function taskTimestamp(task: TransportTask) {
   const value = task.createTime ?? task.startTime ?? task.taskTime ?? task.updateTime
   const timestamp = typeof value === 'string' ? new Date(value.replace(/-/g, '/')).getTime() : 0
@@ -519,6 +525,10 @@ async function openHistoryTrack() {
   historyVisible.value = true
   await nextTick()
   await loadHistoryTrack()
+}
+function closeHistoryTrack() {
+  historyVisible.value = false
+  destroyHistoryMap()
 }
 async function loadHistoryTrack() {
   const box = selectedBox.value
@@ -599,6 +609,14 @@ function selectBox(box: Box) {
   const point = getGcjPoint(box)
   if (map) map.setZoomAndCenter(Math.max(map.getZoom(), 16), [point.lng, point.lat])
 }
+/** 箱体列表刷新会产生新对象；按稳定的箱体 ID 延续详情选中态，避免异步刷新造成卡片闪退。 */
+function syncSelectedBox(nextBoxes: Box[]) {
+  const selected = selectedBox.value
+  if (!selected) return
+  const replacement = nextBoxes.find((box) => box.id === selected.id)
+  selectedBox.value = replacement
+  if (!replacement && historyVisible.value) closeHistoryTrack()
+}
 function focusMatchedBox() {
   const matched = matchedBoxes.value
   if (!matched || matched.size === 0) return
@@ -633,9 +651,12 @@ function importBoxes() {
 
 watch(keyword, () => drawMarkers(false))
 watch([overflowOnly, transportingOnly, townshipFilter, villageFilter], drawMarkers)
-watch(boxes, drawMarkers)
+// 刷新箱体列表时仅重绘标记，保留用户当前的中心点和缩放比例。
+watch(boxes, () => drawMarkers(false))
 watch(mapTheme, (theme) => map?.setMapStyle(`amap://styles/${theme}`))
 async function loadFromCloud(silent = false) {
+  // 手动刷新与定时刷新重叠时复用正在进行的请求，避免短时间重复请求。
+  if (cloudLoading.value) return
   cloudLoading.value = true
   try {
     const response = await fetch(`${COLLECTOR_API_BASE_URL}/api/collector/box-map/data`)
@@ -655,7 +676,7 @@ async function loadFromCloud(silent = false) {
     if (boxList.length && pointList.length) assignBoxAreas(boxList, pointList)
     boxes.value = boxList
     gcjPoints = new WeakMap<Box, GcjPoint>()
-    selectedBox.value = undefined
+    syncSelectedBox(boxList)
     saveCachedBoxes(boxList)
     saveCachedPoints(pointList)
     drawMarkers(false)
@@ -666,6 +687,7 @@ async function loadFromCloud(silent = false) {
 }
 let offBoxes: () => void
 let offPoints: () => void
+let autoRefreshTimer: ReturnType<typeof window.setInterval> | undefined
 onMounted(async () => {
   // 先读共享缓存（其它页面已更新的数据），再静默刷新云端
   const cachedBoxes = getCachedBoxes<Box>()
@@ -676,7 +698,7 @@ onMounted(async () => {
   }
   // 其它页面更新数据时，本页同步刷新
   offBoxes = subscribeBoxesUpdated((list) => {
-    if (Array.isArray(list) && list.length) { boxes.value = list as Box[]; gcjPoints = new WeakMap<Box, GcjPoint>(); if (points.value.length) assignBoxAreas(boxes.value, points.value); selectedBox.value = undefined }
+    if (Array.isArray(list) && list.length) { boxes.value = list as Box[]; gcjPoints = new WeakMap<Box, GcjPoint>(); if (points.value.length) assignBoxAreas(boxes.value, points.value); syncSelectedBox(boxes.value); drawMarkers(false) }
   })
   offPoints = subscribePointsUpdated((list) => {
     if (Array.isArray(list) && list.length) { points.value = list as CollectionPoint[]; assignBoxAreas(boxes.value, points.value) }
@@ -689,8 +711,10 @@ onMounted(async () => {
     map = new amap.Map(mapRef.value, { zoom: 13, center: [114.1, 36.04], viewMode: '2D', mapStyle: `amap://styles/${mapTheme.value}`, resizeEnable: true, animateEnable: false, jogEnable: false })
     drawMarkers()
   } catch (error) { mapError.value = error instanceof Error ? error.message : '高德地图加载失败，请检查地图配置' }
+  // 页面停留期间每 5 分钟静默同步一次，地图视野与当前详情选中态均保持不变。
+  autoRefreshTimer = window.setInterval(() => { void loadFromCloud(true) }, 5 * 60 * 1000)
 })
-onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); markers.forEach((marker) => marker.setMap(null)); map?.destroy(); destroyHistoryMap() })
+onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (autoRefreshTimer) window.clearInterval(autoRefreshTimer); markers.forEach((marker) => marker.setMap(null)); map?.destroy(); destroyHistoryMap() })
 </script>
 
 <style scoped lang="scss">
@@ -735,11 +759,12 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); markers.forEach((marker) =>
 .token-reset-link { color: #165dff; cursor: pointer; text-decoration: underline; }
 :global(.box-map-marker) { position: relative; min-width: 36px; height: 26px; padding: 0 8px; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; border-radius: 4px; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 12px; font-weight: 600; }
 :global(.box-map-marker::after) { content: ''; position: absolute; bottom: -6px; left: 50%; width: 10px; height: 10px; border-right: 1px solid #fff; border-bottom: 1px solid #fff; background: inherit; transform: translateX(-50%) rotate(45deg); }.box-map-page :global(.box-map-marker.transporting::before) { content: '运'; position: absolute; top: -9px; right: -9px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; border-radius: 50%; background: #165dff; box-shadow: 0 1px 4px rgb(29 33 41 / 25%); color: #fff; font-size: 10px; font-weight: 700; }.box-map-page :global(.box-map-marker.warning) { background: #ff7d00; }.box-map-page :global(.box-map-marker.overflow) { background: #f53f3f; }.box-map-page :global(.box-map-marker.matched) { box-shadow: 0 0 0 3px #00b42a, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.1); z-index: 1; }.box-map-page :global(.box-map-marker.selected) { border: 2px solid #fff; box-shadow: 0 0 0 3px #165dff, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.15); opacity: 1; z-index: 2; }
-.history-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 0 12px; }.history-summary { color: #4e5969; font-size: 13px; }
-.history-layout { display: grid; grid-template-columns: minmax(0, 1fr) 290px; height: min(70vh, 680px); min-height: 460px; border: 1px solid #e5e6eb; }.history-map-wrap { position: relative; min-width: 0; }.history-map { width: 100%; height: 100%; }.history-loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 50; }
+.history-overlay { position: absolute; inset: 16px; z-index: 10; display: flex; min-height: 0; flex-direction: column; padding: 16px; overflow: hidden; background: #f7f8fa; box-shadow: 0 12px 36px rgb(29 33 41 / 28%); }.history-overlay-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; padding-bottom: 12px; }.history-title { display: flex; align-items: baseline; gap: 8px; }.history-title h2 { margin: 0; color: #1d2129; font-size: 24px; line-height: 32px; }.history-title span { color: #86909c; font-size: 12px; }.history-close-btn { color: #86909c; }.history-close-btn:hover { color: #1d2129; background: #e5e6eb; }
+.history-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; padding: 0 0 12px; }.history-summary { color: #4e5969; font-size: 13px; }
+.history-layout { display: grid; flex: 1; min-height: 0; grid-template-columns: minmax(0, 1fr) 290px; border: 1px solid #e5e6eb; }.history-map-wrap { position: relative; min-width: 0; }.history-map { width: 100%; height: 100%; }.history-loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 50; }
 .history-visits { overflow-y: auto; border-left: 1px solid #e5e6eb; background: #fff; }.history-visits-title { padding: 14px; color: #1d2129; font-weight: 600; border-bottom: 1px solid #f2f3f5; }.history-visit { display: flex; width: 100%; gap: 10px; padding: 12px 14px; text-align: left; cursor: pointer; background: transparent; border: 0; border-bottom: 1px solid #f2f3f5; }.history-visit:hover { background: #f2f7ff; }.history-visit > b { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 22px; height: 22px; color: #fff; font-size: 12px; border-radius: 50%; background: #165dff; }.history-visit span { display: grid; min-width: 0; gap: 3px; }.history-visit strong { overflow: hidden; color: #1d2129; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }.history-visit em, .history-visit small { color: #86909c; font-size: 11px; font-style: normal; }.history-empty { padding: 12px 0 0; color: #86909c; text-align: center; font-size: 13px; }
 :global(.history-track-pin) { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; color: #fff; font-size: 13px; font-weight: 700; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 2px 8px rgb(0 0 0 / 36%), 0 0 0 1px rgb(22 93 255 / 35%); }.history-track-pin.start { background: #00b42a; }.history-track-pin.end { background: #f53f3f; }.history-track-pin.visit { background: #165dff; }
 :global(.history-track-pin.start) { background: #00b42a; }:global(.history-track-pin.end) { background: #f53f3f; }:global(.history-track-pin.visit) { background: #165dff; }
 @media (max-width: 960px) { .detail-card { top: auto; right: 10px; bottom: 10px; left: 10px; width: auto; max-height: 58%; }.page-header { align-items: flex-start; gap: 12px; flex-direction: column; } }
-@media (max-width: 720px) { .history-layout { grid-template-columns: 1fr; grid-template-rows: minmax(300px, 1fr) 190px; height: 72vh; min-height: 0; }.history-visits { border-top: 1px solid #e5e6eb; border-left: 0; }.history-toolbar { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 720px) { .history-overlay { inset: 10px; padding: 12px; }.history-layout { grid-template-columns: 1fr; grid-template-rows: minmax(300px, 1fr) 190px; }.history-visits { border-top: 1px solid #e5e6eb; border-left: 0; }.history-toolbar { align-items: flex-start; flex-direction: column; } }
 </style>

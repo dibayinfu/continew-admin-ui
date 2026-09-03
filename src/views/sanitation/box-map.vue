@@ -104,9 +104,12 @@
               <span class="box-no">箱体编号</span>
               <h2>{{ selectedBox.containerNo }}</h2>
             </div>
-            <a-button type="text" size="mini" class="detail-close-btn" @click="selectedBox = undefined">
-              <template #icon><icon-close /></template>
-            </a-button>
+            <a-space size="mini">
+              <a-button type="primary" size="mini" @click="openHistoryTrack">历史轨迹</a-button>
+              <a-button type="text" size="mini" class="detail-close-btn" @click="selectedBox = undefined">
+                <template #icon><icon-close /></template>
+              </a-button>
+            </a-space>
           </div>
           <div class="detail-scroll">
           <div class="detail-heading">
@@ -172,6 +175,27 @@
     <a-modal v-model:visible="importVisible" title="导入最新箱体数据" :width="680" @before-ok="importBoxes">
       <p class="modal-tip">粘贴接口完整 JSON，格式需包含 <code>data.list</code> 数组（云端格式为 <code>data.points</code>）。导入后仅更新当前页面数据。</p>
       <a-textarea v-model="importText" :auto-size="{ minRows: 12, maxRows: 18 }" placeholder="粘贴完整接口 JSON" />
+    </a-modal>
+
+    <a-modal v-model:visible="historyVisible" :footer="false" :width="'calc(100vw - 48px)'" :mask-closable="false" unmount-on-close class="history-track-modal" @close="destroyHistoryMap">
+      <template #title>小勾臂箱 {{ selectedBox?.containerNo }} · 历史轨迹</template>
+      <div class="history-toolbar">
+        <a-radio-group v-model="historyRange" type="button" size="small" @change="loadHistoryTrack">
+          <a-radio value="1">近 24 小时</a-radio><a-radio value="3">近 3 天</a-radio><a-radio value="7">近 7 天</a-radio>
+        </a-radio-group>
+        <span v-if="historyData" class="history-summary">{{ historyData.summary.uniquePointCount }} 个收集点 · {{ historyData.summary.visitCount }} 次停靠 · {{ historyData.summary.snapshotCount }} 个快照</span>
+      </div>
+      <div class="history-layout">
+        <div class="history-map-wrap"><div ref="historyMapRef" class="history-map"></div><a-spin v-if="historyLoading" class="history-loading" /></div>
+        <aside class="history-visits">
+          <div class="history-visits-title">经过收集点</div>
+          <a-empty v-if="!historyLoading && !historyData?.pointVisits.length" description="该时段未识别到收集点停留" />
+          <button v-for="(visit, index) in historyData?.pointVisits || []" :key="`${visit.pointId}-${visit.arrivalTime}`" type="button" class="history-visit" @click="focusHistoryVisit(visit)">
+            <b>{{ index + 1 }}</b><span><strong>{{ visit.pointName }}</strong><em>{{ visit.townshipName || '未匹配乡镇' }} · {{ visit.villageName || '未匹配村庄' }}</em><em>{{ formatTrackTime(visit.arrivalTime) }} ～ {{ formatTrackTime(visit.departureTime) }}</em><small>停留 {{ formatStayDuration(visit.stayMinutes) }}</small></span>
+          </button>
+        </aside>
+      </div>
+      <div v-if="!historyLoading && historyData && !historyData.track.length" class="history-empty">该时段没有有效位置快照</div>
     </a-modal>
 
     <a-modal v-model:visible="tokenModalVisible" title="手动配置 Token（兜底）" :width="640" @ok="saveToken">
@@ -242,6 +266,9 @@ interface TransportTask extends Record<string, unknown> {
   startTime?: string
   taskTime?: string
 }
+interface HistoryTrackPoint { time: string, longitude: number, latitude: number, pointId?: number, pointName?: string }
+interface HistoryPointVisit { pointId: number, pointName: string, townshipName: string, villageName: string, arrivalTime: string, departureTime: string, stayMinutes: number, snapshotCount: number }
+interface HistoryTrackResponse { track: HistoryTrackPoint[], pointVisits: HistoryPointVisit[], summary: { snapshotCount: number, uniquePointCount: number, visitCount: number } }
 
 const initialBoxes: Box[] = [
   { id: 48, deviceNo: '13820260721000000026', containerNo: '132', containerName: '小勾臂箱132号设备', onlineStatus: 0, overflowStatus: 0, matchObject: '{"龙泉镇中转站（临时）":{"latitude":36.064611,"longitude":114.247368},"6225420055":{"latitude":36.068728,"longitude":114.242248},"6226170009":{"latitude":36.068764,"longitude":114.242648}}', fillLevel: 0, capacity: 1.5, longitude: 114.242817, latitude: 36.069452, reportTime: '2026-08-06 18:56:04', temperature: 34.37, voltage: 40, switchStatus: '0' },
@@ -283,12 +310,19 @@ const importVisible = ref(false)
 const importText = ref('')
 const tokenModalVisible = ref(false)
 const tokenInput = ref(daasAuth.token)
+const historyVisible = ref(false)
+const historyRange = ref('3')
+const historyLoading = ref(false)
+const historyMapRef = ref<HTMLDivElement>()
+const historyData = ref<HistoryTrackResponse>()
 /** boxNo -> 最近一条临时视为“正在运输”的任务单 */
 const transportTasksByBoxNo = ref<Map<string, TransportTask>>(new Map())
 let map: AMapInstance | undefined
 let markers: AMapMarker[] = []
 let amap: Awaited<ReturnType<typeof loadAmapJsApi>> | undefined
 let gcjPoints = new WeakMap<Box, GcjPoint>()
+let historyMap: AMapInstance | undefined
+let historyOverlays: Array<AMapMarker | { setMap: (map: AMapInstance | null) => void }> = []
 const mapThemes: Array<{ label: string, value: MapTheme }> = [
   { label: '标准', value: 'light' },
   { label: '默认', value: 'normal' },
@@ -468,6 +502,80 @@ function getGcjPoint(box: Box) {
   gcjPoints.set(box, point)
   return point
 }
+function toTrackGcj(point: HistoryTrackPoint): GcjPoint { return toGcj(Number(point.longitude), Number(point.latitude)) }
+function formatTrackTime(value: string) { return value ? value.replace('T', ' ').slice(5, 16) : '-' }
+function formatStayDuration(totalMinutes: number) {
+  const minutes = Math.max(0, Math.floor(Number(totalMinutes) || 0))
+  const days = Math.floor(minutes / 1440), hours = Math.floor((minutes % 1440) / 60), remaining = minutes % 60
+  if (days > 0) return `${days} 天 ${hours} 小时 ${remaining} 分钟`
+  if (hours > 0) return `${hours} 小时 ${remaining} 分钟`
+  return `${remaining} 分钟`
+}
+function historyContent(label: string, tone: string) { return `<div class="history-track-pin ${tone}">${escapeHtml(label)}</div>` }
+function clearHistoryOverlays() { historyOverlays.forEach((overlay) => overlay.setMap(null)); historyOverlays = [] }
+function destroyHistoryMap() { clearHistoryOverlays(); historyMap?.destroy(); historyMap = undefined }
+async function openHistoryTrack() {
+  if (!selectedBox.value) return
+  historyVisible.value = true
+  await nextTick()
+  await loadHistoryTrack()
+}
+async function loadHistoryTrack() {
+  const box = selectedBox.value
+  if (!box) return
+  historyLoading.value = true
+  try {
+    const end = new Date()
+    const start = new Date(end.getTime() - Number(historyRange.value) * 24 * 60 * 60 * 1000)
+    const query = new URLSearchParams({ from: start.toISOString().slice(0, 19), to: end.toISOString().slice(0, 19) })
+    const response = await fetch(`${COLLECTOR_API_BASE_URL}/api/collector/boxes/${box.id}/history-track?${query}`)
+    if (!response.ok) throw new Error((await response.text()) || `HTTP ${response.status}`)
+    historyData.value = await response.json() as HistoryTrackResponse
+    await nextTick()
+    await renderHistoryTrack()
+  } catch (error) {
+    historyData.value = undefined
+    Message.error(`历史轨迹加载失败：${error instanceof Error ? error.message : '网络异常'}`)
+  } finally { historyLoading.value = false }
+}
+async function renderHistoryTrack() {
+  if (!historyMapRef.value || !historyData.value) return
+  const historyAmap = amap || await loadAmapJsApi()
+  if (!historyMap) historyMap = new historyAmap.Map(historyMapRef.value, { zoom: 13, center: [114.1, 36.04], viewMode: '2D', mapStyle: `amap://styles/${mapTheme.value}`, resizeEnable: true })
+  clearHistoryOverlays()
+  const points = historyData.value.track.filter((point) => Number.isFinite(Number(point.longitude)) && Number.isFinite(Number(point.latitude)))
+  const segments: GcjPoint[][] = []; let segment: GcjPoint[] = []; let previousTime = 0
+  for (const point of points) {
+    const timestamp = new Date(point.time).getTime()
+    if (segment.length && timestamp - previousTime > 30 * 60 * 1000) { segments.push(segment); segment = [] }
+    segment.push(toTrackGcj(point)); previousTime = timestamp
+  }
+  if (segment.length) segments.push(segment)
+  for (const path of segments.filter((item) => item.length > 1)) {
+    const polyline = new historyAmap.Polyline({ path: path.map((point) => [point.lng, point.lat]), strokeColor: '#165dff', strokeWeight: 5, strokeOpacity: 0.86, zIndex: 20 })
+    polyline.setMap(historyMap); historyOverlays.push(polyline)
+  }
+  if (points.length) {
+    const start = toTrackGcj(points[0]); const end = toTrackGcj(points[points.length - 1])
+    const startMarker = new historyAmap.Marker({ position: [start.lng, start.lat], content: historyContent('起', 'start'), offset: new historyAmap.Pixel(-14, -28), zIndex: 40 })
+    const endMarker = new historyAmap.Marker({ position: [end.lng, end.lat], content: historyContent('终', 'end'), offset: new historyAmap.Pixel(-14, -28), zIndex: 40 })
+    startMarker.setMap(historyMap); endMarker.setMap(historyMap); historyOverlays.push(startMarker, endMarker)
+  }
+  historyData.value.pointVisits.forEach((visit, index) => {
+    const point = points.find((item) => item.pointId === visit.pointId && item.time >= visit.arrivalTime && item.time <= visit.departureTime)
+    if (!point) return
+    const position = toTrackGcj(point); const marker = new historyAmap.Marker({ position: [position.lng, position.lat], content: historyContent(String(index + 1), 'visit'), offset: new historyAmap.Pixel(-14, -28), zIndex: 35 })
+    marker.setMap(historyMap); marker.on('click', () => focusHistoryVisit(visit)); historyOverlays.push(marker)
+  })
+  const markerOverlays = historyOverlays.filter((overlay): overlay is AMapMarker => 'on' in overlay)
+  if (markerOverlays.length) historyMap.setFitView(markerOverlays, true, [60, 60, 60, 60])
+}
+function focusHistoryVisit(visit: HistoryPointVisit) {
+  const point = historyData.value?.track.find((item) => item.pointId === visit.pointId && item.time >= visit.arrivalTime && item.time <= visit.departureTime)
+  if (!point || !historyMap) return
+  const position = toTrackGcj(point)
+  historyMap.setZoomAndCenter(17, [position.lng, position.lat])
+}
 function escapeHtml(value: string | number) {
   return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!)
 }
@@ -582,7 +690,7 @@ onMounted(async () => {
     drawMarkers()
   } catch (error) { mapError.value = error instanceof Error ? error.message : '高德地图加载失败，请检查地图配置' }
 })
-onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); markers.forEach((marker) => marker.setMap(null)); map?.destroy() })
+onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); markers.forEach((marker) => marker.setMap(null)); map?.destroy(); destroyHistoryMap() })
 </script>
 
 <style scoped lang="scss">
@@ -627,5 +735,11 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); markers.forEach((marker) =>
 .token-reset-link { color: #165dff; cursor: pointer; text-decoration: underline; }
 :global(.box-map-marker) { position: relative; min-width: 36px; height: 26px; padding: 0 8px; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; border-radius: 4px; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 12px; font-weight: 600; }
 :global(.box-map-marker::after) { content: ''; position: absolute; bottom: -6px; left: 50%; width: 10px; height: 10px; border-right: 1px solid #fff; border-bottom: 1px solid #fff; background: inherit; transform: translateX(-50%) rotate(45deg); }.box-map-page :global(.box-map-marker.transporting::before) { content: '运'; position: absolute; top: -9px; right: -9px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; border-radius: 50%; background: #165dff; box-shadow: 0 1px 4px rgb(29 33 41 / 25%); color: #fff; font-size: 10px; font-weight: 700; }.box-map-page :global(.box-map-marker.warning) { background: #ff7d00; }.box-map-page :global(.box-map-marker.overflow) { background: #f53f3f; }.box-map-page :global(.box-map-marker.matched) { box-shadow: 0 0 0 3px #00b42a, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.1); z-index: 1; }.box-map-page :global(.box-map-marker.selected) { border: 2px solid #fff; box-shadow: 0 0 0 3px #165dff, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.15); opacity: 1; z-index: 2; }
+.history-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 0 12px; }.history-summary { color: #4e5969; font-size: 13px; }
+.history-layout { display: grid; grid-template-columns: minmax(0, 1fr) 290px; height: min(70vh, 680px); min-height: 460px; border: 1px solid #e5e6eb; }.history-map-wrap { position: relative; min-width: 0; }.history-map { width: 100%; height: 100%; }.history-loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 50; }
+.history-visits { overflow-y: auto; border-left: 1px solid #e5e6eb; background: #fff; }.history-visits-title { padding: 14px; color: #1d2129; font-weight: 600; border-bottom: 1px solid #f2f3f5; }.history-visit { display: flex; width: 100%; gap: 10px; padding: 12px 14px; text-align: left; cursor: pointer; background: transparent; border: 0; border-bottom: 1px solid #f2f3f5; }.history-visit:hover { background: #f2f7ff; }.history-visit > b { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 22px; height: 22px; color: #fff; font-size: 12px; border-radius: 50%; background: #165dff; }.history-visit span { display: grid; min-width: 0; gap: 3px; }.history-visit strong { overflow: hidden; color: #1d2129; font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }.history-visit em, .history-visit small { color: #86909c; font-size: 11px; font-style: normal; }.history-empty { padding: 12px 0 0; color: #86909c; text-align: center; font-size: 13px; }
+:global(.history-track-pin) { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; color: #fff; font-size: 13px; font-weight: 700; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 2px 8px rgb(0 0 0 / 36%), 0 0 0 1px rgb(22 93 255 / 35%); }.history-track-pin.start { background: #00b42a; }.history-track-pin.end { background: #f53f3f; }.history-track-pin.visit { background: #165dff; }
+:global(.history-track-pin.start) { background: #00b42a; }:global(.history-track-pin.end) { background: #f53f3f; }:global(.history-track-pin.visit) { background: #165dff; }
 @media (max-width: 960px) { .detail-card { top: auto; right: 10px; bottom: 10px; left: 10px; width: auto; max-height: 58%; }.page-header { align-items: flex-start; gap: 12px; flex-direction: column; } }
+@media (max-width: 720px) { .history-layout { grid-template-columns: 1fr; grid-template-rows: minmax(300px, 1fr) 190px; height: 72vh; min-height: 0; }.history-visits { border-top: 1px solid #e5e6eb; border-left: 0; }.history-toolbar { align-items: flex-start; flex-direction: column; } }
 </style>

@@ -7,6 +7,11 @@ export interface AMapMarker {
   on: (event: string, handler: () => void) => void
 }
 
+export interface AMapMassMarks {
+  setMap: (map: AMapInstance | null) => void
+  on: (event: string, handler: (event: { data: unknown }) => void) => void
+}
+
 export interface AMapCircle {
   setMap: (map: AMapInstance | null) => void
 }
@@ -23,6 +28,7 @@ export interface AMapInfoWindow {
 export interface AMapInstance {
   destroy: () => void
   getZoom: () => number
+  on: (event: string, handler: () => void) => void
   /** 容器尺寸变化后通知地图重算（全屏切换时使用） */
   resize: () => void
   setMapStyle: (style: string) => void
@@ -34,11 +40,13 @@ export interface AMapInstance {
 export interface AMapNamespace {
   Map: new (container: HTMLElement, options: Record<string, unknown>) => AMapInstance
   Marker: new (options: Record<string, unknown>) => AMapMarker
+  MassMarks: new (data: Array<Record<string, unknown>>, options: Record<string, unknown>) => AMapMassMarks
   Circle: new (options: Record<string, unknown>) => AMapCircle
   Polyline: new (options: Record<string, unknown>) => AMapPolyline
   InfoWindow: new (options: Record<string, unknown>) => AMapInfoWindow
   LngLat: new (lng: number, lat: number) => unknown
   Pixel: new (x: number, y: number) => unknown
+  Size: new (width: number, height: number) => unknown
 }
 
 let loader: Promise<AMapNamespace> | undefined

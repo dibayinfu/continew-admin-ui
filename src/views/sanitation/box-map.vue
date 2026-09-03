@@ -214,7 +214,7 @@
 import { Message } from '@arco-design/web-vue'
 import { useFullscreen } from '@vueuse/core'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { type AMapInstance, type AMapMarker, loadAmapJsApi } from '@/utils/amap'
+import { type AMapInstance, type AMapMarker, type AMapMassMarks, loadAmapJsApi } from '@/utils/amap'
 import { daasAuth, getHiddenBoxIds, setDaasToken } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
 
@@ -321,6 +321,9 @@ const historyData = ref<HistoryTrackResponse>()
 const transportTasksByBoxNo = ref<Map<string, TransportTask>>(new Map())
 let map: AMapInstance | undefined
 let markers: AMapMarker[] = []
+let massMarks: AMapMassMarks | undefined
+let selectedMassMarker: AMapMarker | undefined
+let markerMode: 'mass' | 'label' | undefined
 let amap: Awaited<ReturnType<typeof loadAmapJsApi>> | undefined
 let gcjPoints = new WeakMap<Box, GcjPoint>()
 let historyMap: AMapInstance | undefined
@@ -589,18 +592,62 @@ function focusHistoryVisit(visit: HistoryPointVisit) {
 function escapeHtml(value: string | number) {
   return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char]!)
 }
+
+const BOX_LABEL_ZOOM = 11
+type MassBoxPoint = { lnglat: [number, number], style: number, box: Box }
+function massPointStyle(box: Box) { return box.overflowStatus === 1 ? 2 : box.fillLevel >= 70 ? 1 : 0 }
+function makeMassPointIcon(color: string) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5" fill="${color}" stroke="#fff" stroke-width="2"/></svg>`
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`
+}
+function createMassPointStyles() {
+  return [
+    { url: makeMassPointIcon('#165dff'), anchor: new amap!.Pixel(7, 7), size: new amap!.Size(14, 14), zIndex: 10 },
+    { url: makeMassPointIcon('#ff7d00'), anchor: new amap!.Pixel(7, 7), size: new amap!.Size(14, 14), zIndex: 20 },
+    { url: makeMassPointIcon('#f53f3f'), anchor: new amap!.Pixel(7, 7), size: new amap!.Size(14, 14), zIndex: 30 },
+  ]
+}
+function shouldShowBoxLabels() { return (map?.getZoom() ?? 0) >= BOX_LABEL_ZOOM }
+function clearBoxOverlays() {
+  massMarks?.setMap(null); massMarks = undefined
+  selectedMassMarker?.setMap(null); selectedMassMarker = undefined
+  markers.forEach((marker) => marker.setMap(null)); markers = []
+}
+function createBoxMarker(box: Box, index: number, selected = false) {
+  const point = getGcjPoint(box)
+  const marker = new amap!.Marker({ position: [point.lng, point.lat], offset: new amap!.Pixel(-18, -34), content: `<div class="${markerClass(box)}${selected ? ' selected' : ''}">${escapeHtml(box.containerNo)}</div>`, title: box.containerName, zIndex: selected ? 1000 : 10 + index })
+  marker.on('click', () => selectBox(box))
+  marker.setMap(map!)
+  return marker
+}
 function drawMarkers(fit = true) {
   if (!map || !amap) return
-  markers.forEach((marker) => marker.setMap(null)); markers = []
-  markers = visibleBoxes.value.map((box, index) => {
-    const point = getGcjPoint(box)
-    const marker = new amap.Marker({ position: [point.lng, point.lat], offset: new amap.Pixel(-18, -34), content: `<div class="${markerClass(box)}">${escapeHtml(box.containerNo)}</div>`, title: box.containerName, zIndex: box === selectedBox.value ? 1000 : 10 + index })
-    marker.on('click', () => selectBox(box))
-    marker.setMap(map!)
-    return marker
-  })
+  clearBoxOverlays()
+  const showLabels = shouldShowBoxLabels()
+  markerMode = showLabels ? 'label' : 'mass'
+  if (showLabels) {
+    markers = visibleBoxes.value.map((box, index) => createBoxMarker(box, index))
+  } else {
+    const points: MassBoxPoint[] = visibleBoxes.value.map((box) => {
+      const point = getGcjPoint(box)
+      return { lnglat: [point.lng, point.lat], style: massPointStyle(box), box }
+    })
+    massMarks = new amap.MassMarks(points, { opacity: 1, zIndex: 110, cursor: 'pointer', style: createMassPointStyles() })
+    massMarks.on('click', (event) => {
+      const point = event.data as MassBoxPoint
+      if (point?.box) selectBox(point.box)
+    })
+    massMarks.setMap(map)
+    // Canvas 点位下只保留一个普通 Marker 给已选箱体显示箱号，避免恢复全量 DOM。
+    if (selectedBox.value && visibleBoxes.value.includes(selectedBox.value)) selectedMassMarker = createBoxMarker(selectedBox.value, 0, true)
+  }
   if (fit && markers.length) map.setFitView(markers, false, [60, 60, 60, 360])
   if (selectedBox.value && !visibleBoxes.value.includes(selectedBox.value)) selectedBox.value = undefined
+}
+
+function syncMarkerMode() {
+  const nextMode = shouldShowBoxLabels() ? 'label' : 'mass'
+  if (nextMode !== markerMode) drawMarkers(false)
 }
 
 function selectBox(box: Box) {
@@ -709,12 +756,13 @@ onMounted(async () => {
     void loadFromCloud(true)
     amap = await loadAmapJsApi()
     map = new amap.Map(mapRef.value, { zoom: 13, center: [114.1, 36.04], viewMode: '2D', mapStyle: `amap://styles/${mapTheme.value}`, resizeEnable: true, animateEnable: false, jogEnable: false })
+    map.on('zoomend', syncMarkerMode)
     drawMarkers()
   } catch (error) { mapError.value = error instanceof Error ? error.message : '高德地图加载失败，请检查地图配置' }
   // 页面停留期间每 5 分钟静默同步一次，地图视野与当前详情选中态均保持不变。
   autoRefreshTimer = window.setInterval(() => { void loadFromCloud(true) }, 5 * 60 * 1000)
 })
-onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (autoRefreshTimer) window.clearInterval(autoRefreshTimer); markers.forEach((marker) => marker.setMap(null)); map?.destroy(); destroyHistoryMap() })
+onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (autoRefreshTimer) window.clearInterval(autoRefreshTimer); clearBoxOverlays(); map?.destroy(); destroyHistoryMap() })
 </script>
 
 <style scoped lang="scss">

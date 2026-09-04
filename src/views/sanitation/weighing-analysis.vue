@@ -38,13 +38,19 @@
         <template v-else>
         <a-card class="chart-card">
           <template #title>时间 - 重量曲线 <small>{{ selectedSummary }}</small></template>
-          <a-spin :loading="analysisLoading" class="analysis-content">
-            <VChart v-if="records.length" ref="chart" class="weight-chart" :option="chartOption" autoresize @brush-selected="handleBrushSelected" />
+          <a-spin :loading="chartLoading" class="analysis-content">
+            <VChart v-if="records.length" ref="chart" class="weight-chart" :option="chartOption" autoresize @brush-selected="handleBrushSelected" @datazoom="handleDataZoom" />
             <a-empty v-else description="该时段没有原始称重记录" />
           </a-spin>
         </a-card>
         <a-card class="table-card">
-          <template #title>动态分析 <small>车重：{{ formatWeight(settings.emptyVehicleWeight) }}，车 + 空箱：{{ formatWeight(vehicleWithBoxWeight) }}，车 + 空箱 + 司机：{{ formatWeight(loadedBaselineWeight) }}</small></template>
+          <template #title>
+            <div class="analysis-title">
+              <span>动态分析</span>
+              <small>车重：{{ formatWeight(settings.emptyVehicleWeight) }}，空箱：{{ formatWeight(settings.emptyBoxWeight) }}，司机均重：{{ formatWeight(settings.driverWeight) }}，垃圾重：{{ formatWeight(settings.garbageMinWeight) }}～{{ formatWeight(settings.garbageMaxWeight) }}</small>
+              <small>车 + 空箱 + 司机：{{ formatWeight(loadedBaselineWeight) }}，车 + 垃圾箱 + 司机：{{ formatWeight(loadedGarbageMinWeight) }}～{{ formatWeight(loadedGarbageMaxWeight) }}</small>
+            </div>
+          </template>
           <a-table :data="segments" :columns="columns" row-key="startTime" :loading="analysisLoading" :pagination="false" :scroll="{ x: 1004 }" stripe>
             <template #type="{ record }"><a-tag :color="typeColor(record.type)">{{ record.type }}</a-tag></template>
             <template #period="{ record }"><span class="period">{{ formatPeriod(record.startTime, record.endTime) }}</span></template>
@@ -68,8 +74,8 @@
           </a-select>
         </a-form-item>
         <a-form-item field="emptyVehicleWeight" label="空车重量"><a-input-number v-model="settings.emptyVehicleWeight" :min="0" :precision="0" style="width: 100%"><template #append>kg</template></a-input-number></a-form-item>
-        <a-form-item field="emptyBoxWeight" label="空箱重量"><a-input-number v-model="settings.emptyBoxWeight" :min="0" :precision="0" style="width: 100%"><template #append>kg</template></a-input-number></a-form-item>
-        <a-form-item field="driverWeight" label="司机重量"><a-input-number v-model="settings.driverWeight" :min="0" :precision="0" style="width: 100%"><template #append>kg</template></a-input-number></a-form-item>
+        <a-form-item field="emptyBoxWeight" label="空箱重量"><a-input-number v-model="settings.emptyBoxWeight" :min="1" :precision="0" style="width: 100%"><template #append>kg</template></a-input-number></a-form-item>
+        <a-form-item field="driverWeight" label="司机重量"><a-input-number v-model="settings.driverWeight" :min="1" :precision="0" style="width: 100%"><template #append>kg</template></a-input-number></a-form-item>
         <a-form-item label="垃圾重量范围">
           <a-space fill><a-input-number v-model="settings.garbageMinWeight" :min="0" :precision="0" placeholder="下限"><template #append>kg</template></a-input-number><span>至</span><a-input-number v-model="settings.garbageMaxWeight" :min="0" :precision="0" placeholder="上限"><template #append>kg</template></a-input-number></a-space>
         </a-form-item>
@@ -97,21 +103,24 @@ interface Batch { id: number; fileName: string; vehicleNo: string; vin: string; 
 interface RecordPoint { weighTime: string; weight: number }
 interface Segment { type: string; startTime: string; endTime: string; stableWeight: number; minWeight: number; maxWeight: number; recordCount: number; changeAmount: number | null; businessState: string; garbageWeight: number | null; abnormal: string }
 interface AnalysisSettings { emptyVehicleWeight: number; emptyBoxWeight: number; driverWeight: number; garbageMinWeight: number; garbageMaxWeight: number; focusVehicles: string[] }
-interface Detail { batch: Batch; records: RecordPoint[]; analysis: Segment[] }
+interface CurveDetail { batch: Batch; records: RecordPoint[] }
 const apiBase = (import.meta.env.VITE_COLLECTOR_API_BASE_URL || '').replace(/\/$/, '')
 const fileInput = ref<HTMLInputElement>()
 const chart = ref<InstanceType<typeof VChart>>()
 const batches = ref<Batch[]>([]); const currentBatch = ref<Batch>(); const currentBatchId = ref<number>(); const records = ref<RecordPoint[]>([]); const segments = ref<Segment[]>([])
-const batchLoading = ref(false); const uploading = ref(false); const collapsed = ref(false); const analysisLoading = ref(false); const selectedRange = ref<{ start?: string; end?: string }>({})
+const batchLoading = ref(false); const uploading = ref(false); const collapsed = ref(false); const chartLoading = ref(false); const analysisLoading = ref(false); const selectedRange = ref<{ start?: string; end?: string }>({})
+let rangeAnalysisTimer: number | undefined; let analysisRequestVersion = 0
 const settingsVisible = ref(false); const settingsSaving = ref(false); const vehicleOptionsLoading = ref(false); const vehicleOptions = ref<string[]>([]); const settings = ref<AnalysisSettings>({ emptyVehicleWeight: 1670, emptyBoxWeight: 700, driverWeight: 85, garbageMinWeight: 350, garbageMaxWeight: 600, focusVehicles: ['豫AE9059'] })
 const columns: TableColumnData[] = [
   { title: '状态', dataIndex: 'type', slotName: 'type', width: 56 }, { title: '时间段', dataIndex: 'startTime', slotName: 'period', width: 185 },
   { title: '业务判断', dataIndex: 'businessState', slotName: 'businessState', width: 165 }, { title: '稳定称重值', dataIndex: 'stableWeight', slotName: 'weight', width: 100 }, { title: '重量范围', dataIndex: 'minWeight', slotName: 'range', width: 142 }, { title: '变化量', dataIndex: 'changeAmount', slotName: 'changeAmount', width: 78 }, { title: '箱中垃圾', dataIndex: 'garbageWeight', slotName: 'garbageWeight', width: 96 },
   { title: '记录数', dataIndex: 'recordCount', width: 62 }, { title: '异常', dataIndex: 'abnormal', slotName: 'abnormal', width: 120 },
 ]
-const selectedSummary = computed(() => selectedRange.value.start ? `框选：${formatTime(selectedRange.value.start)} 至 ${formatTime(selectedRange.value.end!)}` : '可滚轮缩放、拖拽、框选时间段')
+const selectedSummary = computed(() => selectedRange.value.start ? `分析区间：${formatTime(selectedRange.value.start)} 至 ${formatTime(selectedRange.value.end!)}` : '可滚轮缩放、拖拽、框选时间段')
 const vehicleWithBoxWeight = computed(() => Number(settings.value.emptyVehicleWeight || 0) + Number(settings.value.emptyBoxWeight || 0))
 const loadedBaselineWeight = computed(() => vehicleWithBoxWeight.value + Number(settings.value.driverWeight || 0))
+const loadedGarbageMinWeight = computed(() => loadedBaselineWeight.value + Number(settings.value.garbageMinWeight || 0))
+const loadedGarbageMaxWeight = computed(() => loadedBaselineWeight.value + Number(settings.value.garbageMaxWeight || 0))
 /** 居中 9 点移动平均：平滑跳点，同时避免改变真实曲线数据。 */
 const movingAverageRecords = computed(() => records.value.map((point, index) => {
   const from = Math.max(0, index - 4); const to = Math.min(records.value.length, index + 5)
@@ -122,7 +131,12 @@ const chartOption = computed<EChartsOption>(() => ({
   animation: false, grid: { left: 68, right: 28, top: 56, bottom: 86 }, tooltip: { trigger: 'axis', valueFormatter: value => formatWeight(value) }, legend: { top: 10, data: ['真实重量', '平均重量（9点）'] },
   toolbox: { right: 18, feature: { brush: { type: ['lineX', 'clear'] }, restore: {} } }, brush: { xAxisIndex: 'all', brushMode: 'single', throttleType: 'debounce', throttleDelay: 300 },
   xAxis: { type: 'time', axisLabel: { formatter: (value: number) => formatChartAxisTime(value) } }, yAxis: { type: 'value', name: '重量(kg)', scale: true },
-  dataZoom: [{ type: 'inside', xAxisIndex: 0 }, { type: 'slider', xAxisIndex: 0, bottom: 12, height: 24 }],
+  dataZoom: [
+    // 不能把 selectedRange 回写到 option：拖动结束后的异步分析会触发 setOption，
+    // 进而重置 dataZoom 手势，表现为曲线和滑块抖动。ECharts 自己持有当前视窗即可。
+    { type: 'inside', xAxisIndex: 0 },
+    { type: 'slider', xAxisIndex: 0, bottom: 12, height: 24 },
+  ],
   series: [
     { type: 'line', name: '真实重量', showSymbol: false, sampling: 'lttb', lineStyle: { width: 1.5, type: 'solid', color: '#165dff' }, areaStyle: { color: 'rgba(22,93,255,.08)' }, data: records.value.map(item => [item.weighTime, item.weight]) },
     { type: 'line', name: '平均重量（9点）', showSymbol: false, smooth: 0.25, lineStyle: { width: 2, color: '#00b42a' }, data: movingAverageRecords.value },
@@ -142,6 +156,13 @@ function formatTime(value?: string) { return value ? value.replace('T', ' ').sli
 function formatChartAxisTime(value: number) {
   const date = new Date(value); const pad = (part: number) => String(part).padStart(2, '0')
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+}
+/** Spring 的 LocalDateTime 参数不带时区，缩放事件的时间戳需还原成同一时区的 ISO 本地时间。 */
+function chartQueryTime(value: unknown) {
+  if (typeof value === 'string' && value.includes('-')) return value.replace(' ', 'T').slice(0, 19)
+  const date = new Date(Number(value)); if (Number.isNaN(date.getTime())) return undefined
+  const pad = (part: number) => String(part).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 function formatTableTime(value?: string) { return value ? value.replace('T', ' ').slice(5, 16) : '-' }
 function formatPeriod(start?: string, end?: string) { const from = formatTableTime(start); const to = formatTableTime(end); return start?.slice(0, 10) === end?.slice(0, 10) ? `${from} — ${to.slice(-5)}` : `${from} — ${to}` }
@@ -164,18 +185,46 @@ async function loadBatches(selectNewest = false) {
 async function loadSettings() { const response = await apiFetch(endpoint('/settings'), undefined, 15_000); if (!response.ok) throw new Error(`HTTP ${response.status}`); settings.value = await response.json() as AnalysisSettings }
 async function loadVehicleOptions() { vehicleOptionsLoading.value = true; try { const response = await apiFetch(endpoint('/vehicles'), undefined, 15_000); if (!response.ok) throw new Error(`HTTP ${response.status}`); vehicleOptions.value = await response.json() as string[] } finally { vehicleOptionsLoading.value = false } }
 async function openSettings() { try { await Promise.all([loadSettings(), loadVehicleOptions()]); settingsVisible.value = true } catch (e) { Message.error(`获取基准设置失败：${e instanceof Error ? e.message : '网络异常'}`) } }
-async function saveSettings() { if (!settings.value.emptyVehicleWeight || !settings.value.emptyBoxWeight || !settings.value.driverWeight || !settings.value.garbageMinWeight || !settings.value.garbageMaxWeight || settings.value.garbageMinWeight > settings.value.garbageMaxWeight) { Message.warning('重量均需大于 0，且垃圾重量下限不能大于上限'); return false } settingsSaving.value = true; try { const response = await apiFetch(endpoint('/settings'), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings.value) }, 15_000); if (!response.ok) throw new Error(`HTTP ${response.status}`); Message.success('称重基准已保存'); if (currentBatchId.value) await selectBatch(currentBatchId.value, selectedRange.value); return true } catch (e) { Message.error(`保存失败：${e instanceof Error ? e.message : '网络异常'}`); return false } finally { settingsSaving.value = false } }
-async function selectBatch(id: number, range: { start?: string; end?: string } = {}) { currentBatchId.value = id; selectedRange.value = range; analysisLoading.value = true; try { const params = new URLSearchParams(); if (range.start) { params.set('start', range.start); params.set('end', range.end!); } const response = await apiFetch(`${endpoint(`/batches/${id}`)}?${params}`, undefined, 30_000); if (!response.ok) throw new Error(`HTTP ${response.status}`); const data = await response.json() as Detail; if (currentBatchId.value !== id) return; currentBatch.value = data.batch; records.value = data.records; segments.value = data.analysis } catch (e) { Message.error(`获取称重分析失败：${e instanceof Error ? e.message : '网络异常'}`) } finally { if (currentBatchId.value === id) analysisLoading.value = false } }
+async function saveSettings() { if (settings.value.emptyVehicleWeight === null || settings.value.emptyVehicleWeight === undefined || settings.value.emptyVehicleWeight < 0 || !settings.value.emptyBoxWeight || !settings.value.driverWeight || !settings.value.garbageMinWeight || !settings.value.garbageMaxWeight || settings.value.garbageMinWeight > settings.value.garbageMaxWeight) { Message.warning('空车重量可为 0；其它重量必须大于 0，且垃圾重量下限不能大于上限'); return false } settingsSaving.value = true; try { const response = await apiFetch(endpoint('/settings'), { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(settings.value) }, 15_000); if (!response.ok) throw new Error(`HTTP ${response.status}`); Message.success('称重基准已保存'); if (currentBatchId.value) await reloadAnalysis(currentBatchId.value, selectedRange.value); return true } catch (e) { Message.error(`保存失败：${e instanceof Error ? e.message : '网络异常'}`); return false } finally { settingsSaving.value = false } }
+async function selectBatch(id: number) { analysisRequestVersion++; currentBatchId.value = id; selectedRange.value = {}; chartLoading.value = true; analysisLoading.value = true; segments.value = []; try { const response = await apiFetch(`${endpoint(`/batches/${id}/curve`)}?`, undefined, 30_000); if (!response.ok) throw new Error(`HTTP ${response.status}`); const data = await response.json() as CurveDetail; if (currentBatchId.value !== id) return; currentBatch.value = data.batch; records.value = data.records; chartLoading.value = false; void reloadAnalysis(id, {}) } catch (e) { if (currentBatchId.value === id) analysisLoading.value = false; Message.error(`获取称重曲线失败：${e instanceof Error ? e.message : '网络异常'}`) } finally { if (currentBatchId.value === id) chartLoading.value = false } }
+/** 仅异步刷新表格结果；曲线数据和交互状态保持不变。 */
+async function reloadAnalysis(id: number, range: { start?: string; end?: string }) {
+  const version = ++analysisRequestVersion; selectedRange.value = range; analysisLoading.value = true
+  try { const params = new URLSearchParams(); if (range.start) { params.set('start', range.start); params.set('end', range.end!) }; const response = await apiFetch(`${endpoint(`/batches/${id}/analysis`)}?${params}`, undefined, 30_000); if (!response.ok) throw new Error(`HTTP ${response.status}`); const data = await response.json() as Segment[]; if (version === analysisRequestVersion && currentBatchId.value === id) segments.value = data }
+  catch (e) { if (version === analysisRequestVersion) Message.error(`重新计算动态分析失败：${e instanceof Error ? e.message : '网络异常'}`) }
+  finally { if (version === analysisRequestVersion) analysisLoading.value = false }
+}
 async function uploadFile(event: Event) { const file = (event.target as HTMLInputElement).files?.[0]; if (!file) return; let imported = false; uploading.value = true; try { const form = new FormData(); form.append('file', file); const response = await apiFetch(endpoint('/import'), { method: 'POST', body: form }); if (!response.ok) throw new Error((await response.text()) || `HTTP ${response.status}`); imported = true; Message.success('称重数据已导入，正在加载分析结果'); } catch (e) { Message.error(`导入失败：${e instanceof Error ? e.message : '网络异常'}`) } finally { uploading.value = false; if (fileInput.value) fileInput.value.value = '' }
   // 刷新详情不再占用“导入 Excel”按钮的 loading，避免后续查询异常表现为上传卡住。
   if (imported) void loadBatches(true)
 }
-function handleBrushSelected(event: any) { const indexes: number[] = event?.batch?.[0]?.selected?.[0]?.dataIndex || []; if (!indexes.length) return; const times = indexes.map(index => records.value[index]?.weighTime).filter(Boolean).sort(); if (times.length) void selectBatch(currentBatchId.value!, { start: times[0], end: times[times.length - 1] }) }
-function resetSelection() { if (currentBatchId.value) void selectBatch(currentBatchId.value) }
+/** 框选、滚轮缩放、拖动滑块均按当前可见时间段重算；防抖避免拖动中产生连续请求。 */
+function scheduleRangeAnalysis(start?: string, end?: string) {
+  if (!currentBatchId.value || !start || !end || start >= end || (selectedRange.value.start === start && selectedRange.value.end === end)) return
+  if (rangeAnalysisTimer) window.clearTimeout(rangeAnalysisTimer)
+  rangeAnalysisTimer = window.setTimeout(() => { void reloadAnalysis(currentBatchId.value!, { start, end }) }, 350)
+}
+function handleBrushSelected(event: any) {
+  const indexes: number[] = (event?.batch?.[0]?.selected || []).flatMap((item: any) => item.dataIndex || [])
+  const times = [...new Set(indexes.map(index => records.value[index]?.weighTime).filter(Boolean))].sort()
+  if (times.length) scheduleRangeAnalysis(times[0], times[times.length - 1])
+}
+function handleDataZoom(event: any) {
+  const dataZoom = Array.isArray(event?.batch) ? event.batch[0] : event
+  let startValue = dataZoom?.startValue; let endValue = dataZoom?.endValue
+  if ((startValue === undefined || endValue === undefined) && Number.isFinite(dataZoom?.start) && Number.isFinite(dataZoom?.end) && records.value.length) {
+    const lastIndex = records.value.length - 1
+    startValue = records.value[Math.round(lastIndex * dataZoom.start / 100)]?.weighTime
+    endValue = records.value[Math.round(lastIndex * dataZoom.end / 100)]?.weighTime
+  }
+  const start = chartQueryTime(startValue); const end = chartQueryTime(endValue)
+  scheduleRangeAnalysis(start, end)
+}
+function resetSelection() { if (rangeAnalysisTimer) window.clearTimeout(rangeAnalysisTimer); if (currentBatchId.value) void reloadAnalysis(currentBatchId.value, {}) }
 async function deleteBatch() { if (!currentBatchId.value) return; const id = currentBatchId.value; try { const response = await apiFetch(endpoint(`/batches/${id}`), { method: 'DELETE' }, 30_000); if (!response.ok) throw new Error(`HTTP ${response.status}`); currentBatchId.value = undefined; currentBatch.value = undefined; records.value = []; segments.value = []; selectedRange.value = {}; Message.success('批次及原始称重记录已删除'); await loadBatches(true) } catch (e) { Message.error(`删除批次失败：${e instanceof Error ? e.message : '网络异常'}`) } }
 onMounted(() => { void loadBatches(true); void loadSettings().catch(() => undefined) })
 </script>
 
 <style scoped lang="scss">
-.weighing-page { width: 100%; min-height: calc(100vh - 112px); display: flex; flex-direction: column; gap: 14px; margin: 0; padding: 16px 20px !important; }.weighing-body { display: grid; grid-template-columns: 230px minmax(0, 1fr); flex: 1; min-height: 0; gap: 14px; }.weighing-body.collapsed { grid-template-columns: 44px minmax(0, 1fr); }.batch-aside { min-width: 0; padding: 14px; border-radius: 6px; background: var(--color-bg-2); transition: width .2s; overflow: hidden; }.batch-aside.collapsed { width: 44px; padding-inline: 6px; }.aside-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-size: 16px; font-weight: 600; white-space: nowrap; }.hidden-input { display: none; }.format-tip { margin: 9px 2px 12px; color: var(--color-text-3); font-size: 12px; line-height: 1.5; }.batch-list { display: block; max-height: calc(100vh - 260px); overflow: auto; }.batch-item { display: grid; width: 100%; gap: 5px; margin-bottom: 8px; padding: 10px; border: 1px solid var(--color-border-2); border-radius: 5px; background: transparent; text-align: left; color: var(--color-text-2); cursor: pointer; }.batch-item:hover, .batch-item.active { border-color: rgb(var(--arcoblue-5)); background: rgb(var(--arcoblue-1)); }.batch-item b { overflow: hidden; color: var(--color-text-1); text-overflow: ellipsis; white-space: nowrap; }.batch-item span, .batch-item small { font-size: 12px; }.batch-item small { color: var(--color-text-4); }.analysis-main { display: grid; min-width: 0; align-content: start; gap: 14px; }.main-empty { align-self: center; }.page-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 2px 0; }.page-title { color: #1d2129; font-size: 20px; font-weight: 600; line-height: 30px; }.page-subtitle, small { color: #86909c; font-size: 13px; }.header-actions { margin-left: auto; }.chart-card, .table-card { border-radius: 6px; }.analysis-content { display: block; min-height: 400px; }.weight-chart { width: 100%; height: 400px; }.period { display: inline-block; white-space: nowrap; }.garbage-tag { margin: 3px 0 0 6px; }.abnormal { color: rgb(var(--red-6)); }.settings-tip { margin-top: 0; color: var(--color-text-3); font-size: 13px; line-height: 1.6; } @media (max-width: 900px) { .weighing-page { padding: 14px !important; }.weighing-body { grid-template-columns: 1fr; }.batch-aside { width: auto; }.batch-list { max-height: 170px; }.page-header { align-items: flex-start; flex-direction: column; }.header-actions { margin-left: 0; } }
+.weighing-page { width: 100%; min-height: calc(100vh - 112px); display: flex; flex-direction: column; gap: 14px; margin: 0; padding: 16px 20px !important; }.weighing-body { display: grid; grid-template-columns: 230px minmax(0, 1fr); flex: 1; min-height: 0; gap: 14px; }.weighing-body.collapsed { grid-template-columns: 44px minmax(0, 1fr); }.batch-aside { min-width: 0; padding: 14px; border-radius: 6px; background: var(--color-bg-2); transition: width .2s; overflow: hidden; }.batch-aside.collapsed { width: 44px; padding-inline: 6px; }.aside-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; font-size: 16px; font-weight: 600; white-space: nowrap; }.hidden-input { display: none; }.format-tip { margin: 9px 2px 12px; color: var(--color-text-3); font-size: 12px; line-height: 1.5; }.batch-list { display: block; max-height: calc(100vh - 260px); overflow: auto; }.batch-item { display: grid; width: 100%; gap: 5px; margin-bottom: 8px; padding: 10px; border: 1px solid var(--color-border-2); border-radius: 5px; background: transparent; text-align: left; color: var(--color-text-2); cursor: pointer; }.batch-item:hover, .batch-item.active { border-color: rgb(var(--arcoblue-5)); background: rgb(var(--arcoblue-1)); }.batch-item b { overflow: hidden; color: var(--color-text-1); text-overflow: ellipsis; white-space: nowrap; }.batch-item span, .batch-item small { font-size: 12px; }.batch-item small { color: var(--color-text-4); }.analysis-main { display: grid; min-width: 0; align-content: start; gap: 14px; }.main-empty { align-self: center; }.page-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; padding: 2px 0; }.page-title { color: #1d2129; font-size: 20px; font-weight: 600; line-height: 30px; }.page-subtitle, small { color: #86909c; font-size: 13px; }.header-actions { margin-left: auto; }.chart-card, .table-card { border-radius: 6px; }.analysis-content { display: block; min-height: 400px; }.weight-chart { width: 100%; height: 400px; }.analysis-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; }.analysis-title small { white-space: nowrap; }.period { display: inline-block; white-space: nowrap; }.garbage-tag { margin: 3px 0 0 6px; }.abnormal { color: rgb(var(--red-6)); }.settings-tip { margin-top: 0; color: var(--color-text-3); font-size: 13px; line-height: 1.6; } @media (max-width: 900px) { .weighing-page { padding: 14px !important; }.weighing-body { grid-template-columns: 1fr; }.batch-aside { width: auto; }.batch-list { max-height: 170px; }.page-header { align-items: flex-start; flex-direction: column; }.header-actions { margin-left: 0; } }
 </style>

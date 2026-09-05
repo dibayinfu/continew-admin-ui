@@ -5,6 +5,12 @@ export interface AMapOverlay {
 export interface AMapMarker {
   setMap: (map: AMapInstance | null) => void
   on: (event: string, handler: () => void) => void
+  setContent: (content: string) => void
+  setOffset: (offset: unknown) => void
+}
+
+export interface AMapMarkerCluster {
+  setMap: (map: AMapInstance | null) => void
 }
 
 export interface AMapMassMarks {
@@ -23,6 +29,7 @@ export interface AMapPolyline {
 export interface AMapInfoWindow {
   open: (map: AMapInstance, position?: [number, number]) => void
   close: () => void
+  setContent: (content: string) => void
 }
 
 export interface AMapInstance {
@@ -40,6 +47,7 @@ export interface AMapInstance {
 export interface AMapNamespace {
   Map: new (container: HTMLElement, options: Record<string, unknown>) => AMapInstance
   Marker: new (options: Record<string, unknown>) => AMapMarker
+  MarkerCluster?: new (map: AMapInstance, points: Array<Record<string, unknown>>, options?: Record<string, unknown>) => AMapMarkerCluster
   MassMarks: new (data: Array<Record<string, unknown>>, options: Record<string, unknown>) => AMapMassMarks
   Circle: new (options: Record<string, unknown>) => AMapCircle
   Polyline: new (options: Record<string, unknown>) => AMapPolyline
@@ -47,6 +55,7 @@ export interface AMapNamespace {
   LngLat: new (lng: number, lat: number) => unknown
   Pixel: new (x: number, y: number) => unknown
   Size: new (width: number, height: number) => unknown
+  plugin?: (plugins: string[], callback: () => void) => void
 }
 
 let loader: Promise<AMapNamespace> | undefined
@@ -90,4 +99,22 @@ export function loadAmapJsApi(): Promise<AMapNamespace> {
   })
 
   return loader
+}
+
+/** 按需加载车辆聚合插件，避免其它地图页面额外下载插件。 */
+export async function loadAmapMarkerClusterer(): Promise<AMapNamespace> {
+  const amap = await loadAmapJsApi()
+  if (amap.MarkerCluster) return amap
+  if (!amap.plugin) throw new Error('高德地图不支持车辆聚合插件')
+
+  await new Promise<void>((resolve, reject) => {
+    const timeout = window.setTimeout(() => reject(new Error('车辆聚合插件加载超时')), 12_000)
+    // JS API 2.0 中聚合插件名称为 MarkerCluster（非 1.x 的 MarkerClusterer）。
+    amap.plugin!(['AMap.MarkerCluster'], () => {
+      window.clearTimeout(timeout)
+      if (amap.MarkerCluster) resolve()
+      else reject(new Error('车辆聚合插件加载失败'))
+    })
+  })
+  return amap
 }

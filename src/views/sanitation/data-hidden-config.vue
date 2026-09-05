@@ -82,7 +82,7 @@
       </a-tabs>
     </a-card>
 
-    <a-modal v-model:visible="tokenModalVisible" title="手动配置 Token（兜底）" :width="640" @ok="saveToken">
+    <a-modal v-model:visible="tokenModalVisible" title="手动配置 Token（兜底）" :width="640" :on-before-ok="saveToken">
       <p class="modal-tip">推荐使用「登录」自动获取；此处可手动粘贴 daas-api 登录返回的原始 JWT，无需 <code>Bearer </code> 前缀。</p>
       <a-textarea v-model="tokenInput" :auto-size="{ minRows: 4, maxRows: 8 }" placeholder="粘贴 Bearer Token（JWT）" />
     </a-modal>
@@ -94,20 +94,17 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import {
   daasAuth,
-  daasRequest,
+  collectorMapRequest,
   getHiddenBoxIds,
   getHiddenPointIds,
   saveHiddenBoxIds,
   saveHiddenPointIds,
-  setDaasToken,
+  saveSharedDaasToken,
 } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
 
 defineOptions({ name: 'SanitationDataHiddenConfig' })
 
-const BOX_MONITOR_PATH = '/domestic/waste/containers/sbgMonitoring'
-const COLLECTION_POINTS_PATH = '/domestic/waste/v/collection-points/page'
-const COLLECTION_POINTS_QUERY = { keyword: '', organizationId: 506, page: 0, size: 1000 }
 
 interface Box {
   id: number
@@ -138,11 +135,17 @@ function openTokenModal() {
   tokenInput.value = daasAuth.token
   tokenModalVisible.value = true
 }
-function saveToken() {
-  const token = tokenInput.value.trim()
-  setDaasToken(token)
-  if (token) Message.success('Token 已保存')
-  tokenModalVisible.value = false
+async function saveToken() {
+  try {
+    await saveSharedDaasToken(tokenInput.value)
+    Message.success('Token 已保存到采集服务')
+    tokenModalVisible.value = false
+    void loadAll(true)
+    return true
+  } catch (error) {
+    Message.error(`Token 保存失败：${error instanceof Error ? error.message : '请检查采集服务'}`)
+    return false
+  }
 }
 function openLogin() {
   daasAuth.visible = true
@@ -182,16 +185,18 @@ function showAllPoints() { hiddenPointIds.value = new Set(); persistPoints(); Me
 function hideAllPoints() { hiddenPointIds.value = new Set(points.value.map((p) => p.id)); persistPoints(); Message.success('收集点已全部隐藏') }
 
 async function loadAll(silent = false) {
+  if (loading.value) return
   loading.value = true
   let ok = false
   try {
-    const data = await daasRequest<{ list: Box[] }>(BOX_MONITOR_PATH, { body: { current: 1, size: 1000 } })
-    if (Array.isArray(data?.list)) { boxes.value = data.list; ok = true; saveCachedBoxes(data.list) }
-  } catch { /* 单个失败不影响另一个 */ }
-  try {
-    const data = await daasRequest<{ list: Point[] }>(COLLECTION_POINTS_PATH, { method: 'GET', query: COLLECTION_POINTS_QUERY })
-    if (Array.isArray(data?.list)) { points.value = data.list; ok = true; saveCachedPoints(data.list) }
-  } catch { /* 单个失败不影响另一个 */ }
+    const data = await collectorMapRequest<{ boxes?: Box[], points?: Point[] }>(false)
+    if (Array.isArray(data.boxes)) { boxes.value = data.boxes; ok = true; saveCachedBoxes(data.boxes) }
+    if (Array.isArray(data.points)) {
+      points.value = data.points
+      ok = true
+      saveCachedPoints(points.value)
+    }
+  } catch { /* 保留共享缓存，取消登录不打断页面 */ }
   loading.value = false
   if (ok) { if (!silent) Message.success(`已加载 ${boxes.value.length} 个箱体、${points.value.length} 个收集点`) }
   else if (!silent) Message.warning('数据加载失败，请检查网络或稍后重试')

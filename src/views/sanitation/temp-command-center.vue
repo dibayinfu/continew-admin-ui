@@ -418,7 +418,7 @@ import assetHealthTricycle from '@/assets/images/command-center/asset-health-tri
 import { useCommandCenterCharts } from './data/command-center-v2-charts'
 import { createGeneratedMapEntities, initialMapEntities, LONGAN_BOUNDS, mapLayerIconMap, type MapEntity } from './data/command-center-v2-map-data'
 import { alarmDestinations, alarmDrivers, alarmVehicles, boxMonitorRows, rightTabs, safetyAttachments, safetyMonitorRows, simulatedTrackPoints, taskMonitorDetailMap, taskMonitorRows, taskMonitorStats, taskTransferTargets, trackSpeeds, vehicleCameras, vehicleMonitorRows, vehicleStatusFilters, vehicleTypeStats, type BoxType, type SafetyMonitorRow, type TaskMonitorDetail, type TaskMonitorRow, type VehicleMonitorRow } from './data/command-center-v2-panel-data'
-import { getHiddenBoxIds, getHiddenPointIds } from '@/utils/daas'
+import { collectorDaasFetch, getHiddenBoxIds, getHiddenPointIds } from '@/utils/daas'
 
 defineOptions({ name: 'SanitationTempCommandCenter' })
 
@@ -439,7 +439,6 @@ const settingsOpen = ref(false)
 const organizations = ['龙安区环卫中心', '马投涧镇环卫站', '龙泉镇环卫站', '文明大道街道办']
 const selectedOrganization = ref(organizations[0])
 const headerNotice = ref('')
-const COLLECTOR_API_BASE_URL = (import.meta.env.VITE_COLLECTOR_API_BASE_URL || '').replace(/\/$/, '')
 const LARGE_SCREEN_ORGANIZATION_ID = 506
 function notifyHeader(message: string) { headerNotice.value = message; window.setTimeout(() => { headerNotice.value = '' }, 2200) }
 const pageRootRef = ref<HTMLElement>()
@@ -823,14 +822,16 @@ function smallHookBoxToMonitorRow(box: SmallHookBox): DashboardBoxMonitorRow {
   }
 }
 
+let largeScreenLoading = false
 async function loadLargeScreenData() {
-  if (!COLLECTOR_API_BASE_URL) return
+  if (largeScreenLoading) return
+  largeScreenLoading = true
   try {
     const query = new URLSearchParams({ organizationId: String(LARGE_SCREEN_ORGANIZATION_ID), options: '0' })
     const [centerResponse, statisticsResponse, smallHookBoxesResponse] = await Promise.all([
-      fetch(`${COLLECTOR_API_BASE_URL}/api/collector/large-screen/center-data?${query}`),
-      fetch(`${COLLECTOR_API_BASE_URL}/api/collector/large-screen/statistics?organizationId=${LARGE_SCREEN_ORGANIZATION_ID}`),
-      fetch(`${COLLECTOR_API_BASE_URL}/api/collector/large-screen/small-hook-boxes`),
+      collectorDaasFetch(`/api/collector/large-screen/center-data?${query}`),
+      collectorDaasFetch(`/api/collector/large-screen/statistics?organizationId=${LARGE_SCREEN_ORGANIZATION_ID}`),
+      collectorDaasFetch(`/api/collector/large-screen/small-hook-boxes`),
     ])
     if (!centerResponse.ok || !statisticsResponse.ok) throw new Error(`HTTP ${!centerResponse.ok ? centerResponse.status : statisticsResponse.status}`)
     const center = await centerResponse.json() as LargeScreenResponse<LargeScreenCenterData>
@@ -840,7 +841,7 @@ async function loadLargeScreenData() {
     // options=0 的部分云端版本不会完整返回小勾臂箱，按接口定义再用 options=5 兜底。
     if (!centerDataList(center.data, 'xGbxInfos').length) {
       const smallBoxQuery = new URLSearchParams({ organizationId: String(LARGE_SCREEN_ORGANIZATION_ID), options: '5' })
-      const smallBoxResponse = await fetch(`${COLLECTOR_API_BASE_URL}/api/collector/large-screen/center-data?${smallBoxQuery}`)
+      const smallBoxResponse = await collectorDaasFetch(`/api/collector/large-screen/center-data?${smallBoxQuery}`)
       if (smallBoxResponse.ok) {
         const smallBoxCenter = await smallBoxResponse.json() as LargeScreenResponse<LargeScreenCenterData>
         if (smallBoxCenter.code === 200 && centerDataList(smallBoxCenter.data, 'xGbxInfos').length) {
@@ -882,7 +883,7 @@ async function loadLargeScreenData() {
     ]
   } catch (error) {
     console.warn('[temp-command-center] 大屏接口加载失败，保留当前页面数据：', error)
-  }
+  } finally { largeScreenLoading = false }
 }
 
 const selectedEntity = ref<MapEntity>(mapEntities.value[0])

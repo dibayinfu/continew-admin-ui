@@ -198,7 +198,7 @@
       <a-textarea v-model="importText" :auto-size="{ minRows: 12, maxRows: 18 }" placeholder="粘贴完整接口 JSON" />
     </a-modal>
 
-    <a-modal v-model:visible="tokenModalVisible" title="手动配置 Token（兜底）" :width="640" @ok="saveToken">
+    <a-modal v-model:visible="tokenModalVisible" title="手动配置 Token（兜底）" :width="640" :on-before-ok="saveToken">
       <p class="modal-tip">
         用于调用真实接口 <code>/domestic/waste/containers/sbgMonitoring</code>（<code>size=1000</code> 一次性拉取全部箱体）。
         推荐使用「登录」自动获取；此处可手动粘贴 daas-api 登录返回的原始 JWT，无需 <code>Bearer </code> 前缀。
@@ -213,7 +213,7 @@ import { Message } from '@arco-design/web-vue'
 import { useFullscreen } from '@vueuse/core'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { type AMapInstance, type AMapMarker, type AMapMassMarks, loadAmapJsApi } from '@/utils/amap'
-import { daasAuth, getHiddenBoxIds, setDaasToken } from '@/utils/daas'
+import { daasAuth, collectorMapRequest, getHiddenBoxIds, saveSharedDaasToken } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
 
 defineOptions({ name: 'SanitationBoxMap' })
@@ -340,11 +340,17 @@ function openTokenModal() {
   tokenInput.value = daasAuth.token
   tokenModalVisible.value = true
 }
-function saveToken() {
-  const token = tokenInput.value.trim()
-  setDaasToken(token)
-  if (token) Message.success('Token 已保存')
-  tokenModalVisible.value = false
+async function saveToken() {
+  try {
+    await saveSharedDaasToken(tokenInput.value)
+    Message.success('Token 已保存到采集服务')
+    tokenModalVisible.value = false
+    void loadFromCloud(true)
+    return true
+  } catch (error) {
+    Message.error(`Token 保存失败：${error instanceof Error ? error.message : '请检查采集服务'}`)
+    return false
+  }
 }
 function openLogin() {
   daasAuth.visible = true
@@ -737,14 +743,7 @@ async function loadFromCloud(silent = false) {
   if (cloudLoading.value) return
   cloudLoading.value = true
   try {
-    const response = await fetch(`${COLLECTOR_API_BASE_URL}/api/collector/box-map/data`)
-    if (!response.ok) {
-      const message = await response.text()
-      // 只有 Redis 未配置 Token 或 DAAS 明确返回未授权时，才要求浏览器重新登录并把新 Token 写回 Redis。
-      if (response.status === 401 || response.status === 503) { daasAuth.expired = true; openLogin() }
-      throw new Error(message || `HTTP ${response.status}`)
-    }
-    const result = await response.json() as { boxes?: Box[], points?: CollectionPoint[], transportTasks?: TransportTask[] }
+    const result = await collectorMapRequest<{ boxes?: Box[], points?: CollectionPoint[], transportTasks?: TransportTask[] }>()
     const boxList = Array.isArray(result.boxes) ? result.boxes : []
     const pointList = Array.isArray(result.points) ? result.points : []
     const transportTaskList = Array.isArray(result.transportTasks) ? result.transportTasks : []

@@ -109,7 +109,7 @@ import type { TableColumnData } from '@arco-design/web-vue'
 import { Message } from '@arco-design/web-vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import dayjs from 'dayjs'
-import { daasAuth, daasRequest } from '@/utils/daas'
+import { daasAuth, collectorDaasFetch } from '@/utils/daas'
 
 defineOptions({ name: 'SanitationSwapStatistics' })
 
@@ -277,11 +277,9 @@ async function saveExcludedPoints() {
   } finally { excludedPointsSaving.value = false }
 }
 
-/** 页面刷新时校验 DAAS token；失效时 daasRequest 会自动打开全局登录弹窗，并在登录后将新 token 同步给采集服务。 */
+/** 校验采集任务实际使用的 Redis Token，不依赖浏览器登录状态。 */
 async function verifyDaasToken() {
-  await daasRequest('/domestic/waste/v/alarm-tasks/page', {
-    query: { organizationId: 506, page: 0, size: 1 },
-  })
+  await collectorDaasFetch('/api/collector/token-verify')
 }
 
 async function selectDay(day: string) {

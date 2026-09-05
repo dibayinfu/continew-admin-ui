@@ -3,6 +3,7 @@
     :visible="daasAuth.visible"
     title="登录获取接口 Token"
     :width="520"
+    :popup-container="loginContainer"
     :footer="false"
     :mask-closable="false"
     :unmount-on-close="true"
@@ -48,12 +49,14 @@ import {
   DAS_API_BASE,
   DAS_CLIENT_ID,
   DAS_CLIENT_SECRET,
-  notifyDaasLoginSuccess,
-  syncCollectorToken,
+  saveSharedDaasToken,
   cancelDaasLogin,
 } from '@/utils/daas'
 
 defineOptions({ name: 'DaasLoginModal' })
+
+// 大屏全屏时弹窗必须挂载到全屏元素内部，否则浏览器会隐藏 body 下的弹窗。
+const loginContainer = document.fullscreenElement instanceof HTMLElement ? document.fullscreenElement : document.body
 
 const form = reactive({ username: '', password: '' })
 const submitting = ref(false)
@@ -79,8 +82,7 @@ async function saveManualToken() {
   if (!token) return
   submitting.value = true
   try {
-    await syncCollectorToken(token)
-    notifyDaasLoginSuccess(token)
+    await saveSharedDaasToken(token)
     Message.success('Token 已保存并同步到采集服务')
   } catch (error) {
     Message.error(`Token 同步失败：${error instanceof Error ? error.message : '请检查采集服务'}`)
@@ -111,13 +113,12 @@ async function doLogin() {
       return
     }
     try {
-      await syncCollectorToken(json.data.token)
+      await saveSharedDaasToken(json.data.token, json.data.refreshToken)
       Message.success('登录成功，Token 已同步到采集服务')
     } catch (error) {
-      Message.warning(`登录成功，但 Token 同步失败：${error instanceof Error ? error.message : '请检查采集服务'}`)
-    } finally {
-      // 即使采集服务暂时不可用，也保留浏览器登录状态，避免影响当前页面请求。
-      notifyDaasLoginSuccess(json.data.token, json.data.refreshToken)
+      Message.error(`Token 保存失败：${error instanceof Error ? error.message : '请检查采集服务'}，请重试登录`)
+      captchaRef.value?.reset?.()
+      captchaId.value = ''
     }
   } catch {
     Message.error('登录请求失败，请检查网络')

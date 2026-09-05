@@ -189,7 +189,7 @@
       <a-textarea v-model="importText" :auto-size="{ minRows: 12, maxRows: 18 }" placeholder='{"code":200,"data":{"boxes":[...],"points":[...]}}' />
     </a-modal>
 
-    <a-modal v-model:visible="tokenModalVisible" title="手动配置 Token（兜底）" :width="640" @ok="saveToken">
+    <a-modal v-model:visible="tokenModalVisible" title="手动配置 Token（兜底）" :width="640" :on-before-ok="saveToken">
       <p class="modal-tip">推荐使用「登录」自动获取；此处可手动粘贴 daas-api 登录返回的原始 JWT，无需 <code>Bearer </code> 前缀。</p>
       <a-textarea v-model="tokenInput" :auto-size="{ minRows: 4, maxRows: 8 }" placeholder="粘贴 Bearer Token（JWT）" />
     </a-modal>
@@ -201,15 +201,10 @@ import { Message } from '@arco-design/web-vue'
 import { useFullscreen } from '@vueuse/core'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { type AMapCircle, type AMapInstance, type AMapMarker, loadAmapJsApi } from '@/utils/amap'
-import { daasAuth, daasRequest, getHiddenBoxIds, getHiddenPointIds, setDaasToken } from '@/utils/daas'
+import { daasAuth, collectorMapRequest, getHiddenBoxIds, getHiddenPointIds, saveSharedDaasToken } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
 
 defineOptions({ name: 'SanitationBoxPointMap' })
-
-/** 真实接口（走全局 daas 登录/请求），size=1000 一次性拉取全部 */
-const BOX_MONITOR_PATH = '/domestic/waste/containers/sbgMonitoring'
-const COLLECTION_POINTS_PATH = '/domestic/waste/v/collection-points/page'
-const COLLECTION_POINTS_QUERY = { keyword: '', organizationId: 506, page: 0, size: 1000 }
 
 interface GcjPoint { lng: number, lat: number }
 type MapTheme = 'normal' | 'light'
@@ -301,11 +296,17 @@ function openTokenModal() {
   tokenInput.value = daasAuth.token
   tokenModalVisible.value = true
 }
-function saveToken() {
-  const token = tokenInput.value.trim()
-  setDaasToken(token)
-  if (token) Message.success('Token 已保存')
-  tokenModalVisible.value = false
+async function saveToken() {
+  try {
+    await saveSharedDaasToken(tokenInput.value)
+    Message.success('Token 已保存到采集服务')
+    tokenModalVisible.value = false
+    void loadFromCloud(true)
+    return true
+  } catch (error) {
+    Message.error(`Token 保存失败：${error instanceof Error ? error.message : '请检查采集服务'}`)
+    return false
+  }
 }
 function openLogin() {
   daasAuth.visible = true
@@ -625,18 +626,18 @@ watch(points, drawMarkers)
 watch(selectedPoint, drawSelectedRadiusLabel)
 watch(mapTheme, (theme) => map?.setMapStyle(`amap://styles/${theme}`))
 async function loadFromCloud(silent = false) {
+  if (cloudLoading.value) return
   cloudLoading.value = true
   let boxList: Box[] | undefined
   let pointList: CollectionPoint[] | undefined
   let ok = false
   try {
-    const data = await daasRequest<{ list: Box[] }>(BOX_MONITOR_PATH, { body: { current: 1, size: 1000 } })
-    if (Array.isArray(data?.list)) { boxList = data.list; ok = true }
-  } catch { /* 单个失败不影响另一个 */ }
-  try {
-    const data = await daasRequest<{ list: CollectionPoint[] }>(COLLECTION_POINTS_PATH, { method: 'GET', query: COLLECTION_POINTS_QUERY })
-    if (Array.isArray(data?.list)) { pointList = data.list; ok = true }
-  } catch { /* 单个失败不影响另一个 */ }
+    const data = await collectorMapRequest<{ boxes?: Box[], points?: CollectionPoint[] }>(false)
+    if (Array.isArray(data.boxes)) { boxList = data.boxes; ok = true }
+    if (Array.isArray(data.points)) { pointList = data.points; ok = true }
+  } catch (error) {
+    if (!silent) Message.warning(error instanceof Error ? error.message : '云端数据加载失败')
+  }
   // 先分配箱体归属，再赋值 boxes（避免渲染时 villageOptions 读到空归属并缓存为空）
   const nextBoxes = boxList ?? boxes.value
   const nextPoints = pointList ?? points.value

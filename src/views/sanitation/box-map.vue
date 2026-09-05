@@ -6,7 +6,7 @@
         <div class="page-subtitle">查看箱体实时位置、满溢状态及设备运行信息</div>
       </div>
       <a-space>
-        <a-button type="primary" :loading="cloudLoading" @click="loadFromCloud()">
+        <a-button type="primary" :loading="cloudLoading || vehicleLoading" @click="refreshMapData()">
           <template #icon><icon-sync /></template>
           更新
         </a-button>
@@ -23,6 +23,7 @@
           <template #content>
             <a-doption @click="openLogin()">登录</a-doption>
             <a-doption @click="openTokenModal">Token</a-doption>
+            <a-doption @click="openRefreshSettings">刷新设置</a-doption>
             <a-doption @click="importVisible = true">导入 JSON</a-doption>
             <a-doption :disabled="!selectedBox" @click="copyLocationLink">复制定位链接</a-doption>
           </template>
@@ -91,6 +92,14 @@
                 </template>
               </a-button>
             </a-tooltip>
+          </div>
+          <div class="vehicle-legend">
+            <div class="vehicle-legend-title"><span>车辆图层</span><small>{{ visibleVehicles.length }} 辆</small></div>
+            <a-checkbox-group v-model="enabledVehicleTypes" direction="vertical">
+              <a-checkbox v-for="type in vehicleTypes" :key="type" :value="type">
+                <i class="vehicle-legend-dot" :class="vehicleTypeClass(type)"></i>{{ type }}（{{ vehicleTypeCounts.get(type) || 0 }}）
+              </a-checkbox>
+            </a-checkbox-group>
           </div>
           <div v-if="mapError" class="map-error">
             <icon-exclamation-circle-fill />
@@ -205,6 +214,18 @@
       </p>
       <a-textarea v-model="tokenInput" :auto-size="{ minRows: 4, maxRows: 8 }" placeholder="粘贴 Bearer Token（JWT）" />
     </a-modal>
+
+    <a-modal v-model:visible="refreshSettingsVisible" title="地图刷新设置" :width="420" :on-before-ok="saveRefreshSettings">
+      <p class="modal-tip">设置仅在当前浏览器生效。车辆位置和箱体数据分别按设定时间自动刷新，最小间隔为 1 分钟。</p>
+      <a-form :model="refreshSettingsDraft" layout="vertical">
+        <a-form-item field="boxMinutes" label="箱体刷新间隔">
+          <a-space><a-input-number v-model="refreshSettingsDraft.boxMinutes" :min="1" :precision="0" :hide-button="false" /><span>分钟</span></a-space>
+        </a-form-item>
+        <a-form-item field="vehicleMinutes" label="车辆刷新间隔">
+          <a-space><a-input-number v-model="refreshSettingsDraft.vehicleMinutes" :min="1" :precision="0" :hide-button="false" /><span>分钟</span></a-space>
+        </a-form-item>
+      </a-form>
+    </a-modal>
   </div>
 </template>
 
@@ -212,8 +233,8 @@
 import { Message } from '@arco-design/web-vue'
 import { useFullscreen } from '@vueuse/core'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { type AMapInstance, type AMapMarker, type AMapMassMarks, loadAmapJsApi } from '@/utils/amap'
-import { daasAuth, collectorMapRequest, getHiddenBoxIds, saveSharedDaasToken } from '@/utils/daas'
+import { type AMapInfoWindow, type AMapInstance, type AMapMarker, type AMapMarkerCluster, type AMapMassMarks, loadAmapJsApi, loadAmapMarkerClusterer } from '@/utils/amap'
+import { daasAuth, collectorMapRequest, collectorVehicleRuntimeRequest, collectorVehicleTypesRequest, getHiddenBoxIds, saveSharedDaasToken } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
 
 defineOptions({ name: 'SanitationBoxMap' })
@@ -270,6 +291,35 @@ interface HistoryTrackPoint { time: string, longitude: number, latitude: number,
 interface HistoryPointVisit { pointId: number, pointName: string, townshipName: string, villageName: string, arrivalTime: string, departureTime: string, stayMinutes: number, snapshotCount: number }
 interface HistoryTrackResponse { track: HistoryTrackPoint[], pointVisits: HistoryPointVisit[], summary: { snapshotCount: number, uniquePointCount: number, visitCount: number } }
 interface CurrentResidence { boxId: number, pointId: number, pointName: string, townshipName: string, villageName: string, arrivalTime: string, lastSeenTime: string }
+type VehicleType = '小勾臂车' | '大勾臂车' | '小三轮'
+interface VehicleRuntime {
+  id: number
+  plateNumber: string
+  longitude: number
+  latitude: number
+  onlineState?: number | null
+  chargingState?: number | null
+  organizationName?: string | null
+  vehicleModelId?: number | null
+}
+interface VehicleTypeItem { id?: number | string }
+interface VehicleTypeGroup { modelName?: string, vehicleList?: VehicleTypeItem[] }
+interface VehicleOrganization { modelVehicleList?: VehicleTypeGroup[], children?: VehicleOrganization[] }
+type VehicleStatus = 'online' | 'offline' | 'charging'
+interface VehicleAddressCacheItem { coordinate: string, address: string }
+interface TricycleClusterPoint extends Record<string, unknown> { lnglat: [number, number], vehicle: VehicleRuntime }
+
+const VEHICLE_TYPES: VehicleType[] = ['小勾臂车', '大勾臂车', '小三轮']
+const REFRESH_SETTINGS_KEY = 'sbg-monitor:box-map-refresh-settings'
+const DEFAULT_BOX_REFRESH_MINUTES = 5
+const DEFAULT_VEHICLE_REFRESH_MINUTES = 1
+
+function readRefreshMinutes(key: 'boxMinutes' | 'vehicleMinutes', fallback: number) {
+  try {
+    const value = Number(JSON.parse(localStorage.getItem(REFRESH_SETTINGS_KEY) || '{}')[key])
+    return Number.isFinite(value) && value >= 1 ? Math.floor(value) : fallback
+  } catch { return fallback }
+}
 
 const initialBoxes: Box[] = [
   { id: 48, deviceNo: '13820260721000000026', containerNo: '132', containerName: '小勾臂箱132号设备', onlineStatus: 0, overflowStatus: 0, matchObject: '{"龙泉镇中转站（临时）":{"latitude":36.064611,"longitude":114.247368},"6225420055":{"latitude":36.068728,"longitude":114.242248},"6226170009":{"latitude":36.068764,"longitude":114.242648}}', fillLevel: 0, capacity: 1.5, longitude: 114.242817, latitude: 36.069452, reportTime: '2026-08-06 18:56:04', temperature: 34.37, voltage: 40, switchStatus: '0' },
@@ -307,10 +357,18 @@ const UNMATCHED = '__unmatched__'
 const selectedBox = ref<Box>()
 const mapError = ref('')
 const cloudLoading = ref(false)
+const vehicleLoading = ref(false)
 const importVisible = ref(false)
 const importText = ref('')
 const tokenModalVisible = ref(false)
 const tokenInput = ref(daasAuth.token)
+const refreshSettingsVisible = ref(false)
+const boxRefreshMinutes = ref(readRefreshMinutes('boxMinutes', DEFAULT_BOX_REFRESH_MINUTES))
+const vehicleRefreshMinutes = ref(readRefreshMinutes('vehicleMinutes', DEFAULT_VEHICLE_REFRESH_MINUTES))
+const refreshSettingsDraft = ref({ boxMinutes: boxRefreshMinutes.value, vehicleMinutes: vehicleRefreshMinutes.value })
+const vehicles = ref<VehicleRuntime[]>([])
+const vehicleTypeById = ref<Map<number, VehicleType>>(new Map())
+const enabledVehicleTypes = ref<VehicleType[]>(['小勾臂车'])
 const currentResidence = ref<CurrentResidence>()
 const residenceNow = ref(Date.now())
 const residenceCache = new Map<string, CurrentResidence>()
@@ -324,10 +382,16 @@ const historyData = ref<HistoryTrackResponse>()
 const transportTasksByBoxNo = ref<Map<string, TransportTask>>(new Map())
 let map: AMapInstance | undefined
 let markers: AMapMarker[] = []
+let vehicleMarkers: AMapMarker[] = []
+let tricycleCluster: AMapMarkerCluster | undefined
 let massMarks: AMapMassMarks | undefined
 let selectedMassMarker: AMapMarker | undefined
 let markerMode: 'mass' | 'label' | undefined
 let amap: Awaited<ReturnType<typeof loadAmapJsApi>> | undefined
+let vehicleInfoWindow: AMapInfoWindow | undefined
+let vehicleTypesLoadedAt = 0
+let activeVehicleInfoKey = ''
+const vehicleAddressCache = new Map<number, VehicleAddressCacheItem>()
 let gcjPoints = new WeakMap<Box, GcjPoint>()
 let historyMap: AMapInstance | undefined
 let historyOverlays: Array<AMapMarker | { setMap: (map: AMapInstance | null) => void }> = []
@@ -346,6 +410,7 @@ async function saveToken() {
     Message.success('Token 已保存到采集服务')
     tokenModalVisible.value = false
     void loadFromCloud(true)
+    void loadVehicles(true, true)
     return true
   } catch (error) {
     Message.error(`Token 保存失败：${error instanceof Error ? error.message : '请检查采集服务'}`)
@@ -354,6 +419,25 @@ async function saveToken() {
 }
 function openLogin() {
   daasAuth.visible = true
+}
+function normalizeRefreshMinutes(value: unknown, fallback: number) {
+  const minutes = Math.floor(Number(value))
+  return Number.isFinite(minutes) && minutes >= 1 ? minutes : fallback
+}
+function openRefreshSettings() {
+  refreshSettingsDraft.value = { boxMinutes: boxRefreshMinutes.value, vehicleMinutes: vehicleRefreshMinutes.value }
+  refreshSettingsVisible.value = true
+}
+function saveRefreshSettings() {
+  const boxMinutes = normalizeRefreshMinutes(refreshSettingsDraft.value.boxMinutes, boxRefreshMinutes.value)
+  const vehicleMinutes = normalizeRefreshMinutes(refreshSettingsDraft.value.vehicleMinutes, vehicleRefreshMinutes.value)
+  boxRefreshMinutes.value = boxMinutes
+  vehicleRefreshMinutes.value = vehicleMinutes
+  try { localStorage.setItem(REFRESH_SETTINGS_KEY, JSON.stringify({ boxMinutes, vehicleMinutes })) } catch { /* 本地存储不可用时仍应用本次设置。 */ }
+  setupBoxRefreshTimer()
+  setupVehicleRefreshTimer()
+  Message.success('刷新设置已保存')
+  return true
 }
 
 /** 箱体 -> 所属乡镇/村庄（仅以收集点名称关联，不能使用车辆/箱体编号） */
@@ -448,6 +532,20 @@ const visibleBoxes = computed(() => {
     && matchTownship(box)
     && matchVillage(box))
 })
+const vehicleTypes = VEHICLE_TYPES
+const vehicleTypeCounts = computed(() => {
+  const counts = new Map<VehicleType, number>()
+  for (const vehicle of vehicles.value) {
+    const type = vehicleTypeById.value.get(vehicle.id)
+    if (type) counts.set(type, (counts.get(type) || 0) + 1)
+  }
+  return counts
+})
+const visibleVehicles = computed(() => vehicles.value.filter((vehicle) => {
+  const type = vehicleTypeById.value.get(vehicle.id)
+  return Boolean(type && enabledVehicleTypes.value.includes(type)
+    && Number.isFinite(Number(vehicle.longitude)) && Number.isFinite(Number(vehicle.latitude)))
+}))
 // 汇总卡片与地图保持同一筛选范围；橙色箱体沿用既有判定：非满溢且垃圾占比 >= 70%。
 const overflowCount = computed(() => visibleBoxes.value.filter((box) => box.overflowStatus === 1).length)
 const nearOverflowCount = computed(() => visibleBoxes.value.filter((box) => box.overflowStatus !== 1 && box.fillLevel >= 70).length)
@@ -627,6 +725,134 @@ function clearBoxOverlays() {
   selectedMassMarker?.setMap(null); selectedMassMarker = undefined
   markers.forEach((marker) => marker.setMap(null)); markers = []
 }
+function vehicleTypeClass(type: VehicleType) {
+  return type === '小勾臂车' ? 'hook' : type === '大勾臂车' ? 'large' : 'tricycle'
+}
+function vehicleTypeOf(vehicle: VehicleRuntime) { return vehicleTypeById.value.get(vehicle.id) }
+function vehicleStatus(vehicle: VehicleRuntime): VehicleStatus {
+  // DAAS 的 chargingState=1 表示充电，充电状态优先于在线状态展示。
+  if (Number(vehicle.chargingState) === 1) return 'charging'
+  return vehicle.onlineState === 1 ? 'online' : 'offline'
+}
+function vehicleStatusText(vehicle: VehicleRuntime) {
+  const status = vehicleStatus(vehicle)
+  return status === 'charging' ? '充电' : status === 'online' ? '在线' : '离线'
+}
+function vehiclePoint(vehicle: VehicleRuntime): GcjPoint {
+  return toGcj(Number(vehicle.longitude), Number(vehicle.latitude))
+}
+function vehicleCoordinateKey(vehicle: VehicleRuntime) {
+  return `${Number(vehicle.longitude).toFixed(6)},${Number(vehicle.latitude).toFixed(6)}`
+}
+function vehicleInfoKey(vehicle: VehicleRuntime) {
+  return `${vehicle.id}:${vehicleCoordinateKey(vehicle)}`
+}
+const AMAP_REVERSE_URL = 'https://restapi.amap.com/v3/geocode/regeo'
+function getAmapKey() {
+  return import.meta.env.VITE_AMAP_JS_KEY || import.meta.env.VITE_AMAP_KEY || ''
+}
+async function reverseGeocode(lng: number, lat: number): Promise<string | undefined> {
+  const key = getAmapKey()
+  if (!key) return undefined
+  try {
+    const url = `${AMAP_REVERSE_URL}?key=${encodeURIComponent(key)}&location=${lng.toFixed(6)},${lat.toFixed(6)}&extensions=all`
+    const response = await fetch(url)
+    if (!response.ok) return undefined
+    const data = await response.json() as { status?: string, regeocode?: { formatted_address?: string } }
+    return data.status === '1' ? data.regeocode?.formatted_address : undefined
+  } catch { return undefined }
+}
+function clearVehicleOverlays() {
+  vehicleInfoWindow?.close(); vehicleInfoWindow = undefined; activeVehicleInfoKey = ''
+  vehicleMarkers.forEach((marker) => marker.setMap(null)); vehicleMarkers = []
+  tricycleCluster?.setMap(null); tricycleCluster = undefined
+}
+function vehicleMarkerContent(vehicle: VehicleRuntime) {
+  const type = vehicleTypeOf(vehicle)
+  return `<div class="vehicle-map-marker ${vehicleTypeClass(type || '小三轮')}"><i></i><span>${escapeHtml(vehicle.plateNumber || String(vehicle.id))}</span></div>`
+}
+function tricycleMarkerContent() {
+  return '<div class="vehicle-map-marker tricycle compact"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="18" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M5 15.5 8 8h4l3 10H8M7 11h6M8 8 7 5H4M14 10h7v5h-6"/></svg></div>'
+}
+function clusterMarkerContent(count: number) {
+  return `<div class="vehicle-cluster-marker">${count}</div>`
+}
+function vehicleInfoContent(vehicle: VehicleRuntime, location: string) {
+  const type = vehicleTypeOf(vehicle) || '未分类'
+  const status = vehicleStatus(vehicle)
+  return `<div class="vehicle-map-info"><b>${escapeHtml(vehicle.plateNumber || String(vehicle.id))}</b><span>${escapeHtml(type)}</span><span class="vehicle-status ${status}">${vehicleStatusText(vehicle)}</span><div class="vehicle-location"><em>位置</em><span>${escapeHtml(location)}</span></div></div>`
+}
+function openVehicleInfo(vehicle: VehicleRuntime) {
+  if (!map || !amap) return
+  const point = vehiclePoint(vehicle)
+  const infoKey = vehicleInfoKey(vehicle)
+  const cached = vehicleAddressCache.get(vehicle.id)
+  const location = cached?.coordinate === vehicleCoordinateKey(vehicle) ? cached.address : '位置解析中…'
+  activeVehicleInfoKey = infoKey
+  vehicleInfoWindow?.close()
+  vehicleInfoWindow = new amap.InfoWindow({ content: vehicleInfoContent(vehicle, location), offset: new amap.Pixel(0, -26) })
+  vehicleInfoWindow.open(map, [point.lng, point.lat])
+  if (location !== '位置解析中…') return
+  void reverseGeocode(point.lng, point.lat).then((address) => {
+    const resolvedLocation = address || '位置暂未获取'
+    vehicleAddressCache.set(vehicle.id, { coordinate: vehicleCoordinateKey(vehicle), address: resolvedLocation })
+    if (!map || !amap || activeVehicleInfoKey !== infoKey) return
+    vehicleInfoWindow?.setContent(vehicleInfoContent(vehicle, resolvedLocation))
+    vehicleInfoWindow?.open(map, [point.lng, point.lat])
+  })
+}
+function drawVehicleMarkers() {
+  if (!map || !amap || !amap.MarkerCluster) return
+  clearVehicleOverlays()
+  // 车辆接口返回 WGS84 坐标，高德底图使用 GCJ-02。
+  const hookAndLargeVehicles = visibleVehicles.value.filter((vehicle) => vehicleTypeOf(vehicle) !== '小三轮')
+  const tricycles = visibleVehicles.value.filter((vehicle) => vehicleTypeOf(vehicle) === '小三轮')
+  vehicleMarkers = hookAndLargeVehicles.map((vehicle, index) => {
+    const point = vehiclePoint(vehicle)
+    const marker = new amap!.Marker({
+      position: [point.lng, point.lat],
+      offset: new amap!.Pixel(-28, -28),
+      content: vehicleMarkerContent(vehicle),
+      title: `${vehicle.plateNumber || vehicle.id} · ${vehicleTypeOf(vehicle) || '未分类'} · ${vehicleStatusText(vehicle)}`,
+      zIndex: 300 + index,
+    })
+    marker.on('click', () => openVehicleInfo(vehicle))
+    marker.setMap(map!)
+    return marker
+  })
+  const tricyclePoints: TricycleClusterPoint[] = tricycles.map((vehicle) => {
+    const point = vehiclePoint(vehicle)
+    return { lnglat: [point.lng, point.lat], vehicle }
+  })
+  if (tricyclePoints.length) {
+    // 聚合插件会复用 Marker；每个 Marker 只绑定一次，并始终读取本轮车辆。
+    const markerVehicles = new WeakMap<AMapMarker, VehicleRuntime | undefined>()
+    const boundMarkers = new WeakSet<AMapMarker>()
+    tricycleCluster = new amap.MarkerCluster(map, tricyclePoints, {
+      gridSize: 80,
+      maxZoom: 16,
+      averageCenter: true,
+      renderClusterMarker: (context: { count: number, marker: AMapMarker }) => {
+        markerVehicles.delete(context.marker)
+        context.marker.setOffset(new amap!.Pixel(-22, -22))
+        context.marker.setContent(clusterMarkerContent(context.count))
+      },
+      renderMarker: (context: { marker: AMapMarker, data?: TricycleClusterPoint | TricycleClusterPoint[] }) => {
+        const point = Array.isArray(context.data) ? context.data[0] : context.data
+        markerVehicles.set(context.marker, point?.vehicle)
+        context.marker.setOffset(new amap!.Pixel(-18, -18))
+        context.marker.setContent(tricycleMarkerContent())
+        if (!boundMarkers.has(context.marker)) {
+          boundMarkers.add(context.marker)
+          context.marker.on('click', () => {
+            const vehicle = markerVehicles.get(context.marker)
+            if (vehicle) openVehicleInfo(vehicle)
+          })
+        }
+      },
+    })
+  }
+}
 function createBoxMarker(box: Box, index: number, selected = false) {
   const point = getGcjPoint(box)
   const marker = new amap!.Marker({ position: [point.lng, point.lat], offset: new amap!.Pixel(-18, -34), content: `<div class="${markerClass(box)}${selected ? ' selected' : ''}">${escapeHtml(box.containerNo)}</div>`, title: box.containerName, zIndex: selected ? 1000 : 10 + index })
@@ -737,6 +963,7 @@ watch(keyword, () => drawMarkers(false))
 watch([overflowOnly, transportingOnly, townshipFilter, villageFilter], drawMarkers)
 // 刷新箱体列表时仅重绘标记，保留用户当前的中心点和缩放比例。
 watch(boxes, () => drawMarkers(false))
+watch([vehicles, enabledVehicleTypes, vehicleTypeById], () => drawVehicleMarkers(), { deep: true })
 watch(mapTheme, (theme) => map?.setMapStyle(`amap://styles/${theme}`))
 async function loadFromCloud(silent = false) {
   // 手动刷新与定时刷新重叠时复用正在进行的请求，避免短时间重复请求。
@@ -762,10 +989,69 @@ async function loadFromCloud(silent = false) {
     if (!silent) Message.warning(`云端数据加载失败：${error instanceof Error ? error.message : '网络异常'}`)
   } finally { cloudLoading.value = false }
 }
+
+function responseDataArray<T>(response: unknown): T[] {
+  const data = (response as { data?: unknown })?.data
+  return Array.isArray(data) ? data as T[] : []
+}
+function isVehicleType(value: string | undefined): value is VehicleType {
+  return VEHICLE_TYPES.includes(value as VehicleType)
+}
+function indexVehicleTypes(organizations: VehicleOrganization[]) {
+  const indexed = new Map<number, VehicleType>()
+  const walk = (items: VehicleOrganization[]) => {
+    for (const organization of items) {
+      for (const group of organization.modelVehicleList || []) {
+        if (!isVehicleType(group.modelName)) continue
+        for (const vehicle of group.vehicleList || []) {
+          const id = Number(vehicle.id)
+          if (Number.isFinite(id)) indexed.set(id, group.modelName)
+        }
+      }
+      walk(organization.children || [])
+    }
+  }
+  walk(organizations)
+  vehicleTypeById.value = indexed
+}
+async function loadVehicleTypes(force = false) {
+  // 车型档案变化频率低；自动刷新只更新位置，手动更新或半小时后才重新读取档案。
+  if (!force && vehicleTypeById.value.size && Date.now() - vehicleTypesLoadedAt < 30 * 60 * 1000) return
+  const response = await collectorVehicleTypesRequest<unknown>()
+  indexVehicleTypes(responseDataArray<VehicleOrganization>(response))
+  vehicleTypesLoadedAt = Date.now()
+}
+async function loadVehicles(silent = false, refreshTypes = false) {
+  if (vehicleLoading.value) return
+  vehicleLoading.value = true
+  try {
+    const [, runtimeResponse] = await Promise.all([
+      loadVehicleTypes(refreshTypes),
+      collectorVehicleRuntimeRequest<unknown>(),
+    ])
+    vehicles.value = responseDataArray<VehicleRuntime>(runtimeResponse)
+    if (!silent) Message.success(`已更新 ${vehicles.value.length} 辆车辆位置`)
+  } catch (error) {
+    if (!silent) Message.warning(`车辆位置加载失败：${error instanceof Error ? error.message : '网络异常'}`)
+  } finally { vehicleLoading.value = false }
+}
+async function refreshMapData() {
+  // 手动刷新同时刷新箱体、车辆位置和车型档案；任一失败不影响另一类数据继续更新。
+  await Promise.all([loadFromCloud(), loadVehicles(false, true)])
+}
 let offBoxes: () => void
 let offPoints: () => void
-let autoRefreshTimer: ReturnType<typeof window.setInterval> | undefined
+let boxRefreshTimer: ReturnType<typeof window.setInterval> | undefined
+let vehicleRefreshTimer: ReturnType<typeof window.setInterval> | undefined
 let residenceClockTimer: ReturnType<typeof window.setInterval> | undefined
+function setupBoxRefreshTimer() {
+  if (boxRefreshTimer) window.clearInterval(boxRefreshTimer)
+  boxRefreshTimer = window.setInterval(() => { void loadFromCloud(true) }, boxRefreshMinutes.value * 60_000)
+}
+function setupVehicleRefreshTimer() {
+  if (vehicleRefreshTimer) window.clearInterval(vehicleRefreshTimer)
+  vehicleRefreshTimer = window.setInterval(() => { void loadVehicles(true) }, vehicleRefreshMinutes.value * 60_000)
+}
 onMounted(async () => {
   // 先读共享缓存（其它页面已更新的数据），再静默刷新云端
   const cachedBoxes = getCachedBoxes<Box>()
@@ -785,17 +1071,21 @@ onMounted(async () => {
   try {
     // 地图脚本与云端数据相互独立，提前发起数据请求，避免串行等待。
     void loadFromCloud(true)
-    amap = await loadAmapJsApi()
+    void loadVehicles(true)
+    amap = await loadAmapMarkerClusterer()
     map = new amap.Map(mapRef.value, { zoom: 13, center: [114.1, 36.04], viewMode: '2D', mapStyle: `amap://styles/${mapTheme.value}`, resizeEnable: true, animateEnable: false, jogEnable: false })
     map.on('zoomend', syncMarkerMode)
     drawMarkers()
+    // 实时车辆请求可能早于地图初始化完成；地图就绪后主动绘制默认勾臂车图层。
+    drawVehicleMarkers()
   } catch (error) { mapError.value = error instanceof Error ? error.message : '高德地图加载失败，请检查地图配置' }
-  // 页面停留期间每 5 分钟静默同步一次，地图视野与当前详情选中态均保持不变。
-  autoRefreshTimer = window.setInterval(() => { void loadFromCloud(true) }, 5 * 60 * 1000)
+  // 箱体与车辆位置分别按用户设置静默同步，地图视野与当前详情选中态均保持不变。
+  setupBoxRefreshTimer()
+  setupVehicleRefreshTimer()
   // 仅更新已加载驻留时间的显示，不会请求后端。
   residenceClockTimer = window.setInterval(() => { residenceNow.value = Date.now() }, 60 * 1000)
 })
-onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (autoRefreshTimer) window.clearInterval(autoRefreshTimer); if (residenceClockTimer) window.clearInterval(residenceClockTimer); clearBoxOverlays(); map?.destroy(); destroyHistoryMap() })
+onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window.clearInterval(boxRefreshTimer); if (vehicleRefreshTimer) window.clearInterval(vehicleRefreshTimer); if (residenceClockTimer) window.clearInterval(residenceClockTimer); clearBoxOverlays(); clearVehicleOverlays(); map?.destroy(); destroyHistoryMap() })
 </script>
 
 <style scoped lang="scss">
@@ -830,6 +1120,7 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (autoRefreshTimer) windo
 .map-fullscreen-btn { height: 32px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; }.map-fullscreen-btn.active { color: #165dff; border-color: #165dff; }
 .map-stat { min-width: 82px; padding: 7px 8px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; white-space: nowrap; }
 .map-stat b { display: block; color: #165dff; font-size: 20px; line-height: 25px; }.map-stat.danger b { color: #f53f3f; }.map-stat.warning b { color: #ff7d00; }
+.vehicle-legend { position: absolute; z-index: 1; bottom: 16px; left: 16px; min-width: 152px; padding: 10px 12px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); }.vehicle-legend-title { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; color: #1d2129; font-size: 13px; font-weight: 600; }.vehicle-legend-title small { color: #86909c; font-size: 11px; font-weight: 400; }.vehicle-legend :deep(.arco-checkbox-group) { gap: 5px; }.vehicle-legend :deep(.arco-checkbox) { margin: 0; color: #4e5969; font-size: 12px; }.vehicle-legend-dot { width: 8px; height: 8px; display: inline-block; margin-right: 5px; border-radius: 50%; background: #165dff; }.vehicle-legend-dot.large { background: #722ed1; }.vehicle-legend-dot.tricycle { background: #00b42a; }
 .map-error { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px; color: #f53f3f; background: #f7f8fa; }
 .detail-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }.box-no, .section-label { color: #86909c; font-size: 12px; }.history-track-btn { margin-left: auto; }.report-time { flex-basis: 100%; overflow: hidden; color: #86909c; font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }
 .detail-card :deep(.arco-card-header) { align-items: center; }.detail-close-btn { color: #86909c; }.detail-close-btn:hover { color: #1d2129; }
@@ -841,6 +1132,7 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (autoRefreshTimer) windo
 .token-reset-link { color: #165dff; cursor: pointer; text-decoration: underline; }
 :global(.box-map-marker) { position: relative; min-width: 36px; height: 26px; padding: 0 8px; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; border-radius: 4px; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 12px; font-weight: 600; }
 :global(.box-map-marker::after) { content: ''; position: absolute; bottom: -6px; left: 50%; width: 10px; height: 10px; border-right: 1px solid #fff; border-bottom: 1px solid #fff; background: inherit; transform: translateX(-50%) rotate(45deg); }.box-map-page :global(.box-map-marker.transporting::before) { content: '运'; position: absolute; top: -9px; right: -9px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; border-radius: 50%; background: #165dff; box-shadow: 0 1px 4px rgb(29 33 41 / 25%); color: #fff; font-size: 10px; font-weight: 700; }.box-map-page :global(.box-map-marker.warning) { background: #ff7d00; }.box-map-page :global(.box-map-marker.overflow) { background: #f53f3f; }.box-map-page :global(.box-map-marker.matched) { box-shadow: 0 0 0 3px #00b42a, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.1); z-index: 1; }.box-map-page :global(.box-map-marker.selected) { border: 2px solid #fff; box-shadow: 0 0 0 3px #165dff, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.15); opacity: 1; z-index: 2; }
+:global(.vehicle-map-marker) { display: flex; align-items: center; gap: 4px; min-height: 22px; padding: 2px 6px; border: 1px solid #fff; border-radius: 11px; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; }.box-map-page :global(.vehicle-map-marker i) { width: 8px; height: 8px; display: block; border: 1px solid rgb(255 255 255 / 80%); border-radius: 2px; background: currentcolor; transform: skewX(-20deg); }.box-map-page :global(.vehicle-map-marker.large) { background: #722ed1; }.box-map-page :global(.vehicle-map-marker.tricycle) { background: #00b42a; }.box-map-page :global(.vehicle-map-marker.compact) { box-sizing: border-box; width: 36px; height: 36px; min-height: 36px; justify-content: center; padding: 4px; border: 2px solid #fff; border-radius: 50%; cursor: pointer; }.box-map-page :global(.vehicle-map-marker.compact svg) { flex: none; }.box-map-page :global(.vehicle-cluster-marker) { display: flex; align-items: center; justify-content: center; min-width: 32px; height: 32px; padding: 0 6px; border: 2px solid #fff; border-radius: 50%; background: #00b42a; box-shadow: 0 2px 8px rgb(0 180 42 / 36%); color: #fff; font-size: 12px; font-weight: 700; }.box-map-page :global(.vehicle-map-info) { display: grid; gap: 5px; min-width: 220px; padding: 2px; color: #4e5969; font-size: 12px; }.box-map-page :global(.vehicle-map-info b) { color: #1d2129; font-size: 14px; }.box-map-page :global(.vehicle-status) { width: fit-content; padding: 1px 6px; border-radius: 3px; font-size: 11px; line-height: 18px; }.box-map-page :global(.vehicle-status.online) { background: #e8ffea; color: #00a870; }.box-map-page :global(.vehicle-status.offline) { background: #f2f3f5; color: #86909c; }.box-map-page :global(.vehicle-status.charging) { background: #fff7e8; color: #ff7d00; }.box-map-page :global(.vehicle-location) { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 4px; color: #86909c; font-size: 11px; line-height: 17px; }.box-map-page :global(.vehicle-location em) { color: #4e5969; font-style: normal; }.box-map-page :global(.vehicle-location span) { overflow-wrap: anywhere; }
 .history-overlay { position: absolute; inset: 16px; z-index: 10; display: flex; min-height: 0; flex-direction: column; padding: 16px; overflow: hidden; background: #f7f8fa; box-shadow: 0 12px 36px rgb(29 33 41 / 28%); }.history-overlay-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; padding-bottom: 12px; }.history-title { display: flex; align-items: baseline; gap: 8px; }.history-title h2 { margin: 0; color: #1d2129; font-size: 24px; line-height: 32px; }.history-title span { color: #86909c; font-size: 12px; }.history-close-btn { color: #86909c; }.history-close-btn:hover { color: #1d2129; background: #e5e6eb; }
 .history-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; padding: 0 0 12px; }.history-summary { color: #4e5969; font-size: 13px; }
 .history-layout { display: grid; flex: 1; min-height: 0; grid-template-columns: minmax(0, 1fr) 290px; border: 1px solid #e5e6eb; }.history-map-wrap { position: relative; min-width: 0; }.history-map { width: 100%; height: 100%; }.history-loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 50; }

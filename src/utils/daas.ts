@@ -125,6 +125,17 @@ export async function collectorMapRequest<T>(includeTransportTasks = true): Prom
   return await response.json() as T
 }
 
+/** 箱体地图车辆图层：实时位置与车型档案保持两个独立请求。 */
+export async function collectorVehicleRuntimeRequest<T>(): Promise<T> {
+  const response = await collectorDaasFetch('/api/collector/vehicles/runtime')
+  return await response.json() as T
+}
+
+export async function collectorVehicleTypesRequest<T>(): Promise<T> {
+  const response = await collectorDaasFetch('/api/collector/vehicles/types')
+  return await response.json() as T
+}
+
 /** Redis 保存成功后才更新本地兼容状态、关闭弹窗并唤醒请求。 */
 export async function saveSharedDaasToken(token: string, refreshToken?: string) {
   const normalized = token.trim().replace(/^Bearer\s+/i, '')

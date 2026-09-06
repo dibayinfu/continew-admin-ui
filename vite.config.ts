@@ -43,7 +43,9 @@ export default defineConfig(({ command, mode }) => {
           }
         : undefined,
     },
-    plugins: createVitePlugins(env, command === 'build'),
+    plugins: [
+      ...createVitePlugins(env, command === 'build'),
+    ],
     // 构建
     build: {
       chunkSizeWarningLimit: 2000, // 消除打包大小超过500kb警告

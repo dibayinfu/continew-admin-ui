@@ -36,7 +36,6 @@
       </header>
       <Tabs v-if="appStore.tab" />
       <Main />
-      <GiFooter v-if="appStore.copyrightDisplay" />
     </section>
 
     <!-- 公告弹窗 -->

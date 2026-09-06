@@ -5,7 +5,6 @@
       <Header></Header>
       <Tabs></Tabs>
       <Main></Main>
-      <GiFooter v-if="appStore.copyrightDisplay" />
     </a-layout>
 
     <!-- 公告弹窗 -->

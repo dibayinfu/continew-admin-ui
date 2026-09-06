@@ -73,6 +73,11 @@ export interface AiStreamCallbacks {
   onAnswerDelta?: (text: string) => void
 }
 
+interface PriorityCleanupResponse {
+  items: AiPriorityRankingItem[]
+  dataUpdatedAt?: string
+}
+
 /** 工具模块独立运行，不能依赖 box-map.vue 组件内的同名函数。 */
 function isPriorityCleanupQuestion(question: string) {
   return /优先.*清运|清运.*优先|哪些箱体/.test(question.replace(/\s/g, ''))
@@ -150,6 +155,29 @@ function buildLocalReply(question: string, context: AiQueryContext): AiReply {
 /** “优先清运”属于确定性调度规则，供界面在模型返回前立即展示。 */
 export function getPriorityCleanupReply(context: AiQueryContext) {
   return buildLocalReply('哪些箱体需要优先清运？', context)
+}
+
+/**
+ * 优先清运是确定性调度接口，不经过 AI/SSE。
+ * 这样即使反向代理提前关闭长连接，也不会把一份已经完成的排名误报为“流式响应未完成”。
+ */
+export async function queryPriorityCleanup(limit = 5, signal?: AbortSignal): Promise<AiReply> {
+  const collectorApiBaseUrl = (import.meta.env.VITE_COLLECTOR_API_BASE_URL || '').replace(/\/$/, '')
+  const response = await fetch(`${collectorApiBaseUrl}/api/collector/boxes/priority-cleanup?limit=${Math.min(10, Math.max(1, limit))}`, { signal })
+  if (!response.ok) throw new Error(await response.text() || '优先清运评分服务异常')
+  const ranking = await response.json() as PriorityCleanupResponse
+  const items = ranking.items || []
+  return {
+    answer: items.length
+      ? '以下箱体已按综合评分从高到低排序。综合评分由满溢率、停留时长和满溢时长（超过 80%）共同决定。'
+      : '当前没有满溢或接近满溢的箱体，无需安排优先清运。',
+    evidence: items.slice(0, 3).map((item) => `${item.boxNo}号箱：综合评分 ${Math.round(Number(item.priorityScore) || 0)} 分`),
+    priorityRanking: items,
+    priorityRankingAvailable: true,
+    mapActions: [{ type: 'showOverflow' }, ...(items[0] ? [{ type: 'focusBox' as const, boxNo: items[0].boxNo }] : [])],
+    dataUpdatedAt: ranking.dataUpdatedAt || new Date().toLocaleString('zh-CN', { hour12: false }),
+    source: 'ai',
+  }
 }
 
 export async function queryBoxMapAssistant(question: string, context: AiQueryContext): Promise<AiReply> {

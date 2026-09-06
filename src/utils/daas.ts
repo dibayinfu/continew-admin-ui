@@ -99,10 +99,27 @@ export async function syncCollectorToken(token: string) {
   if (!response.ok) throw new Error(`采集服务返回 HTTP ${response.status}`)
 }
 
+async function fetchCollectorEndpoint(url: string): Promise<Response> {
+  // 车辆上游偶发断连时，浏览器会直接抛出 Failed to fetch，拿不到 HTTP 响应。
+  // GET 请求无副作用，短暂退避后重试可避免将瞬时网络抖动直接暴露给地图页面。
+  let lastError: unknown
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const response = await fetch(url)
+      if (response.status < 500 || attempt === 2) return response
+    } catch (error) {
+      lastError = error
+      if (attempt === 2) throw error
+    }
+    await new Promise((resolve) => window.setTimeout(resolve, 400 * (attempt + 1)))
+  }
+  throw lastError instanceof Error ? lastError : new Error('云端请求失败')
+}
+
 /** 地图统一由采集服务读取 Redis Token；登录保存成功后重试一次。 */
 export async function collectorDaasFetch(path: string): Promise<Response> {
   for (let attempt = 0; attempt < 2; attempt++) {
-    const response = await fetch(`${COLLECTOR_API_BASE_URL}${path}`)
+    const response = await fetchCollectorEndpoint(`${COLLECTOR_API_BASE_URL}${path}`)
     if (response.ok) {
       daasAuth.expired = false
       return response

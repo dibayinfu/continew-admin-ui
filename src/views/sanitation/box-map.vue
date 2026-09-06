@@ -6,7 +6,7 @@
         <div class="page-subtitle">查看箱体实时位置、满溢状态及设备运行信息</div>
       </div>
       <a-space>
-        <a-button type="primary" :loading="cloudLoading || vehicleLoading" @click="refreshMapData()">
+        <a-button type="primary" :loading="cloudLoading" @click="refreshMapData()">
           <template #icon><icon-sync /></template>
           更新
         </a-button>
@@ -291,7 +291,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } 
 import { type AMapInfoWindow, type AMapInstance, type AMapMarker, type AMapMarkerCluster, type AMapMassMarks, loadAmapJsApi, loadAmapMarkerClusterer } from '@/utils/amap'
 import { daasAuth, collectorMapRequest, collectorVehicleRuntimeRequest, collectorVehicleTypesRequest, getHiddenBoxIds, saveSharedDaasToken } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
-import { type AiMapAction, type AiReply, queryBoxMapAssistantStream } from './box-map-ai'
+import { type AiMapAction, type AiReply, queryBoxMapAssistantStream, queryPriorityCleanup } from './box-map-ai'
 
 defineOptions({ name: 'SanitationBoxMap' })
 
@@ -457,6 +457,9 @@ let amap: Awaited<ReturnType<typeof loadAmapJsApi>> | undefined
 let vehicleInfoWindow: AMapInfoWindow | undefined
 let vehicleTypesLoadedAt = 0
 let activeVehicleInfoKey = ''
+let selectedVehicleMarker: AMapMarker | undefined
+let resetSelectedVehicleMarker: (() => void) | undefined
+const VEHICLE_FOCUSED_Z_INDEX = 2_000
 const vehicleAddressCache = new Map<number, VehicleAddressCacheItem>()
 let gcjPoints = new WeakMap<Box, GcjPoint>()
 let historyMap: AMapInstance | undefined
@@ -605,12 +608,12 @@ async function askAi(question: string) {
   try {
     const priorityQuestion = isPriorityCleanupQuestion(text)
     Object.assign(pending, { loading: false, progress: priorityQuestion ? '正在读取优先清运排名与三个评分因子…' : '正在整理当前箱体地图数据…' })
-    const context = await aiContext()
-    const aiContextForRequest = priorityQuestion ? { ...context, boxes: context.boxes.filter((box) => box.overflowStatus === 1 || box.fillLevel >= 70).slice(0, 10) } : context
-    const reply = await queryBoxMapAssistantStream(text, aiContextForRequest, {
-      onProgress: (progress) => { pending.progress = progress },
-      onAnswerDelta: (delta) => { pending.progress = '正在流式生成回答…'; pending.content += delta },
-    }, request.signal)
+    const reply = priorityQuestion
+      ? await queryPriorityCleanup(5, request.signal)
+      : await queryBoxMapAssistantStream(text, await aiContext(), {
+        onProgress: (progress) => { pending.progress = progress },
+        onAnswerDelta: (delta) => { pending.progress = '正在流式生成回答…'; pending.content += delta },
+      }, request.signal)
     if (priorityQuestion && !reply.priorityRankingAvailable) {
       reply.answer = '综合评分数据暂不可用，当前不能按填充率替代排名。请确认后端评分服务已部署后重试。'
       reply.evidence = []
@@ -906,6 +909,7 @@ async function reverseGeocode(lng: number, lat: number): Promise<string | undefi
 }
 function clearVehicleOverlays() {
   vehicleInfoWindow?.close(); vehicleInfoWindow = undefined; activeVehicleInfoKey = ''
+  selectedVehicleMarker = undefined; resetSelectedVehicleMarker = undefined
   vehicleMarkers.forEach((marker) => marker.setMap(null)); vehicleMarkers = []
   tricycleCluster?.setMap(null); tricycleCluster = undefined
 }
@@ -913,8 +917,19 @@ function vehicleMarkerContent(vehicle: VehicleRuntime) {
   const type = vehicleTypeOf(vehicle)
   return `<div class="vehicle-map-marker ${vehicleTypeClass(type || '小三轮')}"><i></i><span>${escapeHtml(vehicle.plateNumber || String(vehicle.id))}</span></div>`
 }
-function tricycleMarkerContent() {
-  return '<div class="vehicle-map-marker tricycle compact"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="5" cy="18" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M5 15.5 8 8h4l3 10H8M7 11h6M8 8 7 5H4M14 10h7v5h-6"/></svg></div>'
+function tricycleMarkerContent(selected = false) {
+  return `<div class="vehicle-map-marker tricycle compact${selected ? ' selected' : ''}"><svg width="22" height="22" viewBox="0 0 40 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="25" r="2.7"/><circle cx="26" cy="25" r="2.7"/><circle cx="33" cy="25" r="2.7"/><path d="M7 22h27M4 22l2-11q.5-3 4-3h7l2 14M9 9l5 13M17 10h18l-2 12H18zM18 8h17l1 2H17zM20 14h12M4 15h5"/></svg></div>`
+}
+function focusVehicleMarker(marker: AMapMarker, normalContent: string, selectedContent: string, normalZIndex = 300) {
+  // 与选中的箱体一致，将刚点击的车辆提高到其它地图覆盖物之上。
+  if (selectedVehicleMarker !== marker) resetSelectedVehicleMarker?.()
+  marker.setContent(selectedContent)
+  marker.setzIndex(VEHICLE_FOCUSED_Z_INDEX)
+  selectedVehicleMarker = marker
+  resetSelectedVehicleMarker = () => {
+    marker.setContent(normalContent)
+    marker.setzIndex(normalZIndex)
+  }
 }
 function clusterMarkerContent(count: number) {
   return `<div class="vehicle-cluster-marker">${count}</div>`
@@ -958,7 +973,11 @@ function drawVehicleMarkers() {
       title: `${vehicle.plateNumber || vehicle.id} · ${vehicleTypeOf(vehicle) || '未分类'} · ${vehicleStatusText(vehicle)}`,
       zIndex: 300 + index,
     })
-    marker.on('click', () => openVehicleInfo(vehicle))
+    marker.on('click', () => {
+      const content = vehicleMarkerContent(vehicle)
+      focusVehicleMarker(marker, content, content, 300 + index)
+      openVehicleInfo(vehicle)
+    })
     marker.setMap(map!)
     return marker
   })
@@ -988,7 +1007,10 @@ function drawVehicleMarkers() {
           boundMarkers.add(context.marker)
           context.marker.on('click', () => {
             const vehicle = markerVehicles.get(context.marker)
-            if (vehicle) openVehicleInfo(vehicle)
+            if (vehicle) {
+              focusVehicleMarker(context.marker, tricycleMarkerContent(), tricycleMarkerContent(true))
+              openVehicleInfo(vehicle)
+            }
           })
         }
       },
@@ -1167,19 +1189,21 @@ async function loadVehicles(silent = false, refreshTypes = false) {
   if (vehicleLoading.value) return
   vehicleLoading.value = true
   try {
-    const [, runtimeResponse] = await Promise.all([
-      loadVehicleTypes(refreshTypes),
-      collectorVehicleRuntimeRequest<unknown>(),
-    ])
+    // 车辆档案只用于车型显示，不能因它的偶发失败而丢弃已经获取到的实时位置。
+    const runtimeResponse = await collectorVehicleRuntimeRequest<unknown>()
     vehicles.value = responseDataArray<VehicleRuntime>(runtimeResponse)
+    try { await loadVehicleTypes(refreshTypes) } catch (error) {
+      console.warn('车辆档案加载失败，暂保留已有车型：', error)
+    }
     if (!silent) Message.success(`已更新 ${vehicles.value.length} 辆车辆位置`)
   } catch (error) {
     if (!silent) Message.warning(`车辆位置加载失败：${error instanceof Error ? error.message : '网络异常'}`)
   } finally { vehicleLoading.value = false }
 }
 async function refreshMapData() {
-  // 手动刷新同时刷新箱体、车辆位置和车型档案；任一失败不影响另一类数据继续更新。
-  await Promise.all([loadFromCloud(), loadVehicles(false, true)])
+  // 箱体是本页核心数据：按钮只等待箱体完成；车辆改为后台静默刷新，不干扰操作反馈。
+  await loadFromCloud()
+  void loadVehicles(true, true)
 }
 let offBoxes: () => void
 let offPoints: () => void
@@ -1281,7 +1305,7 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window
 .ai-input { padding: 10px 12px; border-top: 1px solid #e5e6eb; background: #fff; }.ai-textarea-wrap { position: relative; }.ai-input :deep(.arco-textarea-wrapper) { border-radius: 7px; }.ai-input :deep(textarea) { padding-right: 42px; font-size: 13px; }.ai-send-btn { position: absolute; right: 7px; bottom: 7px; z-index: 1; width: 26px; height: 26px; padding: 0; }.ai-send-btn :deep(.arco-icon) { font-size: 15px; }.ai-stop-icon { display: block; width: 10px; height: 10px; border-radius: 1px; background: currentcolor; }
 :global(.box-map-marker) { position: relative; min-width: 36px; height: 26px; padding: 0 8px; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; border-radius: 4px; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 12px; font-weight: 600; }
 :global(.box-map-marker::after) { content: ''; position: absolute; bottom: -6px; left: 50%; width: 10px; height: 10px; border-right: 1px solid #fff; border-bottom: 1px solid #fff; background: inherit; transform: translateX(-50%) rotate(45deg); }.box-map-page :global(.box-map-marker.transporting::before) { content: '运'; position: absolute; top: -9px; right: -9px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; border-radius: 50%; background: #165dff; box-shadow: 0 1px 4px rgb(29 33 41 / 25%); color: #fff; font-size: 10px; font-weight: 700; }.box-map-page :global(.box-map-marker.warning) { background: #ff7d00; }.box-map-page :global(.box-map-marker.overflow) { background: #f53f3f; }.box-map-page :global(.box-map-marker.matched) { box-shadow: 0 0 0 3px #00b42a, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.1); z-index: 1; }.box-map-page :global(.box-map-marker.selected) { border: 2px solid #fff; box-shadow: 0 0 0 3px #165dff, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.15); opacity: 1; z-index: 2; }
-:global(.vehicle-map-marker) { display: flex; align-items: center; gap: 4px; min-height: 22px; padding: 2px 6px; border: 1px solid #fff; border-radius: 11px; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; }.box-map-page :global(.vehicle-map-marker i) { width: 8px; height: 8px; display: block; border: 1px solid rgb(255 255 255 / 80%); border-radius: 2px; background: currentcolor; transform: skewX(-20deg); }.box-map-page :global(.vehicle-map-marker.large) { background: #722ed1; }.box-map-page :global(.vehicle-map-marker.tricycle) { background: #00b42a; }.box-map-page :global(.vehicle-map-marker.compact) { box-sizing: border-box; width: 36px; height: 36px; min-height: 36px; justify-content: center; padding: 4px; border: 2px solid #fff; border-radius: 50%; cursor: pointer; }.box-map-page :global(.vehicle-map-marker.compact svg) { flex: none; }.box-map-page :global(.vehicle-cluster-marker) { display: flex; align-items: center; justify-content: center; min-width: 32px; height: 32px; padding: 0 6px; border: 2px solid #fff; border-radius: 50%; background: #00b42a; box-shadow: 0 2px 8px rgb(0 180 42 / 36%); color: #fff; font-size: 12px; font-weight: 700; }.box-map-page :global(.vehicle-map-info) { display: grid; gap: 5px; min-width: 220px; padding: 2px; color: #4e5969; font-size: 12px; }.box-map-page :global(.vehicle-map-info b) { color: #1d2129; font-size: 14px; }.box-map-page :global(.vehicle-status) { width: fit-content; padding: 1px 6px; border-radius: 3px; font-size: 11px; line-height: 18px; }.box-map-page :global(.vehicle-status.online) { background: #e8ffea; color: #00a870; }.box-map-page :global(.vehicle-status.offline) { background: #f2f3f5; color: #86909c; }.box-map-page :global(.vehicle-status.charging) { background: #fff7e8; color: #ff7d00; }.box-map-page :global(.vehicle-location) { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 4px; color: #86909c; font-size: 11px; line-height: 17px; }.box-map-page :global(.vehicle-location em) { color: #4e5969; font-style: normal; }.box-map-page :global(.vehicle-location span) { overflow-wrap: anywhere; }
+:global(.vehicle-map-marker) { display: flex; align-items: center; gap: 4px; min-height: 22px; padding: 2px 6px; border: 1px solid #fff; border-radius: 11px; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; }.box-map-page :global(.vehicle-map-marker i) { width: 8px; height: 8px; display: block; border: 1px solid rgb(255 255 255 / 80%); border-radius: 2px; background: currentcolor; transform: skewX(-20deg); }.box-map-page :global(.vehicle-map-marker.large) { background: #722ed1; }.box-map-page :global(.vehicle-map-marker.tricycle) { background: #00b42a; }.box-map-page :global(.vehicle-map-marker.compact) { box-sizing: border-box; width: 28px; height: 28px; min-height: 28px; justify-content: center; padding: 2px; border: 2px solid #fff; border-radius: 50%; cursor: pointer; transition: width .15s ease, height .15s ease, box-shadow .15s ease; }.box-map-page :global(.vehicle-map-marker.compact.selected) { width: 36px; height: 36px; min-height: 36px; box-shadow: 0 0 0 3px rgb(0 180 42 / 28%), 0 3px 8px rgb(0 180 42 / 42%); }.box-map-page :global(.vehicle-map-marker.compact svg) { flex: none; }.box-map-page :global(.vehicle-map-marker.compact.selected svg) { width: 28px; height: 28px; }.box-map-page :global(.vehicle-cluster-marker) { display: flex; align-items: center; justify-content: center; min-width: 32px; height: 32px; padding: 0 6px; border: 2px solid #fff; border-radius: 50%; background: #00b42a; box-shadow: 0 2px 8px rgb(0 180 42 / 36%); color: #fff; font-size: 12px; font-weight: 700; }.box-map-page :global(.vehicle-map-info) { display: grid; gap: 5px; min-width: 220px; padding: 2px; color: #4e5969; font-size: 12px; }.box-map-page :global(.vehicle-map-info b) { color: #1d2129; font-size: 14px; }.box-map-page :global(.vehicle-status) { width: fit-content; padding: 1px 6px; border-radius: 3px; font-size: 11px; line-height: 18px; }.box-map-page :global(.vehicle-status.online) { background: #e8ffea; color: #00a870; }.box-map-page :global(.vehicle-status.offline) { background: #f2f3f5; color: #86909c; }.box-map-page :global(.vehicle-status.charging) { background: #fff7e8; color: #ff7d00; }.box-map-page :global(.vehicle-location) { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 4px; color: #86909c; font-size: 11px; line-height: 17px; }.box-map-page :global(.vehicle-location em) { color: #4e5969; font-style: normal; }.box-map-page :global(.vehicle-location span) { overflow-wrap: anywhere; }
 .history-overlay { position: absolute; inset: 16px; z-index: 10; display: flex; min-height: 0; flex-direction: column; padding: 16px; overflow: hidden; background: #f7f8fa; box-shadow: 0 12px 36px rgb(29 33 41 / 28%); }.history-overlay-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; padding-bottom: 12px; }.history-title { display: flex; align-items: baseline; gap: 8px; }.history-title h2 { margin: 0; color: #1d2129; font-size: 24px; line-height: 32px; }.history-title span { color: #86909c; font-size: 12px; }.history-close-btn { color: #86909c; }.history-close-btn:hover { color: #1d2129; background: #e5e6eb; }
 .history-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; padding: 0 0 12px; }.history-summary { color: #4e5969; font-size: 13px; }
 .history-layout { display: grid; flex: 1; min-height: 0; grid-template-columns: minmax(0, 1fr) 290px; border: 1px solid #e5e6eb; }.history-map-wrap { position: relative; min-width: 0; }.history-map { width: 100%; height: 100%; }.history-loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 50; }

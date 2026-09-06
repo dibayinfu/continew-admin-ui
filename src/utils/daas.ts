@@ -115,7 +115,11 @@ export async function collectorDaasFetch(path: string): Promise<Response> {
       }
       throw new Error('登录后仍无法访问云端接口，请检查 Token 或采集服务')
     }
-    throw new Error(`云端数据加载失败：HTTP ${response.status}`)
+    const body = await response.clone().json().catch(() => undefined) as { message?: unknown, detail?: unknown } | undefined
+    const message = typeof body?.message === 'string' ? body.message
+      : typeof body?.detail === 'string' ? body.detail
+        : `HTTP ${response.status}`
+    throw new Error(message)
   }
   throw new Error('云端数据加载失败')
 }

@@ -21,6 +21,10 @@
         <a-dropdown position="br">
           <a-button>更多<icon-down /></a-button>
           <template #content>
+            <a-doption @click="aiVisible = true">
+              <template #icon><icon-robot /></template>
+              AI 助手
+            </a-doption>
             <a-doption @click="openLogin()">登录</a-doption>
             <a-doption @click="openTokenModal">Token</a-doption>
             <a-doption @click="openRefreshSettings">刷新设置</a-doption>
@@ -30,6 +34,58 @@
         </a-dropdown>
       </a-space>
     </div>
+
+    <section v-if="aiVisible" class="ai-assistant" aria-label="AI 调度助手">
+      <header class="ai-header">
+        <div><span class="ai-avatar"><icon-robot /></span><span><b>AI 调度助手</b></span></div>
+        <a-button type="text" size="mini" aria-label="关闭 AI 助手" @click="aiVisible = false"><template #icon><icon-close /></template></a-button>
+      </header>
+      <div class="ai-shortcuts">
+        <button v-for="item in aiShortcuts" :key="item" type="button" @click="askAi(item)">{{ item }}</button>
+      </div>
+      <div ref="aiMessagesRef" class="ai-messages">
+        <template v-for="message in aiMessages" :key="message.id">
+          <div class="ai-message" :class="message.role">
+            <span v-if="message.role === 'assistant'" class="ai-mini-avatar"><icon-robot /></span>
+            <div class="ai-bubble">
+              <a-spin v-if="message.loading" size="small" />
+              <template v-else>
+                <p v-if="message.progress" class="ai-progress">{{ message.progress }}</p>
+                <p v-if="message.reply?.answer || message.content">{{ message.reply?.answer || message.content }}</p>
+                <section v-if="message.reply?.priorityRanking?.length" class="ai-priority-ranking">
+                  <header><div><b>优先清运排名</b><span>综合评分 = 满溢率 + 停留时长 + 满溢时长</span></div><em>满分 100</em></header>
+                  <article v-for="(item, index) in message.reply.priorityRanking" :key="item.boxNo" class="ai-priority-item">
+                    <div class="ai-priority-title"><span class="ai-priority-rank">#{{ index + 1 }}</span><div><b>{{ item.boxNo }} 号箱</b><small>{{ [item.townshipName, item.villageName, item.pointName].filter(Boolean).join(' · ') || '未匹配收集点' }}</small></div><strong><small>综合评分</small>{{ formatPriorityScore(item.priorityScore) }}<em>分</em></strong></div>
+                    <div class="ai-priority-factors">
+                      <span><i>满溢率 <small>权重 80%</small></i><b>{{ Math.round(item.fillLevel) }}%</b><em>{{ formatPriorityScore(item.fillScore) }} / 80 分</em></span>
+                      <span><i>停留时长 <small>权重 10%</small></i><b>{{ formatStayDuration(item.residenceMinutes) }}</b><em>{{ formatPriorityScore(item.residenceScore) }} / 10 分</em></span>
+                      <span><i>满溢时长 <small>&gt;80%，权重 10%</small></i><b>{{ item.overflowDurationMinutes === null ? '待确认' : formatStayDuration(item.overflowDurationMinutes) }}</b><em>{{ item.overflowDurationMinutes === null ? '暂不计分' : `${formatPriorityScore(item.overflowDurationScore)} / 10 分` }}</em></span>
+                    </div>
+                  </article>
+                </section>
+                <ul v-if="message.reply?.evidence?.length" class="ai-evidence"><li v-for="item in message.reply.evidence" :key="item">{{ item }}</li></ul>
+                <ul v-if="message.reply?.sources?.length" class="ai-sources">
+                  <li v-for="item in message.reply.sources" :key="item.url"><a :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title || item.url }}</a></li>
+                </ul>
+                <div v-if="message.reply?.chart" class="ai-chart">
+                  <div class="ai-chart-title">{{ message.reply.chart.title }}</div>
+                  <div v-for="(label, index) in message.reply.chart.labels" :key="label" class="ai-chart-row"><span>{{ label }}</span><i><b :style="{ width: `${chartWidth(message.reply.chart.values[index], message.reply.chart.values)}%` }"></b></i><em>{{ message.reply.chart.values[index] }}</em></div>
+                </div>
+                <div v-if="message.reply" class="ai-message-footer"><span>{{ message.reply.source === 'ai' ? 'AI' : '本地演示' }} · {{ message.reply.dataUpdatedAt }}</span><a-button v-if="message.reply.mapActions?.length" size="mini" type="text" @click="applyAiActions(message.reply.mapActions)">在地图查看</a-button></div>
+              </template>
+            </div>
+          </div>
+        </template>
+      </div>
+      <form class="ai-input" @submit.prevent="askAi(aiQuestion)">
+        <div class="ai-textarea-wrap">
+          <a-textarea v-model="aiQuestion" :auto-size="{ minRows: 1, maxRows: 3 }" placeholder="例如：哪些箱体需要优先清运？" @press-enter="askAi(aiQuestion)" />
+          <a-button class="ai-send-btn" type="primary" shape="circle" :html-type="aiLoading ? 'button' : 'submit'" :disabled="!aiLoading && !aiQuestion.trim()" :aria-label="aiLoading ? '停止生成' : '发送提问'" @click="aiLoading && stopAiResponse()">
+            <template #icon><i v-if="aiLoading" class="ai-stop-icon" aria-hidden="true"></i><icon-arrow-up v-else /></template>
+          </a-button>
+        </div>
+      </form>
+    </section>
 
     <a-card class="filter-card" :bordered="false">
       <div class="filter-block">
@@ -94,8 +150,7 @@
             </a-tooltip>
           </div>
           <div class="vehicle-legend">
-            <div class="vehicle-legend-title"><span>车辆图层</span><small>{{ visibleVehicles.length }} 辆</small></div>
-            <a-checkbox-group v-model="enabledVehicleTypes" direction="vertical">
+            <a-checkbox-group v-model="enabledVehicleTypes" aria-label="车辆图层筛选">
               <a-checkbox v-for="type in vehicleTypes" :key="type" :value="type">
                 <i class="vehicle-legend-dot" :class="vehicleTypeClass(type)"></i>{{ type }}（{{ vehicleTypeCounts.get(type) || 0 }}）
               </a-checkbox>
@@ -119,7 +174,7 @@
           <div class="detail-scroll">
           <div class="detail-heading">
             <a-tag :color="statusColor(selectedBox)">{{ statusText(selectedBox) }}</a-tag>
-            <a-tag v-if="selectedBox.onlineStatus !== 0" color="red">设备离线</a-tag>
+            <a-tag v-if="selectedBox.onlineStatus === 1" color="red">设备离线</a-tag>
             <a-button class="history-track-btn" type="primary" size="mini" @click="openHistoryTrack">历史轨迹</a-button>
             <span class="report-time">上报时间：{{ selectedBox.reportTime }}</span>
           </div>
@@ -197,7 +252,7 @@
               </button>
             </aside>
           </div>
-          <div v-if="!historyLoading && historyData && !historyData.track.length" class="history-empty">该时段没有有效位置快照</div>
+          <div v-if="!historyLoading && historyData && !historyData.track.length" class="history-empty">该时段没有有效位置数据</div>
         </section>
       </div>
     </div>
@@ -232,10 +287,11 @@
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
 import { useFullscreen } from '@vueuse/core'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { type AMapInfoWindow, type AMapInstance, type AMapMarker, type AMapMarkerCluster, type AMapMassMarks, loadAmapJsApi, loadAmapMarkerClusterer } from '@/utils/amap'
 import { daasAuth, collectorMapRequest, collectorVehicleRuntimeRequest, collectorVehicleTypesRequest, getHiddenBoxIds, saveSharedDaasToken } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
+import { type AiMapAction, type AiReply, queryBoxMapAssistantStream } from './box-map-ai'
 
 defineOptions({ name: 'SanitationBoxMap' })
 
@@ -291,6 +347,7 @@ interface HistoryTrackPoint { time: string, longitude: number, latitude: number,
 interface HistoryPointVisit { pointId: number, pointName: string, townshipName: string, villageName: string, arrivalTime: string, departureTime: string, stayMinutes: number, snapshotCount: number }
 interface HistoryTrackResponse { track: HistoryTrackPoint[], pointVisits: HistoryPointVisit[], summary: { snapshotCount: number, uniquePointCount: number, visitCount: number } }
 interface CurrentResidence { boxId: number, pointId: number, pointName: string, townshipName: string, villageName: string, arrivalTime: string, lastSeenTime: string }
+interface AiRequestContext { boxes: import('./box-map-ai').AiBoxSnapshot[], selectedBoxNo?: string }
 type VehicleType = '小勾臂车' | '大勾臂车' | '小三轮'
 interface VehicleRuntime {
   id: number
@@ -360,6 +417,15 @@ const cloudLoading = ref(false)
 const vehicleLoading = ref(false)
 const importVisible = ref(false)
 const importText = ref('')
+const aiVisible = ref(false)
+const aiQuestion = ref('')
+const aiLoading = ref(false)
+let activeAiRequest: AbortController | undefined
+const aiMessagesRef = ref<HTMLElement>()
+const aiShortcuts = ['哪些箱体需要优先清运？', '哪个乡镇风险最高？', '上海今天天气如何？']
+const aiMessages = ref<Array<{ id: number, role: 'user' | 'assistant', content: string, loading?: boolean, progress?: string, reply?: AiReply }>>([
+  { id: 1, role: 'assistant', content: '我是 AI 调度助手。可分析箱体调度，也可回答通用问题；实时公开信息会附上来源。' },
+])
 const tokenModalVisible = ref(false)
 const tokenInput = ref(daasAuth.token)
 const refreshSettingsVisible = ref(false)
@@ -488,7 +554,7 @@ const villageOptions = computed(() => {
   return Array.from(s).sort()
 })
 /** 村庄 chips 折叠：默认只显示前 N 个（约两行），点击「更多」展开 */
-const VILLAGE_COLLAPSED = 24
+const VILLAGE_COLLAPSED = 12
 const villageCollapsed = ref(true)
 const visibleVillageOptions = computed(() => {
   const list = villageCollapsed.value ? villageOptions.value.slice(0, VILLAGE_COLLAPSED) : villageOptions.value
@@ -501,6 +567,82 @@ const visibleVillageOptions = computed(() => {
 function selectTownship(val: string) {
   townshipFilter.value = val
   villageFilter.value = ''
+}
+
+function isPriorityCleanupQuestion(question: string) {
+  return /优先.*清运|优先清运|哪些箱体/.test(question.replace(/\s/g, ''))
+}
+async function aiContext(): Promise<AiRequestContext> {
+  const snapshots = visibleBoxes.value.map((box) => {
+    const area = boxAreas.get(box.id)
+    return { id: box.id, containerNo: box.containerNo, containerName: box.containerName, fillLevel: box.fillLevel, overflowStatus: box.overflowStatus, onlineStatus: box.onlineStatus, township: area?.township || '', village: area?.village || '', reportTime: box.reportTime }
+  })
+  return {
+    selectedBoxNo: selectedBox.value?.containerNo,
+    boxes: snapshots,
+  }
+}
+function chartWidth(value: number, values: number[]) {
+  const maximum = Math.max(...values, 1)
+  return Math.max(8, Math.round(value / maximum * 100))
+}
+function formatPriorityScore(value: number) {
+  return String(Math.round(Number(value || 0)))
+}
+async function askAi(question: string) {
+  const text = question.trim()
+  if (!text || aiLoading.value) return
+  aiQuestion.value = ''
+  aiMessages.value.push({ id: Date.now(), role: 'user', content: text })
+  // 必须是 reactive：流式事件到来时才能立即刷新同一个气泡，而非停留在 loading 状态。
+  const pending = reactive({ id: Date.now() + 1, role: 'assistant' as const, content: '', loading: true, progress: '' })
+  aiMessages.value.push(pending)
+  aiLoading.value = true
+  const request = new AbortController()
+  activeAiRequest = request
+  await nextTick()
+  aiMessagesRef.value?.scrollTo({ top: aiMessagesRef.value.scrollHeight, behavior: 'smooth' })
+  try {
+    const priorityQuestion = isPriorityCleanupQuestion(text)
+    Object.assign(pending, { loading: false, progress: priorityQuestion ? '正在读取优先清运排名与三个评分因子…' : '正在整理当前箱体地图数据…' })
+    const context = await aiContext()
+    const aiContextForRequest = priorityQuestion ? { ...context, boxes: context.boxes.filter((box) => box.overflowStatus === 1 || box.fillLevel >= 70).slice(0, 10) } : context
+    const reply = await queryBoxMapAssistantStream(text, aiContextForRequest, {
+      onProgress: (progress) => { pending.progress = progress },
+      onAnswerDelta: (delta) => { pending.progress = '正在流式生成回答…'; pending.content += delta },
+    }, request.signal)
+    if (priorityQuestion && !reply.priorityRankingAvailable) {
+      reply.answer = '综合评分数据暂不可用，当前不能按填充率替代排名。请确认后端评分服务已部署后重试。'
+      reply.evidence = []
+      reply.chart = undefined
+    }
+    Object.assign(pending, { loading: false, progress: '', content: '', reply })
+  } catch (error) {
+    if (request.signal.aborted) {
+      Object.assign(pending, { loading: false, progress: pending.content ? '已停止生成，已保留当前内容。' : '已停止生成。' })
+    } else {
+      const message = error instanceof Error ? error.message : '生成失败，请重试。'
+      Object.assign(pending, { loading: false, progress: message })
+    }
+  } finally {
+    if (activeAiRequest === request) {
+      activeAiRequest = undefined
+      aiLoading.value = false
+    }
+    await nextTick()
+    aiMessagesRef.value?.scrollTo({ top: aiMessagesRef.value.scrollHeight, behavior: 'smooth' })
+  }
+}
+function stopAiResponse() {
+  activeAiRequest?.abort()
+}
+function applyAiActions(actions: AiMapAction[]) {
+  const focus = actions.find((action) => action.type === 'focusBox' && action.boxNo)
+  if (actions.some((action) => action.type === 'showOverflow')) overflowOnly.value = true
+  if (focus?.boxNo) {
+    const box = boxes.value.find((item) => item.containerNo === focus.boxNo)
+    if (box) selectBox(box)
+  }
 }
 
 /** 「未匹配」箱体数量：乡镇=无乡镇归属；村庄=无村庄归属（跟随乡镇筛选级联，同 villageOptions） */
@@ -1120,7 +1262,7 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window
 .map-fullscreen-btn { height: 32px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; }.map-fullscreen-btn.active { color: #165dff; border-color: #165dff; }
 .map-stat { min-width: 82px; padding: 7px 8px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); color: #4e5969; font-size: 12px; white-space: nowrap; }
 .map-stat b { display: block; color: #165dff; font-size: 20px; line-height: 25px; }.map-stat.danger b { color: #f53f3f; }.map-stat.warning b { color: #ff7d00; }
-.vehicle-legend { position: absolute; z-index: 1; bottom: 16px; left: 16px; min-width: 152px; padding: 10px 12px; border-radius: 4px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); }.vehicle-legend-title { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 6px; color: #1d2129; font-size: 13px; font-weight: 600; }.vehicle-legend-title small { color: #86909c; font-size: 11px; font-weight: 400; }.vehicle-legend :deep(.arco-checkbox-group) { gap: 5px; }.vehicle-legend :deep(.arco-checkbox) { margin: 0; color: #4e5969; font-size: 12px; }.vehicle-legend-dot { width: 8px; height: 8px; display: inline-block; margin-right: 5px; border-radius: 50%; background: #165dff; }.vehicle-legend-dot.large { background: #722ed1; }.vehicle-legend-dot.tricycle { background: #00b42a; }
+.vehicle-legend { position: absolute; z-index: 1; bottom: 16px; left: 50%; display: flex; align-items: center; max-width: calc(100% - 48px); padding: 8px 12px; overflow-x: auto; border-radius: 6px; background: rgb(255 255 255 / 94%); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); transform: translateX(-50%); }.vehicle-legend :deep(.arco-checkbox-group) { display: flex; flex: 0 0 auto; gap: 12px; }.vehicle-legend :deep(.arco-checkbox) { margin: 0; color: #4e5969; font-size: 12px; white-space: nowrap; }.vehicle-legend-dot { width: 8px; height: 8px; display: inline-block; margin-right: 5px; border-radius: 50%; background: #165dff; }.vehicle-legend-dot.large { background: #722ed1; }.vehicle-legend-dot.tricycle { background: #00b42a; }
 .map-error { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px; color: #f53f3f; background: #f7f8fa; }
 .detail-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }.box-no, .section-label { color: #86909c; font-size: 12px; }.history-track-btn { margin-left: auto; }.report-time { flex-basis: 100%; overflow: hidden; color: #86909c; font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }
 .detail-card :deep(.arco-card-header) { align-items: center; }.detail-close-btn { color: #86909c; }.detail-close-btn:hover { color: #1d2129; }
@@ -1128,8 +1270,15 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window
 .location-summary { display: grid; gap: 5px; padding: 16px 0 12px; }.location-summary b { color: #1d2129; font-size: 14px; }.matched-point { color: #4e5969; font-size: 13px; }.vehicle-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 0 16px; }.vehicle-summary .section-label { flex-basis: 100%; }.transport-task-summary { margin-bottom: 16px; padding: 10px; border: 1px solid #bedaff; border-radius: 6px; background: #f2f7ff; }.transport-task-title { display: flex; align-items: center; gap: 6px; margin-bottom: 9px; color: #165dff; font-size: 13px; font-weight: 600; }.transport-task-icon { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: #165dff; color: #fff; font-size: 11px; }.transport-task-grid { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 6px 8px; font-size: 12px; }.transport-task-grid span { color: #86909c; }.transport-task-grid b { overflow: hidden; color: #4e5969; font-weight: 500; white-space: nowrap; text-overflow: ellipsis; }.more-details { border-top: 1px solid #f2f3f5; }.more-details summary { padding: 12px 0; color: #4e5969; font-size: 13px; cursor: pointer; }.detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }.detail-grid-item { display: grid; gap: 3px; min-width: 0; }.detail-grid-item.full { grid-column: 1 / -1; }.detail-grid-item span { color: #86909c; font-size: 12px; white-space: nowrap; }.detail-grid-item b { overflow: hidden; color: #4e5969; font-size: 13px; font-weight: 500; white-space: nowrap; text-overflow: ellipsis; }.coordinate-block { display: grid; gap: 5px; margin: 12px 0; }.coordinate-block span { color: #86909c; font-size: 12px; }.coordinate-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }.coordinate-title :deep(.arco-btn) { flex-shrink: 0; }.coordinate-block code { margin-bottom: 4px; padding: 6px; overflow-wrap: anywhere; border-radius: 3px; background: #f7f8fa; color: #4e5969; font-size: 11px; }.matched-block { display: grid; gap: 6px; padding-top: 4px; }.matched-item { display: grid; gap: 2px; padding: 8px 0; border-bottom: 1px solid #f2f3f5; }.matched-item b { color: #4e5969; font-size: 13px; }.matched-item span { color: #86909c; font-size: 11px; }
 .modal-tip { margin-top: 0; color: #4e5969; }.modal-tip code { padding: 1px 4px; background: #f2f3f5; }
 .residence-summary { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 4px; padding: 8px 10px; border-radius: 4px; background: #f2f7ff; }.residence-summary span { color: #4e5969; font-size: 12px; }.location-summary .residence-summary b { color: #165dff; font-size: 13px; }
+.ai-progress { color: #86909c; font-size: 12px; }
 .token-expired-banner { display: flex; align-items: center; gap: 6px; padding: 9px 14px; border: 1px solid #fbaca3; border-radius: 4px; background: #ffece8; color: #f53f3f; font-size: 13px; }
 .token-reset-link { color: #165dff; cursor: pointer; text-decoration: underline; }
+/* 左侧导航展开宽度为 230px；助手固定在内容区左下，给右侧箱体详情留出完整空间。 */
+.ai-assistant { position: fixed; bottom: 24px; left: 254px; z-index: 1002; display: flex; width: 368px; max-width: calc(100vw - 286px); height: min(610px, calc(100vh - 48px)); flex-direction: column; overflow: hidden; border: 1px solid #e5e6eb; border-radius: 0; background: #fff; box-shadow: 0 18px 52px rgb(29 33 41 / 24%); }
+.ai-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 14px 12px 16px; border-bottom: 1px solid #f2f3f5; }.ai-header > div { display: flex; align-items: center; gap: 9px; }.ai-header b { display: block; color: #1d2129; font-size: 14px; }.ai-header small { display: block; margin-top: 2px; color: #86909c; font-size: 11px; }.ai-avatar, .ai-mini-avatar { display: inline-flex; align-items: center; justify-content: center; color: #fff; border-radius: 8px; background: linear-gradient(135deg, #165dff, #722ed1); }.ai-avatar { width: 30px; height: 30px; font-size: 17px; }.ai-mini-avatar { width: 24px; height: 24px; flex: 0 0 auto; border-radius: 7px; font-size: 14px; }
+.ai-shortcuts { display: flex; gap: 6px; padding: 10px 14px; overflow-x: auto; border-bottom: 1px solid #f2f3f5; background: #fafcff; }.ai-shortcuts button { flex: 0 0 auto; padding: 4px 8px; border: 1px solid #bedaff; border-radius: 12px; background: #fff; color: #165dff; font-size: 11px; cursor: pointer; }.ai-shortcuts button:hover { background: #e8f3ff; }
+.ai-messages { flex: 1; min-height: 0; padding: 14px; overflow-y: auto; background: #f7f8fa; }.ai-message { display: flex; gap: 7px; margin-bottom: 12px; }.ai-message.user { justify-content: flex-end; }.ai-bubble { max-width: calc(100% - 31px); padding: 9px 11px; border-radius: 9px; background: #fff; color: #4e5969; box-shadow: 0 1px 2px rgb(29 33 41 / 6%); font-size: 13px; line-height: 20px; }.ai-message.user .ai-bubble { max-width: 82%; background: #165dff; color: #fff; }.ai-bubble p { margin: 0; white-space: pre-wrap; }.ai-priority-ranking { display: grid; gap: 8px; margin-top: 10px; }.ai-priority-ranking > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-left: 3px solid #165dff; background: #f2f7ff; }.ai-priority-ranking > header div { display: grid; gap: 1px; }.ai-priority-ranking > header b { color: #1d2129; font-size: 12px; }.ai-priority-ranking > header span { color: #4e5969; font-size: 10px; line-height: 15px; }.ai-priority-ranking > header > em { flex: 0 0 auto; color: #86909c; font-size: 9px; font-style: normal; }.ai-priority-item { padding: 10px; border: 1px solid #d9e8ff; border-radius: 4px; background: #fff; box-shadow: 0 1px 2px rgb(22 93 255 / 4%); }.ai-priority-title { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 8px; }.ai-priority-rank { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 4px; background: #e8f3ff; color: #165dff; font-size: 11px; font-weight: 700; }.ai-priority-title > div { display: grid; min-width: 0; gap: 1px; }.ai-priority-title > div b { overflow: hidden; color: #1d2129; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }.ai-priority-title > div small { overflow: hidden; color: #86909c; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }.ai-priority-title strong { position: relative; display: flex; align-items: baseline; justify-content: flex-end; gap: 1px; padding-top: 10px; color: #165dff; font-size: 22px; line-height: 23px; text-align: right; }.ai-priority-title strong small { position: absolute; top: 0; right: 0; color: #86909c; font-size: 9px; font-weight: 500; line-height: 10px; white-space: nowrap; }.ai-priority-title strong em { color: #165dff; font-size: 10px; font-style: normal; }.ai-priority-factors { display: grid; gap: 0; margin-top: 10px; border-top: 1px solid #f2f3f5; }.ai-priority-factors span { display: grid; grid-template-columns: minmax(104px, 1fr) auto 62px; align-items: center; gap: 6px; min-width: 0; padding: 7px 0; border-bottom: 1px solid #f2f3f5; }.ai-priority-factors span:last-child { border-bottom: 0; padding-bottom: 0; }.ai-priority-factors i { display: flex; min-width: 0; align-items: baseline; gap: 4px; color: #4e5969; font-size: 11px; font-style: normal; white-space: nowrap; }.ai-priority-factors i small { color: #86909c; font-size: 9px; }.ai-priority-factors b { overflow: hidden; color: #1d2129; font-size: 12px; font-weight: 600; text-align: right; text-overflow: ellipsis; white-space: nowrap; }.ai-priority-factors em { overflow: hidden; color: #165dff; font-size: 10px; font-style: normal; text-align: right; text-overflow: ellipsis; white-space: nowrap; }.ai-evidence { display: grid; gap: 3px; margin: 8px 0 0; padding: 7px 0 0 16px; border-top: 1px solid #f2f3f5; color: #86909c; font-size: 11px; line-height: 17px; }.ai-sources { display: grid; gap: 3px; margin: 8px 0 0; padding: 7px 0 0 16px; border-top: 1px solid #f2f3f5; font-size: 11px; line-height: 17px; }.ai-sources a { color: #165dff; text-decoration: none; }.ai-sources a:hover { text-decoration: underline; }.ai-chart { margin-top: 9px; padding: 9px; border-radius: 6px; background: #f7f8fa; }.ai-chart-title { margin-bottom: 7px; color: #4e5969; font-size: 11px; font-weight: 600; }.ai-chart-row { display: grid; grid-template-columns: 60px minmax(0, 1fr) 18px; align-items: center; gap: 6px; margin-top: 5px; font-size: 10px; }.ai-chart-row > span { overflow: hidden; color: #86909c; text-overflow: ellipsis; white-space: nowrap; }.ai-chart-row i { height: 7px; overflow: hidden; border-radius: 4px; background: #e5e6eb; }.ai-chart-row b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #165dff, #4080ff); }.ai-chart-row em { color: #4e5969; font-style: normal; text-align: right; }.ai-message-footer { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 8px; color: #86909c; font-size: 10px; }.ai-message-footer :deep(.arco-btn) { height: 20px; padding: 0 3px; font-size: 11px; }
+.ai-input { padding: 10px 12px; border-top: 1px solid #e5e6eb; background: #fff; }.ai-textarea-wrap { position: relative; }.ai-input :deep(.arco-textarea-wrapper) { border-radius: 7px; }.ai-input :deep(textarea) { padding-right: 42px; font-size: 13px; }.ai-send-btn { position: absolute; right: 7px; bottom: 7px; z-index: 1; width: 26px; height: 26px; padding: 0; }.ai-send-btn :deep(.arco-icon) { font-size: 15px; }.ai-stop-icon { display: block; width: 10px; height: 10px; border-radius: 1px; background: currentcolor; }
 :global(.box-map-marker) { position: relative; min-width: 36px; height: 26px; padding: 0 8px; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; border-radius: 4px; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 12px; font-weight: 600; }
 :global(.box-map-marker::after) { content: ''; position: absolute; bottom: -6px; left: 50%; width: 10px; height: 10px; border-right: 1px solid #fff; border-bottom: 1px solid #fff; background: inherit; transform: translateX(-50%) rotate(45deg); }.box-map-page :global(.box-map-marker.transporting::before) { content: '运'; position: absolute; top: -9px; right: -9px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; border-radius: 50%; background: #165dff; box-shadow: 0 1px 4px rgb(29 33 41 / 25%); color: #fff; font-size: 10px; font-weight: 700; }.box-map-page :global(.box-map-marker.warning) { background: #ff7d00; }.box-map-page :global(.box-map-marker.overflow) { background: #f53f3f; }.box-map-page :global(.box-map-marker.matched) { box-shadow: 0 0 0 3px #00b42a, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.1); z-index: 1; }.box-map-page :global(.box-map-marker.selected) { border: 2px solid #fff; box-shadow: 0 0 0 3px #165dff, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.15); opacity: 1; z-index: 2; }
 :global(.vehicle-map-marker) { display: flex; align-items: center; gap: 4px; min-height: 22px; padding: 2px 6px; border: 1px solid #fff; border-radius: 11px; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; }.box-map-page :global(.vehicle-map-marker i) { width: 8px; height: 8px; display: block; border: 1px solid rgb(255 255 255 / 80%); border-radius: 2px; background: currentcolor; transform: skewX(-20deg); }.box-map-page :global(.vehicle-map-marker.large) { background: #722ed1; }.box-map-page :global(.vehicle-map-marker.tricycle) { background: #00b42a; }.box-map-page :global(.vehicle-map-marker.compact) { box-sizing: border-box; width: 36px; height: 36px; min-height: 36px; justify-content: center; padding: 4px; border: 2px solid #fff; border-radius: 50%; cursor: pointer; }.box-map-page :global(.vehicle-map-marker.compact svg) { flex: none; }.box-map-page :global(.vehicle-cluster-marker) { display: flex; align-items: center; justify-content: center; min-width: 32px; height: 32px; padding: 0 6px; border: 2px solid #fff; border-radius: 50%; background: #00b42a; box-shadow: 0 2px 8px rgb(0 180 42 / 36%); color: #fff; font-size: 12px; font-weight: 700; }.box-map-page :global(.vehicle-map-info) { display: grid; gap: 5px; min-width: 220px; padding: 2px; color: #4e5969; font-size: 12px; }.box-map-page :global(.vehicle-map-info b) { color: #1d2129; font-size: 14px; }.box-map-page :global(.vehicle-status) { width: fit-content; padding: 1px 6px; border-radius: 3px; font-size: 11px; line-height: 18px; }.box-map-page :global(.vehicle-status.online) { background: #e8ffea; color: #00a870; }.box-map-page :global(.vehicle-status.offline) { background: #f2f3f5; color: #86909c; }.box-map-page :global(.vehicle-status.charging) { background: #fff7e8; color: #ff7d00; }.box-map-page :global(.vehicle-location) { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 4px; color: #86909c; font-size: 11px; line-height: 17px; }.box-map-page :global(.vehicle-location em) { color: #4e5969; font-style: normal; }.box-map-page :global(.vehicle-location span) { overflow-wrap: anywhere; }
@@ -1140,5 +1289,7 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window
 :global(.history-track-pin) { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; color: #fff; font-size: 13px; font-weight: 700; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 2px 8px rgb(0 0 0 / 36%), 0 0 0 1px rgb(22 93 255 / 35%); }.history-track-pin.start { background: #00b42a; }.history-track-pin.end { background: #f53f3f; }.history-track-pin.visit { background: #165dff; }
 :global(.history-track-pin.start) { background: #00b42a; }:global(.history-track-pin.end) { background: #f53f3f; }:global(.history-track-pin.visit) { background: #165dff; }
 @media (max-width: 960px) { .detail-card { top: auto; right: 10px; bottom: 10px; left: 10px; width: auto; max-height: 58%; }.page-header { align-items: flex-start; gap: 12px; flex-direction: column; } }
+@media (max-width: 960px) { .ai-assistant { right: auto; bottom: 10px; left: 10px; max-width: calc(100vw - 20px); height: min(600px, calc(100vh - 20px)); } }
+@media (max-width: 480px) { .ai-shortcuts { padding-right: 10px; padding-left: 10px; } }
 @media (max-width: 720px) { .history-overlay { inset: 10px; padding: 12px; }.history-layout { grid-template-columns: 1fr; grid-template-rows: minmax(300px, 1fr) 190px; }.history-visits { border-top: 1px solid #e5e6eb; border-left: 0; }.history-toolbar { align-items: flex-start; flex-direction: column; } }
 </style>

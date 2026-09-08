@@ -1,5 +1,5 @@
 <template>
-  <div ref="pageFullscreenRef" class="gi_page box-map-page">
+  <div ref="pageFullscreenRef" class="gi_page box-map-page" :class="{ 'ai-open': aiVisible }" :style="aiOverlayStyle">
     <div class="page-header">
       <div>
         <div class="page-title">箱体地图</div>
@@ -21,10 +21,6 @@
         <a-dropdown position="br">
           <a-button>更多<icon-down /></a-button>
           <template #content>
-            <a-doption @click="aiVisible = true">
-              <template #icon><icon-robot /></template>
-              AI 助手
-            </a-doption>
             <a-doption @click="openLogin()">登录</a-doption>
             <a-doption @click="openTokenModal">Token</a-doption>
             <a-doption @click="openRefreshSettings">刷新设置</a-doption>
@@ -35,10 +31,22 @@
       </a-space>
     </div>
 
+    <a-tooltip v-if="!aiVisible" content="打开 AI 调度助手" position="right">
+      <a-button class="ai-floating-trigger" type="primary" shape="circle" aria-label="打开 AI 调度助手" @click="openAiAssistant">
+        <template #icon><icon-robot /></template>
+      </a-button>
+    </a-tooltip>
     <section v-if="aiVisible" class="ai-assistant" aria-label="AI 调度助手">
       <header class="ai-header">
         <div><span class="ai-avatar"><icon-robot /></span><span><b>AI 调度助手</b></span></div>
-        <a-button type="text" size="mini" aria-label="关闭 AI 助手" @click="aiVisible = false"><template #icon><icon-close /></template></a-button>
+        <a-space :size="2">
+          <a-tooltip content="清空当前会话">
+            <a-button type="text" size="mini" aria-label="清空当前会话" @click="clearAiConversation"><template #icon><icon-delete /></template></a-button>
+          </a-tooltip>
+          <a-tooltip content="关闭 AI 助手">
+            <a-button type="text" size="mini" aria-label="关闭 AI 助手" @click="aiVisible = false"><template #icon><icon-close /></template></a-button>
+          </a-tooltip>
+        </a-space>
       </header>
       <div class="ai-shortcuts">
         <button v-for="item in aiShortcuts" :key="item" type="button" @click="askAi(item)">{{ item }}</button>
@@ -53,25 +61,50 @@
                 <p v-if="message.progress" class="ai-progress">{{ message.progress }}</p>
                 <p v-if="message.reply?.answer || message.content">{{ message.reply?.answer || message.content }}</p>
                 <section v-if="message.reply?.priorityRanking?.length" class="ai-priority-ranking">
-                  <header><div><b>优先清运排名</b><span>综合评分 = 满溢率 + 停留时长 + 满溢时长</span></div><em>满分 100</em></header>
-                  <article v-for="(item, index) in message.reply.priorityRanking" :key="item.boxNo" class="ai-priority-item">
-                    <div class="ai-priority-title"><span class="ai-priority-rank">#{{ index + 1 }}</span><div><b>{{ item.boxNo }} 号箱</b><small>{{ [item.townshipName, item.villageName, item.pointName].filter(Boolean).join(' · ') || '未匹配收集点' }}</small></div><strong><small>综合评分</small>{{ formatPriorityScore(item.priorityScore) }}<em>分</em></strong></div>
-                    <div class="ai-priority-factors">
-                      <span><i>满溢率 <small>权重 80%</small></i><b>{{ Math.round(item.fillLevel) }}%</b><em>{{ formatPriorityScore(item.fillScore) }} / 80 分</em></span>
-                      <span><i>停留时长 <small>权重 10%</small></i><b>{{ formatStayDuration(item.residenceMinutes) }}</b><em>{{ formatPriorityScore(item.residenceScore) }} / 10 分</em></span>
-                      <span><i>满溢时长 <small>满溢状态，权重 10%</small></i><b>{{ item.overflowDurationMinutes === null ? '待确认' : formatStayDuration(item.overflowDurationMinutes) }}</b><em>{{ item.overflowDurationMinutes === null ? '暂不计分' : `${formatPriorityScore(item.overflowDurationScore)} / 10 分` }}</em></span>
+                  <header><div><b>{{ message.reply.visualization?.title || '优先清运排名' }}</b><span>由满溢率、满溢时长、停留时长三项综合评分得出</span></div><em>满分 100</em></header>
+                  <div v-if="message.reply.visualization?.type !== 'bar'" class="ai-priority-table-wrap">
+                    <table class="ai-priority-table">
+                      <thead><tr><th>排名</th><th>箱体</th><th>收集点</th><th>综合评分</th></tr></thead>
+                      <tbody>
+                        <tr v-for="(item, index) in message.reply.priorityRanking" :key="item.boxNo">
+                          <td><span class="ai-priority-rank">{{ index + 1 }}</span></td>
+                          <td><b>{{ item.boxNo }} 号箱</b></td>
+                          <td :title="[item.townshipName, item.villageName, item.pointName].filter(Boolean).join(' · ')">{{ [item.townshipName, item.villageName, item.pointName].filter(Boolean).join(' · ') || '未匹配收集点' }}</td>
+                          <td><strong>{{ formatPriorityScore(item.priorityScore) }}<em>分</em></strong></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div v-else class="ai-priority-bar-chart">
+                    <div v-for="item in message.reply.priorityRanking" :key="item.boxNo" class="ai-priority-bar-row">
+                      <span>{{ item.boxNo }}号</span><i><b :style="{ width: `${Math.max(0, Math.min(100, Number(item.priorityScore) || 0))}%` }"></b></i><em>{{ formatPriorityScore(item.priorityScore) }}</em>
                     </div>
-                  </article>
+                  </div>
+                </section>
+                <section v-if="message.reply?.transportMetrics" class="ai-transport-visualization">
+                  <header><b>{{ message.reply.visualization?.title || '运单指标' }}</b><span>{{ message.reply.transportMetrics.startDate }} ～ {{ message.reply.transportMetrics.endDate }}</span></header>
+                  <div v-if="message.reply.visualization?.type === 'metric'" class="ai-transport-metrics">
+                    <span><small>运单数量</small><b>{{ message.reply.transportMetrics.taskCount }}<em>单</em></b></span>
+                    <span><small>收运量</small><b>{{ formatTransportValue(message.reply.transportMetrics.garbageWeightTon, 'garbageWeightTon') }}<em>吨</em></b></span>
+                  </div>
+                  <div v-else-if="message.reply.visualization?.type === 'table'" class="ai-transport-table-wrap">
+                    <table class="ai-transport-table"><thead><tr><th>{{ transportDimensionLabel(message.reply.transportMetrics.groupBy) }}</th><th>运单数量</th><th>收运量</th></tr></thead><tbody>
+                      <tr v-for="item in message.reply.transportMetrics.rows" :key="item.dimension"><td>{{ item.dimension }}</td><td>{{ item.taskCount }} 单</td><td>{{ formatTransportValue(item.garbageWeightTon, 'garbageWeightTon') }} 吨</td></tr>
+                    </tbody></table>
+                  </div>
+                  <div v-else-if="message.reply.visualization?.type === 'line'" class="ai-transport-line-chart">
+                    <svg viewBox="0 0 300 96" preserveAspectRatio="none" role="img" :aria-label="message.reply.visualization.title"><polyline :points="transportLinePoints(message.reply.transportMetrics.rows, message.reply.visualization.valueField)" /></svg>
+                    <div class="ai-transport-line-labels"><span>{{ message.reply.transportMetrics.rows[0]?.dimension }}</span><span>{{ message.reply.transportMetrics.rows[message.reply.transportMetrics.rows.length - 1]?.dimension }}</span></div>
+                  </div>
+                  <div v-else class="ai-transport-bars">
+                    <div v-for="item in message.reply.transportMetrics.rows" :key="item.dimension" class="ai-transport-bar-row"><span>{{ item.dimension }}</span><i><b :style="{ width: `${transportBarWidth(item, message.reply.transportMetrics.rows, message.reply.visualization?.valueField)}%` }"></b></i><em>{{ formatTransportValue(transportMetricValue(item, message.reply.visualization?.valueField), message.reply.visualization?.valueField) }}</em></div>
+                  </div>
                 </section>
                 <ul v-if="message.reply?.evidence?.length" class="ai-evidence"><li v-for="item in message.reply.evidence" :key="item">{{ item }}</li></ul>
                 <ul v-if="message.reply?.sources?.length" class="ai-sources">
                   <li v-for="item in message.reply.sources" :key="item.url"><a :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title || item.url }}</a></li>
                 </ul>
-                <div v-if="message.reply?.chart" class="ai-chart">
-                  <div class="ai-chart-title">{{ message.reply.chart.title }}</div>
-                  <div v-for="(label, index) in message.reply.chart.labels" :key="label" class="ai-chart-row"><span>{{ label }}</span><i><b :style="{ width: `${chartWidth(message.reply.chart.values[index], message.reply.chart.values)}%` }"></b></i><em>{{ message.reply.chart.values[index] }}</em></div>
-                </div>
-                <div v-if="message.reply" class="ai-message-footer"><span>{{ message.reply.source === 'ai' ? 'AI' : '本地演示' }} · {{ message.reply.dataUpdatedAt }}</span><a-button v-if="message.reply.mapActions?.length" size="mini" type="text" @click="applyAiActions(message.reply.mapActions)">在地图查看</a-button></div>
+                <div v-if="message.reply" class="ai-message-footer"><span>{{ message.reply.source === 'ai' ? 'AI' : '本地演示' }} · {{ message.reply.dataUpdatedAt }}<template v-if="message.reply.totalDurationMs !== undefined"> · 查询 {{ message.reply.queryDurationMs || 0 }} ms · AI {{ message.reply.aiDurationMs || 0 }} ms · 总计 {{ message.reply.totalDurationMs }} ms</template></span><a-button v-if="message.reply.mapActions?.length" size="mini" type="text" @click="applyAiActions(message.reply.mapActions)">在地图查看</a-button></div>
               </template>
             </div>
           </div>
@@ -79,7 +112,7 @@
       </div>
       <form class="ai-input" @submit.prevent="askAi(aiQuestion)">
         <div class="ai-textarea-wrap">
-          <a-textarea v-model="aiQuestion" :auto-size="{ minRows: 1, maxRows: 3 }" placeholder="例如：哪些箱体需要优先清运？" @press-enter="askAi(aiQuestion)" />
+          <a-textarea v-model="aiQuestion" :auto-size="{ minRows: 1, maxRows: 3 }" placeholder="例如：哪些箱体需要优先清运？" @keydown.enter.exact="submitAiOnEnter" />
           <a-button class="ai-send-btn" type="primary" shape="circle" :html-type="aiLoading ? 'button' : 'submit'" :disabled="!aiLoading && !aiQuestion.trim()" :aria-label="aiLoading ? '停止生成' : '发送提问'" @click="aiLoading && stopAiResponse()">
             <template #icon><i v-if="aiLoading" class="ai-stop-icon" aria-hidden="true"></i><icon-arrow-up v-else /></template>
           </a-button>
@@ -289,10 +322,12 @@
 import { Message } from '@arco-design/web-vue'
 import { useFullscreen } from '@vueuse/core'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useDevice } from '@/hooks'
+import { useAppStore } from '@/stores'
 import { type AMapInfoWindow, type AMapInstance, type AMapMarker, type AMapMarkerCluster, type AMapMassMarks, loadAmapJsApi, loadAmapMarkerClusterer } from '@/utils/amap'
 import { daasAuth, collectorMapRequest, collectorVehicleRuntimeRequest, collectorVehicleTypesRequest, getHiddenBoxIds, saveSharedDaasToken } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
-import { type AiMapAction, type AiReply, queryBoxMapAssistantStream, queryPriorityCleanup } from './box-map-ai'
+import { type AiMapAction, type AiReply, type AiTransportMetricRow, queryBoxMapAssistantStream } from './box-map-ai'
 
 defineOptions({ name: 'SanitationBoxMap' })
 
@@ -396,6 +431,8 @@ const initialBoxes: Box[] = [
 const mapRef = ref<HTMLDivElement>()
 const pageFullscreenRef = ref<HTMLElement | null>(null)
 const mapFullscreenRef = ref<HTMLElement | null>(null)
+const appStore = useAppStore()
+const { isDesktop } = useDevice()
 const { isFullscreen: isPageFullscreen, toggle: togglePageFullscreen } = useFullscreen(pageFullscreenRef, {
   onFullscreenChange: () => { nextTick(() => map?.resize()) },
 })
@@ -403,6 +440,10 @@ const { isFullscreen: isMapFullscreen, toggle: toggleMapFullscreen } = useFullsc
   // 进入/退出全屏后地图容器尺寸变化，通知高德地图重算视口
   onFullscreenChange: () => { nextTick(() => map?.resize()) },
 })
+/** 侧栏展开 230px、折叠 48px；全屏/移动端没有侧栏，助手贴内容区边缘。 */
+const aiOverlayStyle = computed(() => ({
+  '--ai-left': `${isPageFullscreen.value || !isDesktop.value ? 10 : appStore.menuCollapse ? 72 : 254}px`,
+}))
 const keyword = ref('')
 const overflowOnly = ref(false)
 const transportingOnly = ref(false)
@@ -424,10 +465,12 @@ const aiQuestion = ref('')
 const aiLoading = ref(false)
 let activeAiRequest: AbortController | undefined
 const aiMessagesRef = ref<HTMLElement>()
-const aiShortcuts = ['哪些箱体需要优先清运？', '哪个乡镇风险最高？', '上海今天天气如何？']
-const aiMessages = ref<Array<{ id: number, role: 'user' | 'assistant', content: string, loading?: boolean, progress?: string, reply?: AiReply }>>([
-  { id: 1, role: 'assistant', content: '我是 AI 调度助手。可分析箱体调度，也可回答通用问题；实时公开信息会附上来源。' },
-])
+const aiShortcuts = ['哪些箱体需要优先清运？', '今天收运了多少垃圾？', '近 7 天运单情况', '哪个乡镇清运压力最大？']
+type AiMessage = { id: number, role: 'user' | 'assistant', content: string, loading?: boolean, progress?: string, reply?: AiReply }
+function initialAiMessages(): AiMessage[] {
+  return [{ id: Date.now(), role: 'assistant', content: '我是 AI 调度助手。可分析箱体调度，也可回答通用问题；实时公开信息会附上来源。' }]
+}
+const aiMessages = ref<AiMessage[]>(initialAiMessages())
 const tokenModalVisible = ref(false)
 const tokenInput = ref(daasAuth.token)
 const refreshSettingsVisible = ref(false)
@@ -575,9 +618,6 @@ function selectTownship(val: string) {
   villageFilter.value = ''
 }
 
-function isPriorityCleanupQuestion(question: string) {
-  return /优先.*清运|优先清运|哪些箱体/.test(question.replace(/\s/g, ''))
-}
 async function aiContext(): Promise<AiRequestContext> {
   const snapshots = visibleBoxes.value.map((box) => {
     const area = boxAreas.get(box.id)
@@ -588,12 +628,47 @@ async function aiContext(): Promise<AiRequestContext> {
     boxes: snapshots,
   }
 }
-function chartWidth(value: number, values: number[]) {
-  const maximum = Math.max(...values, 1)
-  return Math.max(8, Math.round(value / maximum * 100))
-}
 function formatPriorityScore(value: number) {
   return String(Math.round(Number(value || 0)))
+}
+function transportDimensionLabel(groupBy: string) {
+  return ({ DAY: '日期', TOWNSHIP: '乡镇', VEHICLE: '车辆' } as Record<string, string>)[groupBy] || '指标'
+}
+function transportMetricValue(row: AiTransportMetricRow, field?: string) {
+  return Number(field === 'garbageWeightTon' ? row.garbageWeightTon : row.taskCount) || 0
+}
+function formatTransportValue(value: number, field?: string) {
+  const numeric = Number(value) || 0
+  return field === 'garbageWeightTon' ? numeric.toFixed(2).replace(/\.00$/, '') : String(Math.round(numeric))
+}
+function transportBarWidth(row: AiTransportMetricRow, rows: AiTransportMetricRow[], field?: string) {
+  const maximum = Math.max(...rows.map((item) => transportMetricValue(item, field)), 1)
+  return Math.max(4, Math.round(transportMetricValue(row, field) / maximum * 100))
+}
+function transportLinePoints(rows: AiTransportMetricRow[], field?: string) {
+  if (!rows.length) return ''
+  if (rows.length === 1) return '0,48 300,48'
+  const values = rows.map((row) => transportMetricValue(row, field))
+  const maximum = Math.max(...values, 1)
+  return values.map((value, index) => `${index / (values.length - 1) * 300},${88 - value / maximum * 76}`).join(' ')
+}
+function submitAiOnEnter(event: KeyboardEvent) {
+  // 中文输入法确认候选词同样会触发 Enter，不能当作发送。
+  if (event.isComposing) return
+  event.preventDefault()
+  void askAi(aiQuestion.value)
+}
+function openAiAssistant() {
+  aiVisible.value = true
+  void nextTick(() => aiMessagesRef.value?.scrollTo({ top: aiMessagesRef.value.scrollHeight }))
+}
+function clearAiConversation() {
+  // 清空时同步中止未完成请求，避免旧响应在新会话中继续写入。
+  stopAiResponse()
+  activeAiRequest = undefined
+  aiLoading.value = false
+  aiQuestion.value = ''
+  aiMessages.value = initialAiMessages()
 }
 async function askAi(question: string) {
   const text = question.trim()
@@ -609,19 +684,11 @@ async function askAi(question: string) {
   await nextTick()
   aiMessagesRef.value?.scrollTo({ top: aiMessagesRef.value.scrollHeight, behavior: 'smooth' })
   try {
-    const priorityQuestion = isPriorityCleanupQuestion(text)
-    Object.assign(pending, { loading: false, progress: priorityQuestion ? '正在读取优先清运排名与三个评分因子…' : '正在整理当前箱体地图数据…' })
-    const reply = priorityQuestion
-      ? await queryPriorityCleanup(5, request.signal)
-      : await queryBoxMapAssistantStream(text, await aiContext(), {
+    Object.assign(pending, { loading: false, progress: '正在理解问题并选择数据工具…' })
+    const reply = await queryBoxMapAssistantStream(text, await aiContext(), {
         onProgress: (progress) => { pending.progress = progress },
         onAnswerDelta: (delta) => { pending.progress = '正在流式生成回答…'; pending.content += delta },
       }, request.signal)
-    if (priorityQuestion && !reply.priorityRankingAvailable) {
-      reply.answer = '综合评分数据暂不可用，当前不能按填充率替代排名。请确认后端评分服务已部署后重试。'
-      reply.evidence = []
-      reply.chart = undefined
-    }
     Object.assign(pending, { loading: false, progress: '', content: '', reply })
   } catch (error) {
     if (request.signal.aborted) {
@@ -1316,12 +1383,14 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window
 .ai-progress { color: #86909c; font-size: 12px; }
 .token-expired-banner { display: flex; align-items: center; gap: 6px; padding: 9px 14px; border: 1px solid #fbaca3; border-radius: 4px; background: #ffece8; color: #f53f3f; font-size: 13px; }
 .token-reset-link { color: #165dff; cursor: pointer; text-decoration: underline; }
-/* 左侧导航展开宽度为 230px；助手固定在内容区左下，给右侧箱体详情留出完整空间。 */
-.ai-assistant { position: fixed; bottom: 24px; left: 254px; z-index: 1002; display: flex; width: 368px; max-width: calc(100vw - 286px); height: min(610px, calc(100vh - 48px)); flex-direction: column; overflow: hidden; border: 1px solid #e5e6eb; border-radius: 0; background: #fff; box-shadow: 0 18px 52px rgb(29 33 41 / 24%); }
+/* 左侧导航展开宽度为 230px；助手与入口固定在内容区左下，给右侧箱体详情留出完整空间。 */
+.ai-floating-trigger { position: fixed; bottom: 24px; left: var(--ai-left); z-index: 1002; width: 44px; height: 44px; box-shadow: 0 8px 22px rgb(22 93 255 / 30%); }.ai-floating-trigger :deep(.arco-icon) { font-size: 21px; }
+.ai-assistant { position: fixed; bottom: 24px; left: var(--ai-left); z-index: 1002; display: flex; width: 368px; max-width: calc(100vw - var(--ai-left) - 24px); height: min(610px, calc(100vh - 48px)); flex-direction: column; overflow: hidden; border: 1px solid #e5e6eb; border-radius: 0; background: #fff; box-shadow: 0 18px 52px rgb(29 33 41 / 24%); }
 .ai-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 14px 12px 16px; border-bottom: 1px solid #f2f3f5; }.ai-header > div { display: flex; align-items: center; gap: 9px; }.ai-header b { display: block; color: #1d2129; font-size: 14px; }.ai-header small { display: block; margin-top: 2px; color: #86909c; font-size: 11px; }.ai-avatar, .ai-mini-avatar { display: inline-flex; align-items: center; justify-content: center; color: #fff; border-radius: 8px; background: linear-gradient(135deg, #165dff, #722ed1); }.ai-avatar { width: 30px; height: 30px; font-size: 17px; }.ai-mini-avatar { width: 24px; height: 24px; flex: 0 0 auto; border-radius: 7px; font-size: 14px; }
 .ai-shortcuts { display: flex; gap: 6px; padding: 10px 14px; overflow-x: auto; border-bottom: 1px solid #f2f3f5; background: #fafcff; }.ai-shortcuts button { flex: 0 0 auto; padding: 4px 8px; border: 1px solid #bedaff; border-radius: 12px; background: #fff; color: #165dff; font-size: 11px; cursor: pointer; }.ai-shortcuts button:hover { background: #e8f3ff; }
-.ai-messages { flex: 1; min-height: 0; padding: 14px; overflow-y: auto; background: #f7f8fa; }.ai-message { display: flex; gap: 7px; margin-bottom: 12px; }.ai-message.user { justify-content: flex-end; }.ai-bubble { max-width: calc(100% - 31px); padding: 9px 11px; border-radius: 9px; background: #fff; color: #4e5969; box-shadow: 0 1px 2px rgb(29 33 41 / 6%); font-size: 13px; line-height: 20px; }.ai-message.user .ai-bubble { max-width: 82%; background: #165dff; color: #fff; }.ai-bubble p { margin: 0; white-space: pre-wrap; }.ai-priority-ranking { display: grid; gap: 8px; margin-top: 10px; }.ai-priority-ranking > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-left: 3px solid #165dff; background: #f2f7ff; }.ai-priority-ranking > header div { display: grid; gap: 1px; }.ai-priority-ranking > header b { color: #1d2129; font-size: 12px; }.ai-priority-ranking > header span { color: #4e5969; font-size: 10px; line-height: 15px; }.ai-priority-ranking > header > em { flex: 0 0 auto; color: #86909c; font-size: 9px; font-style: normal; }.ai-priority-item { padding: 10px; border: 1px solid #d9e8ff; border-radius: 4px; background: #fff; box-shadow: 0 1px 2px rgb(22 93 255 / 4%); }.ai-priority-title { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; align-items: center; gap: 8px; }.ai-priority-rank { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 4px; background: #e8f3ff; color: #165dff; font-size: 11px; font-weight: 700; }.ai-priority-title > div { display: grid; min-width: 0; gap: 1px; }.ai-priority-title > div b { overflow: hidden; color: #1d2129; font-size: 14px; text-overflow: ellipsis; white-space: nowrap; }.ai-priority-title > div small { overflow: hidden; color: #86909c; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }.ai-priority-title strong { position: relative; display: flex; align-items: baseline; justify-content: flex-end; gap: 1px; padding-top: 10px; color: #165dff; font-size: 22px; line-height: 23px; text-align: right; }.ai-priority-title strong small { position: absolute; top: 0; right: 0; color: #86909c; font-size: 9px; font-weight: 500; line-height: 10px; white-space: nowrap; }.ai-priority-title strong em { color: #165dff; font-size: 10px; font-style: normal; }.ai-priority-factors { display: grid; gap: 0; margin-top: 10px; border-top: 1px solid #f2f3f5; }.ai-priority-factors span { display: grid; grid-template-columns: minmax(104px, 1fr) auto 62px; align-items: center; gap: 6px; min-width: 0; padding: 7px 0; border-bottom: 1px solid #f2f3f5; }.ai-priority-factors span:last-child { border-bottom: 0; padding-bottom: 0; }.ai-priority-factors i { display: flex; min-width: 0; align-items: baseline; gap: 4px; color: #4e5969; font-size: 11px; font-style: normal; white-space: nowrap; }.ai-priority-factors i small { color: #86909c; font-size: 9px; }.ai-priority-factors b { overflow: hidden; color: #1d2129; font-size: 12px; font-weight: 600; text-align: right; text-overflow: ellipsis; white-space: nowrap; }.ai-priority-factors em { overflow: hidden; color: #165dff; font-size: 10px; font-style: normal; text-align: right; text-overflow: ellipsis; white-space: nowrap; }.ai-evidence { display: grid; gap: 3px; margin: 8px 0 0; padding: 7px 0 0 16px; border-top: 1px solid #f2f3f5; color: #86909c; font-size: 11px; line-height: 17px; }.ai-sources { display: grid; gap: 3px; margin: 8px 0 0; padding: 7px 0 0 16px; border-top: 1px solid #f2f3f5; font-size: 11px; line-height: 17px; }.ai-sources a { color: #165dff; text-decoration: none; }.ai-sources a:hover { text-decoration: underline; }.ai-chart { margin-top: 9px; padding: 9px; border-radius: 6px; background: #f7f8fa; }.ai-chart-title { margin-bottom: 7px; color: #4e5969; font-size: 11px; font-weight: 600; }.ai-chart-row { display: grid; grid-template-columns: 60px minmax(0, 1fr) 18px; align-items: center; gap: 6px; margin-top: 5px; font-size: 10px; }.ai-chart-row > span { overflow: hidden; color: #86909c; text-overflow: ellipsis; white-space: nowrap; }.ai-chart-row i { height: 7px; overflow: hidden; border-radius: 4px; background: #e5e6eb; }.ai-chart-row b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #165dff, #4080ff); }.ai-chart-row em { color: #4e5969; font-style: normal; text-align: right; }.ai-message-footer { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 8px; color: #86909c; font-size: 10px; }.ai-message-footer :deep(.arco-btn) { height: 20px; padding: 0 3px; font-size: 11px; }
+.ai-messages { flex: 1; min-height: 0; padding: 14px; overflow-y: auto; background: #f7f8fa; }.ai-message { display: flex; gap: 7px; margin-bottom: 12px; }.ai-message.user { justify-content: flex-end; }.ai-bubble { max-width: calc(100% - 31px); padding: 9px 11px; border-radius: 9px; background: #fff; color: #4e5969; box-shadow: 0 1px 2px rgb(29 33 41 / 6%); font-size: 13px; line-height: 20px; }.ai-message.user .ai-bubble { max-width: 82%; background: #165dff; color: #fff; }.ai-bubble p { margin: 0; white-space: pre-wrap; }.ai-priority-ranking { display: grid; gap: 8px; margin-top: 10px; }.ai-priority-ranking > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-left: 3px solid #165dff; background: #f2f7ff; }.ai-priority-ranking > header div { display: grid; gap: 1px; }.ai-priority-ranking > header b { color: #1d2129; font-size: 12px; }.ai-priority-ranking > header span { color: #4e5969; font-size: 10px; line-height: 15px; }.ai-priority-ranking > header > em { flex: 0 0 auto; color: #86909c; font-size: 9px; font-style: normal; }.ai-priority-table-wrap, .ai-priority-bar-chart { overflow: hidden; border: 1px solid #d9e8ff; border-radius: 4px; background: #fff; }.ai-priority-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }.ai-priority-table th { padding: 7px 6px; background: #f7faff; color: #86909c; font-size: 10px; font-weight: 500; text-align: left; }.ai-priority-table th:nth-child(1) { width: 35px; text-align: center; }.ai-priority-table th:nth-child(2) { width: 55px; }.ai-priority-table th:nth-child(4) { width: 58px; text-align: right; }.ai-priority-table td { min-width: 0; padding: 8px 6px; border-top: 1px solid #f2f3f5; color: #4e5969; vertical-align: middle; }.ai-priority-table td:nth-child(1) { text-align: center; }.ai-priority-table td:nth-child(2) b { color: #1d2129; font-size: 11px; white-space: nowrap; }.ai-priority-table td:nth-child(3) { overflow: hidden; color: #86909c; text-overflow: ellipsis; white-space: nowrap; }.ai-priority-table td:last-child { color: #165dff; text-align: right; white-space: nowrap; }.ai-priority-table td:last-child strong { font-size: 15px; line-height: 1; }.ai-priority-table td:last-child em { margin-left: 1px; color: #165dff; font-size: 9px; font-style: normal; }.ai-priority-rank { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 4px; background: #e8f3ff; color: #165dff; font-size: 10px; font-weight: 700; }.ai-priority-bar-chart { display: grid; gap: 0; padding: 5px 9px; }.ai-priority-bar-row { display: grid; grid-template-columns: 42px minmax(0, 1fr) 35px; align-items: center; gap: 7px; padding: 6px 0; }.ai-priority-bar-row > span { overflow: hidden; color: #4e5969; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }.ai-priority-bar-row i { height: 9px; overflow: hidden; border-radius: 999px; background: #e5e6eb; }.ai-priority-bar-row b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #165dff, #4080ff); }.ai-priority-bar-row em { color: #4e5969; font-size: 10px; font-style: normal; text-align: right; }.ai-evidence { display: grid; gap: 3px; margin: 8px 0 0; padding: 7px 0 0 16px; border-top: 1px solid #f2f3f5; color: #86909c; font-size: 11px; line-height: 17px; }.ai-sources { display: grid; gap: 3px; margin: 8px 0 0; padding: 7px 0 0 16px; border-top: 1px solid #f2f3f5; font-size: 11px; line-height: 17px; }.ai-sources a { color: #165dff; text-decoration: none; }.ai-sources a:hover { text-decoration: underline; }.ai-message-footer { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 8px; color: #86909c; font-size: 10px; }.ai-message-footer :deep(.arco-btn) { height: 20px; padding: 0 3px; font-size: 11px; }
 .ai-input { padding: 10px 12px; border-top: 1px solid #e5e6eb; background: #fff; }.ai-textarea-wrap { position: relative; }.ai-input :deep(.arco-textarea-wrapper) { border-radius: 7px; }.ai-input :deep(textarea) { padding-right: 42px; font-size: 13px; }.ai-send-btn { position: absolute; right: 7px; bottom: 7px; z-index: 1; width: 26px; height: 26px; padding: 0; }.ai-send-btn :deep(.arco-icon) { font-size: 15px; }.ai-stop-icon { display: block; width: 10px; height: 10px; border-radius: 1px; background: currentcolor; }
+.ai-transport-visualization { display: grid; gap: 8px; margin-top: 10px; }.ai-transport-visualization > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-left: 3px solid #00b42a; background: #f2fff6; }.ai-transport-visualization > header b { color: #1d2129; font-size: 12px; }.ai-transport-visualization > header span { color: #86909c; font-size: 10px; }.ai-transport-metrics { display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; border: 1px solid #d9f7e4; border-radius: 4px; background: #fff; }.ai-transport-metrics span { display: grid; gap: 2px; padding: 10px; }.ai-transport-metrics span + span { border-left: 1px solid #f2f3f5; }.ai-transport-metrics small { color: #86909c; font-size: 10px; }.ai-transport-metrics b { color: #00a870; font-size: 20px; line-height: 1.1; }.ai-transport-metrics em { margin-left: 2px; color: #00a870; font-size: 10px; font-style: normal; }.ai-transport-table-wrap { overflow: hidden; border: 1px solid #d9f7e4; border-radius: 4px; background: #fff; }.ai-transport-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }.ai-transport-table th { padding: 7px 8px; background: #f6fffa; color: #86909c; font-size: 10px; font-weight: 500; text-align: left; }.ai-transport-table th:nth-child(2), .ai-transport-table th:nth-child(3), .ai-transport-table td:nth-child(2), .ai-transport-table td:nth-child(3) { text-align: right; }.ai-transport-table td { overflow: hidden; padding: 8px; border-top: 1px solid #f2f3f5; color: #4e5969; text-overflow: ellipsis; white-space: nowrap; }.ai-transport-line-chart { padding: 8px 10px 5px; border: 1px solid #d9f7e4; border-radius: 4px; background: #fff; }.ai-transport-line-chart svg { display: block; width: 100%; height: 96px; overflow: visible; }.ai-transport-line-chart polyline { fill: none; stroke: #00b42a; stroke-linecap: round; stroke-linejoin: round; stroke-width: 3; }.ai-transport-line-labels { display: flex; justify-content: space-between; color: #86909c; font-size: 9px; }.ai-transport-bars { display: grid; gap: 0; padding: 5px 9px; border: 1px solid #d9f7e4; border-radius: 4px; background: #fff; }.ai-transport-bar-row { display: grid; grid-template-columns: 68px minmax(0, 1fr) 36px; align-items: center; gap: 7px; padding: 6px 0; }.ai-transport-bar-row > span { overflow: hidden; color: #4e5969; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }.ai-transport-bar-row i { height: 8px; overflow: hidden; border-radius: 999px; background: #e5e6eb; }.ai-transport-bar-row b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #00b42a, #7be188); }.ai-transport-bar-row em { color: #4e5969; font-size: 10px; font-style: normal; text-align: right; }
 :global(.box-map-marker) { position: relative; min-width: 36px; height: 26px; padding: 0 8px; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; border-radius: 4px; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 12px; font-weight: 600; }
 :global(.box-map-marker::after) { content: ''; position: absolute; bottom: -6px; left: 50%; width: 10px; height: 10px; border-right: 1px solid #fff; border-bottom: 1px solid #fff; background: inherit; transform: translateX(-50%) rotate(45deg); }.box-map-page :global(.box-map-marker.transporting::before) { content: '运'; position: absolute; top: -9px; right: -9px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; border-radius: 50%; background: #165dff; box-shadow: 0 1px 4px rgb(29 33 41 / 25%); color: #fff; font-size: 10px; font-weight: 700; }.box-map-page :global(.box-map-marker.warning) { background: #ff7d00; }.box-map-page :global(.box-map-marker.overflow) { background: #f53f3f; }.box-map-page :global(.box-map-marker.matched) { box-shadow: 0 0 0 3px #00b42a, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.1); z-index: 1; }.box-map-page :global(.box-map-marker.selected) { border: 2px solid #fff; box-shadow: 0 0 0 3px #165dff, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.15); opacity: 1; z-index: 2; }
 :global(.vehicle-map-marker) { display: flex; align-items: center; gap: 4px; min-height: 22px; padding: 2px 6px; border: 1px solid #fff; border-radius: 11px; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; }.box-map-page :global(.vehicle-map-marker i) { width: 8px; height: 8px; display: block; border: 1px solid rgb(255 255 255 / 80%); border-radius: 2px; background: currentcolor; transform: skewX(-20deg); }.box-map-page :global(.vehicle-map-marker.large) { background: #722ed1; }.box-map-page :global(.vehicle-map-marker.tricycle) { background: #00b42a; }.box-map-page :global(.vehicle-map-marker.compact) { box-sizing: border-box; width: 28px; height: 28px; min-height: 28px; justify-content: center; padding: 2px; border: 2px solid #fff; border-radius: 50%; cursor: pointer; transition: width .15s ease, height .15s ease, box-shadow .15s ease; }.box-map-page :global(.vehicle-map-marker.compact.selected) { width: 36px; height: 36px; min-height: 36px; box-shadow: 0 0 0 3px rgb(0 180 42 / 28%), 0 3px 8px rgb(0 180 42 / 42%); }.box-map-page :global(.vehicle-map-marker.compact svg) { flex: none; }.box-map-page :global(.vehicle-map-marker.compact.selected svg) { width: 28px; height: 28px; }.box-map-page :global(.vehicle-cluster-marker) { display: flex; align-items: center; justify-content: center; min-width: 32px; height: 32px; padding: 0 6px; border: 2px solid #fff; border-radius: 50%; background: #00b42a; box-shadow: 0 2px 8px rgb(0 180 42 / 36%); color: #fff; font-size: 12px; font-weight: 700; }.box-map-page :global(.vehicle-map-info) { display: grid; gap: 5px; min-width: 220px; padding: 2px; color: #4e5969; font-size: 12px; }.box-map-page :global(.vehicle-map-info b) { color: #1d2129; font-size: 14px; }.box-map-page :global(.vehicle-status) { width: fit-content; padding: 1px 6px; border-radius: 3px; font-size: 11px; line-height: 18px; }.box-map-page :global(.vehicle-status.online) { background: #e8ffea; color: #00a870; }.box-map-page :global(.vehicle-status.offline) { background: #f2f3f5; color: #86909c; }.box-map-page :global(.vehicle-status.charging) { background: #fff7e8; color: #ff7d00; }.box-map-page :global(.vehicle-location) { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 4px; color: #86909c; font-size: 11px; line-height: 17px; }.box-map-page :global(.vehicle-location em) { color: #4e5969; font-style: normal; }.box-map-page :global(.vehicle-location span) { overflow-wrap: anywhere; }
@@ -1332,7 +1401,7 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window
 :global(.history-track-pin) { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; color: #fff; font-size: 13px; font-weight: 700; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 2px 8px rgb(0 0 0 / 36%), 0 0 0 1px rgb(22 93 255 / 35%); }.history-track-pin.start { background: #00b42a; }.history-track-pin.end { background: #f53f3f; }.history-track-pin.visit { background: #165dff; }
 :global(.history-track-pin.start) { background: #00b42a; }:global(.history-track-pin.end) { background: #f53f3f; }:global(.history-track-pin.visit) { background: #165dff; }
 @media (max-width: 960px) { .detail-card { top: auto; right: 10px; bottom: 10px; left: 10px; width: auto; max-height: 58%; }.page-header { align-items: flex-start; gap: 12px; flex-direction: column; } }
-@media (max-width: 960px) { .ai-assistant { right: auto; bottom: 10px; left: 10px; max-width: calc(100vw - 20px); height: min(600px, calc(100vh - 20px)); } }
+@media (max-width: 960px) { .box-map-page.ai-open .detail-card { display: none; }.ai-floating-trigger { bottom: 10px; }.ai-assistant { right: auto; bottom: 10px; max-width: calc(100vw - var(--ai-left) - 10px); height: min(600px, calc(100vh - 20px)); } }
 @media (max-width: 480px) { .ai-shortcuts { padding-right: 10px; padding-left: 10px; } }
 @media (max-width: 720px) { .history-overlay { inset: 10px; padding: 12px; }.history-layout { grid-template-columns: 1fr; grid-template-rows: minmax(300px, 1fr) 190px; }.history-visits { border-top: 1px solid #e5e6eb; border-left: 0; }.history-toolbar { align-items: flex-start; flex-direction: column; } }
 </style>

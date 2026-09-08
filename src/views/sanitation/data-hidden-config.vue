@@ -97,8 +97,7 @@ import {
   collectorMapRequest,
   getHiddenBoxIds,
   getHiddenPointIds,
-  saveHiddenBoxIds,
-  saveHiddenPointIds,
+  saveDataVisibility,
   saveSharedDaasToken,
 } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
@@ -163,26 +162,33 @@ const visiblePointRows = computed(() => {
     || p.villageName.toLowerCase().includes(q))
 })
 
-function persistBoxes() { saveHiddenBoxIds(hiddenBoxIds.value) }
-function persistPoints() { saveHiddenPointIds(hiddenPointIds.value) }
+let persistChain = Promise.resolve()
+function persist() {
+  // 开关连续点击时按触发顺序串行写入，避免较早请求晚返回而覆盖最新名单。
+  const config = { hiddenBoxIds: Array.from(hiddenBoxIds.value), hiddenPointIds: Array.from(hiddenPointIds.value) }
+  persistChain = persistChain.catch(() => undefined).then(() => saveDataVisibility(config)).catch((error) => {
+    Message.error(error instanceof Error ? error.message : '保存全局隐藏配置失败')
+  })
+  return persistChain
+}
 function toggleBox(id: number, visible: boolean) {
   const next = new Set(hiddenBoxIds.value)
   if (visible) next.delete(id)
   else next.add(id)
   hiddenBoxIds.value = next
-  persistBoxes()
+  void persist()
 }
 function togglePoint(id: number, visible: boolean) {
   const next = new Set(hiddenPointIds.value)
   if (visible) next.delete(id)
   else next.add(id)
   hiddenPointIds.value = next
-  persistPoints()
+  void persist()
 }
-function showAllBoxes() { hiddenBoxIds.value = new Set(); persistBoxes(); Message.success('箱体已全部显示') }
-function hideAllBoxes() { hiddenBoxIds.value = new Set(boxes.value.map((b) => b.id)); persistBoxes(); Message.success('箱体已全部隐藏') }
-function showAllPoints() { hiddenPointIds.value = new Set(); persistPoints(); Message.success('收集点已全部显示') }
-function hideAllPoints() { hiddenPointIds.value = new Set(points.value.map((p) => p.id)); persistPoints(); Message.success('收集点已全部隐藏') }
+function showAllBoxes() { hiddenBoxIds.value = new Set(); void persist(); Message.success('箱体已全部显示') }
+function hideAllBoxes() { hiddenBoxIds.value = new Set(boxes.value.map((b) => b.id)); void persist(); Message.success('箱体已全部隐藏') }
+function showAllPoints() { hiddenPointIds.value = new Set(); void persist(); Message.success('收集点已全部显示') }
+function hideAllPoints() { hiddenPointIds.value = new Set(points.value.map((p) => p.id)); void persist(); Message.success('收集点已全部隐藏') }
 
 async function loadAll(silent = false) {
   if (loading.value) return
@@ -190,6 +196,9 @@ async function loadAll(silent = false) {
   let ok = false
   try {
     const data = await collectorMapRequest<{ boxes?: Box[], points?: Point[] }>(false)
+    // collectorMapRequest 已刷新后台全局名单；同步到本页响应式状态。
+    hiddenBoxIds.value = new Set(getHiddenBoxIds())
+    hiddenPointIds.value = new Set(getHiddenPointIds())
     if (Array.isArray(data.boxes)) { boxes.value = data.boxes; ok = true; saveCachedBoxes(data.boxes) }
     if (Array.isArray(data.points)) {
       points.value = data.points

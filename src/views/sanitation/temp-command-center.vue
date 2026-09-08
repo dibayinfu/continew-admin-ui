@@ -418,7 +418,7 @@ import assetHealthTricycle from '@/assets/images/command-center/asset-health-tri
 import { useCommandCenterCharts } from './data/command-center-v2-charts'
 import { createGeneratedMapEntities, initialMapEntities, LONGAN_BOUNDS, mapLayerIconMap, type MapEntity } from './data/command-center-v2-map-data'
 import { alarmDestinations, alarmDrivers, alarmVehicles, boxMonitorRows, rightTabs, safetyAttachments, safetyMonitorRows, simulatedTrackPoints, taskMonitorDetailMap, taskMonitorRows, taskMonitorStats, taskTransferTargets, trackSpeeds, vehicleCameras, vehicleMonitorRows, vehicleStatusFilters, vehicleTypeStats, type BoxType, type SafetyMonitorRow, type TaskMonitorDetail, type TaskMonitorRow, type VehicleMonitorRow } from './data/command-center-v2-panel-data'
-import { collectorDaasFetch, getHiddenBoxIds, getHiddenPointIds } from '@/utils/daas'
+import { collectorDaasFetch, getHiddenBoxIds, getHiddenPointIds, loadDataVisibility } from '@/utils/daas'
 
 defineOptions({ name: 'SanitationTempCommandCenter' })
 
@@ -827,6 +827,8 @@ async function loadLargeScreenData() {
   if (largeScreenLoading) return
   largeScreenLoading = true
   try {
+    // 大屏不经过 collectorMapRequest，需单独刷新后台全局隐藏名单。
+    await loadDataVisibility().catch(() => undefined)
     const query = new URLSearchParams({ organizationId: String(LARGE_SCREEN_ORGANIZATION_ID), options: '0' })
     const [centerResponse, statisticsResponse, smallHookBoxesResponse] = await Promise.all([
       collectorDaasFetch(`/api/collector/large-screen/center-data?${query}`),

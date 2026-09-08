@@ -47,7 +47,7 @@ export function clearDaasToken() {
   write(DAS_REFRESH_KEY, '')
 }
 
-/** 隐藏配置：箱体/收集点哪些 id 不在地图上显示（localStorage 持久化，两个地图页共用） */
+/** 隐藏配置的本地缓存：后台不可用时保留上次成功读取的全局名单作为兜底。 */
 const HIDDEN_BOXES_KEY = 'sbg-monitor:hidden-boxes'
 const HIDDEN_POINTS_KEY = 'sbg-monitor:hidden-points'
 
@@ -64,8 +64,37 @@ function writeIdSet(key: string, ids: Set<number> | number[]) {
 }
 export function getHiddenBoxIds(): Set<number> { return readIdSet(HIDDEN_BOXES_KEY) }
 export function getHiddenPointIds(): Set<number> { return readIdSet(HIDDEN_POINTS_KEY) }
-export function saveHiddenBoxIds(ids: Set<number> | number[]) { writeIdSet(HIDDEN_BOXES_KEY, ids) }
-export function saveHiddenPointIds(ids: Set<number> | number[]) { writeIdSet(HIDDEN_POINTS_KEY, ids) }
+function cacheHiddenBoxIds(ids: Set<number> | number[]) { writeIdSet(HIDDEN_BOXES_KEY, ids) }
+function cacheHiddenPointIds(ids: Set<number> | number[]) { writeIdSet(HIDDEN_POINTS_KEY, ids) }
+
+export interface DataVisibilityConfig { hiddenBoxIds: number[]; hiddenPointIds: number[] }
+
+function normalizeIds(value: unknown): number[] {
+  return Array.from(new Set(Array.isArray(value) ? value.map(Number).filter((id) => Number.isSafeInteger(id) && id > 0) : []))
+}
+function applyDataVisibility(config: Partial<DataVisibilityConfig>) {
+  if (config.hiddenBoxIds) cacheHiddenBoxIds(normalizeIds(config.hiddenBoxIds))
+  if (config.hiddenPointIds) cacheHiddenPointIds(normalizeIds(config.hiddenPointIds))
+}
+
+/** 从后台加载全局名单；失败时使用浏览器缓存，保证地图仍可工作。 */
+export async function loadDataVisibility(): Promise<DataVisibilityConfig> {
+  const response = await collectorDaasFetch('/api/collector/data-visibility')
+  const config = await response.json() as DataVisibilityConfig
+  const normalized = { hiddenBoxIds: normalizeIds(config.hiddenBoxIds), hiddenPointIds: normalizeIds(config.hiddenPointIds) }
+  applyDataVisibility(normalized)
+  return normalized
+}
+
+/** 保存完整全局名单，成功后才更新本地兜底缓存。 */
+export async function saveDataVisibility(config: DataVisibilityConfig): Promise<void> {
+  const normalized = { hiddenBoxIds: normalizeIds(config.hiddenBoxIds), hiddenPointIds: normalizeIds(config.hiddenPointIds) }
+  const response = await fetch(`${COLLECTOR_API_BASE_URL}/api/collector/data-visibility`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(normalized),
+  })
+  if (!response.ok) throw new Error(`保存全局隐藏配置失败：HTTP ${response.status}`)
+  applyDataVisibility(normalized)
+}
 
 interface LoginWaiter {
   resolve: () => void
@@ -143,7 +172,10 @@ export async function collectorDaasFetch(path: string): Promise<Response> {
 
 export async function collectorMapRequest<T>(includeTransportTasks = true): Promise<T> {
   const response = await collectorDaasFetch(`/api/collector/box-map/data?includeTransportTasks=${includeTransportTasks}`)
-  return await response.json() as T
+  const data = await response.json() as T
+  // 所有箱体展示页均从此入口取数，顺带刷新全局隐藏名单；名单接口异常不影响主数据。
+  await loadDataVisibility().catch(() => undefined)
+  return data
 }
 
 /** 箱体地图车辆图层：实时位置与车型档案保持两个独立请求。 */

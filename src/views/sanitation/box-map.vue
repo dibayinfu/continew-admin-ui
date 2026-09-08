@@ -59,7 +59,7 @@
                     <div class="ai-priority-factors">
                       <span><i>满溢率 <small>权重 80%</small></i><b>{{ Math.round(item.fillLevel) }}%</b><em>{{ formatPriorityScore(item.fillScore) }} / 80 分</em></span>
                       <span><i>停留时长 <small>权重 10%</small></i><b>{{ formatStayDuration(item.residenceMinutes) }}</b><em>{{ formatPriorityScore(item.residenceScore) }} / 10 分</em></span>
-                      <span><i>满溢时长 <small>&gt;80%，权重 10%</small></i><b>{{ item.overflowDurationMinutes === null ? '待确认' : formatStayDuration(item.overflowDurationMinutes) }}</b><em>{{ item.overflowDurationMinutes === null ? '暂不计分' : `${formatPriorityScore(item.overflowDurationScore)} / 10 分` }}</em></span>
+                      <span><i>满溢时长 <small>满溢状态，权重 10%</small></i><b>{{ item.overflowDurationMinutes === null ? '待确认' : formatStayDuration(item.overflowDurationMinutes) }}</b><em>{{ item.overflowDurationMinutes === null ? '暂不计分' : `${formatPriorityScore(item.overflowDurationScore)} / 10 分` }}</em></span>
                     </div>
                   </article>
                 </section>
@@ -182,6 +182,7 @@
             <span>垃圾占比</span>
             <strong>{{ formatFillLevel(selectedBox) }}%</strong>
             <div class="fill-track"><i :style="{ width: `${fillLevelPercent(selectedBox)}%` }"></i></div>
+            <div v-if="selectedBox.overflowStatus === 1 && currentOverflow" class="overflow-duration-summary"><span>满溢时长</span><b>{{ currentOverflowDuration }}</b></div>
           </div>
           <div class="location-summary">
             <span class="section-label">乡镇村庄</span>
@@ -347,6 +348,7 @@ interface HistoryTrackPoint { time: string, longitude: number, latitude: number,
 interface HistoryPointVisit { pointId: number, pointName: string, townshipName: string, villageName: string, arrivalTime: string, departureTime: string, stayMinutes: number, snapshotCount: number }
 interface HistoryTrackResponse { track: HistoryTrackPoint[], pointVisits: HistoryPointVisit[], summary: { snapshotCount: number, uniquePointCount: number, visitCount: number } }
 interface CurrentResidence { boxId: number, pointId: number, pointName: string, townshipName: string, villageName: string, arrivalTime: string, lastSeenTime: string }
+interface CurrentOverflow { boxId: number, overflowing: boolean, overflowStartedAt: string | null, lastSeenTime: string }
 interface AiRequestContext { boxes: import('./box-map-ai').AiBoxSnapshot[], selectedBoxNo?: string }
 type VehicleType = '小勾臂车' | '大勾臂车' | '小三轮'
 interface VehicleRuntime {
@@ -436,6 +438,7 @@ const vehicles = ref<VehicleRuntime[]>([])
 const vehicleTypeById = ref<Map<number, VehicleType>>(new Map())
 const enabledVehicleTypes = ref<VehicleType[]>(['小勾臂车'])
 const currentResidence = ref<CurrentResidence>()
+const currentOverflow = ref<CurrentOverflow>()
 const residenceNow = ref(Date.now())
 const residenceCache = new Map<string, CurrentResidence>()
 let residenceRequestVersion = 0
@@ -706,6 +709,11 @@ const currentResidenceDuration = computed(() => {
   if (!currentResidence.value) return ''
   const arrival = new Date(currentResidence.value.arrivalTime).getTime()
   return formatStayDuration(Math.floor((residenceNow.value - arrival) / 60_000))
+})
+const currentOverflowDuration = computed(() => {
+  if (!currentOverflow.value?.overflowing || !currentOverflow.value.overflowStartedAt) return '0分钟'
+  const startedAt = new Date(currentOverflow.value.overflowStartedAt).getTime()
+  return formatStayDuration(Math.max(0, Math.floor((residenceNow.value - startedAt) / 60_000)))
 })
 const selectedTransportTask = computed(() => selectedBox.value ? transportTasksByBoxNo.value.get(normalizeBoxNo(selectedBox.value.containerNo)) : undefined)
 const matchedObjects = computed<MatchedObject[]>(() => {
@@ -1058,10 +1066,12 @@ function selectBox(box: Box) {
   const requestVersion = ++residenceRequestVersion
   selectedBox.value = box
   currentResidence.value = undefined
+  currentOverflow.value = undefined
   drawMarkers(false)
   const point = getGcjPoint(box)
   if (map) map.setZoomAndCenter(Math.max(map.getZoom(), 16), [point.lng, point.lat])
   void loadCurrentResidence(box, requestVersion)
+  if (box.overflowStatus === 1) void loadCurrentOverflow(box, requestVersion)
 }
 function hasMatchedArea(box: Box) {
   const area = boxAreas.get(box.id)
@@ -1082,6 +1092,14 @@ async function loadCurrentResidence(box: Box, requestVersion: number) {
     if (requestVersion === residenceRequestVersion && selectedBox.value?.id === box.id) currentResidence.value = residence
   } catch { /* 驻留时长为补充信息，接口异常不影响箱体详情主体展示。 */ }
 }
+async function loadCurrentOverflow(box: Box, requestVersion: number) {
+  try {
+    const response = await fetch(`${COLLECTOR_API_BASE_URL}/api/collector/boxes/${box.id}/current-overflow-duration`)
+    if (!response.ok) return
+    const overflow = await response.json() as CurrentOverflow
+    if (requestVersion === residenceRequestVersion && selectedBox.value?.id === box.id) currentOverflow.value = overflow
+  } catch { /* 满溢时长为补充信息，接口异常不影响箱体详情主体展示。 */ }
+}
 /** 箱体列表刷新会产生新对象；按稳定的箱体 ID 延续详情选中态，避免异步刷新造成卡片闪退。 */
 function syncSelectedBox(nextBoxes: Box[]) {
   const selected = selectedBox.value
@@ -1089,6 +1107,7 @@ function syncSelectedBox(nextBoxes: Box[]) {
   const replacement = nextBoxes.find((box) => box.id === selected.id)
   selectedBox.value = replacement
   if (!replacement || !hasMatchedArea(replacement)) currentResidence.value = undefined
+  if (!replacement) currentOverflow.value = undefined
   if (!replacement && historyVisible.value) closeHistoryTrack()
 }
 function focusMatchedBox() {
@@ -1290,7 +1309,7 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window
 .map-error { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px; color: #f53f3f; background: #f7f8fa; }
 .detail-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }.box-no, .section-label { color: #86909c; font-size: 12px; }.history-track-btn { margin-left: auto; }.report-time { flex-basis: 100%; overflow: hidden; color: #86909c; font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }
 .detail-card :deep(.arco-card-header) { align-items: center; }.detail-close-btn { color: #86909c; }.detail-close-btn:hover { color: #1d2129; }
-.fill-summary { padding: 12px; border-radius: 6px; background: #f2f3f5; }.fill-summary > span { color: #4e5969; font-size: 13px; }.fill-summary strong { display: block; margin: 2px 0 9px; color: #165dff; font-size: 28px; line-height: 34px; }.fill-summary.warning strong { color: #ff7d00; }.fill-summary.overflow strong { color: #f53f3f; }.fill-track { height: 6px; overflow: hidden; border-radius: 3px; background: #e5e6eb; }.fill-track i { display: block; height: 100%; border-radius: inherit; background: #165dff; }.fill-summary.warning .fill-track i { background: #ff7d00; }.fill-summary.overflow .fill-track i { background: #f53f3f; }
+.fill-summary { padding: 12px; border-radius: 6px; background: #f2f3f5; }.fill-summary > span { color: #4e5969; font-size: 13px; }.fill-summary strong { display: block; margin: 2px 0 9px; color: #165dff; font-size: 28px; line-height: 34px; }.fill-summary.warning strong { color: #ff7d00; }.fill-summary.overflow strong { color: #f53f3f; }.fill-track { height: 6px; overflow: hidden; border-radius: 3px; background: #e5e6eb; }.fill-track i { display: block; height: 100%; border-radius: inherit; background: #165dff; }.fill-summary.warning .fill-track i { background: #ff7d00; }.fill-summary.overflow .fill-track i { background: #f53f3f; }.overflow-duration-summary { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 10px; padding-top: 9px; border-top: 1px solid rgb(245 63 63 / 20%); }.overflow-duration-summary span { color: #4e5969; font-size: 13px; }.overflow-duration-summary b { color: #f53f3f; font-size: 13px; line-height: 20px; }
 .location-summary { display: grid; gap: 5px; padding: 16px 0 12px; }.location-summary b { color: #1d2129; font-size: 14px; }.matched-point { color: #4e5969; font-size: 13px; }.vehicle-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 0 16px; }.vehicle-summary .section-label { flex-basis: 100%; }.transport-task-summary { margin-bottom: 16px; padding: 10px; border: 1px solid #bedaff; border-radius: 6px; background: #f2f7ff; }.transport-task-title { display: flex; align-items: center; gap: 6px; margin-bottom: 9px; color: #165dff; font-size: 13px; font-weight: 600; }.transport-task-icon { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: #165dff; color: #fff; font-size: 11px; }.transport-task-grid { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 6px 8px; font-size: 12px; }.transport-task-grid span { color: #86909c; }.transport-task-grid b { overflow: hidden; color: #4e5969; font-weight: 500; white-space: nowrap; text-overflow: ellipsis; }.more-details { border-top: 1px solid #f2f3f5; }.more-details summary { padding: 12px 0; color: #4e5969; font-size: 13px; cursor: pointer; }.detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }.detail-grid-item { display: grid; gap: 3px; min-width: 0; }.detail-grid-item.full { grid-column: 1 / -1; }.detail-grid-item span { color: #86909c; font-size: 12px; white-space: nowrap; }.detail-grid-item b { overflow: hidden; color: #4e5969; font-size: 13px; font-weight: 500; white-space: nowrap; text-overflow: ellipsis; }.coordinate-block { display: grid; gap: 5px; margin: 12px 0; }.coordinate-block span { color: #86909c; font-size: 12px; }.coordinate-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }.coordinate-title :deep(.arco-btn) { flex-shrink: 0; }.coordinate-block code { margin-bottom: 4px; padding: 6px; overflow-wrap: anywhere; border-radius: 3px; background: #f7f8fa; color: #4e5969; font-size: 11px; }.matched-block { display: grid; gap: 6px; padding-top: 4px; }.matched-item { display: grid; gap: 2px; padding: 8px 0; border-bottom: 1px solid #f2f3f5; }.matched-item b { color: #4e5969; font-size: 13px; }.matched-item span { color: #86909c; font-size: 11px; }
 .modal-tip { margin-top: 0; color: #4e5969; }.modal-tip code { padding: 1px 4px; background: #f2f3f5; }
 .residence-summary { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 4px; padding: 8px 10px; border-radius: 4px; background: #f2f7ff; }.residence-summary span { color: #4e5969; font-size: 12px; }.location-summary .residence-summary b { color: #165dff; font-size: 13px; }

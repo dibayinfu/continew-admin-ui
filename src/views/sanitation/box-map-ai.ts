@@ -20,6 +20,33 @@ export interface AiChart {
   values: number[]
 }
 
+/** AI 只能选择展示形式；真实行数据始终由后端按 dataRef 绑定。 */
+export interface AiVisualization {
+  type: 'metric' | 'table' | 'bar' | 'line' | 'none'
+  title: string
+  dataRef: string
+  valueField?: 'taskCount' | 'garbageWeightTon'
+}
+
+export interface AiTransportMetricRow {
+  dimension: string
+  taskCount: number
+  garbageWeightKg: number
+  garbageWeightTon: number
+  dataUpdatedAt?: string
+}
+
+export interface AiTransportMetrics {
+  startDate: string
+  endDate: string
+  groupBy: 'NONE' | 'DAY' | 'TOWNSHIP' | 'VEHICLE'
+  rows: AiTransportMetricRow[]
+  taskCount: number
+  garbageWeightKg: number
+  garbageWeightTon: number
+  dataUpdatedAt?: string
+}
+
 export interface AiMapAction {
   type: 'focusBox' | 'showOverflow'
   boxNo?: string
@@ -53,12 +80,17 @@ export interface AiReply {
   answer: string
   evidence: string[]
   chart?: AiChart
+  visualization?: AiVisualization
   mapActions?: AiMapAction[]
   /** AI 实际联网检索到的公开来源；调度数据回答不会伪造该字段。 */
   sources?: AiSourceLink[]
   priorityRanking?: AiPriorityRankingItem[]
+  transportMetrics?: AiTransportMetrics
   /** 优先清运的确定性评分是否由后端成功返回。 */
   priorityRankingAvailable?: boolean
+  queryDurationMs?: number
+  aiDurationMs?: number
+  totalDurationMs?: number
   dataUpdatedAt: string
   source: 'ai' | 'local'
 }
@@ -181,19 +213,12 @@ export async function queryPriorityCleanup(limit = 5, signal?: AbortSignal): Pro
 }
 
 export async function queryBoxMapAssistant(question: string, context: AiQueryContext): Promise<AiReply> {
-  try {
-    const collectorApiBaseUrl = (import.meta.env.VITE_COLLECTOR_API_BASE_URL || '').replace(/\/$/, '')
-    const response = await fetch(`${collectorApiBaseUrl}/api/ai/box-map/query`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ question, context }),
-    })
-    if (!response.ok) throw new Error(await response.text())
-    return await response.json() as AiReply
-  } catch {
-    // 后端或 Key 尚未配置时，保留与真实数据一致的本地演示，便于先验证交互价值。
-    return buildLocalReply(question, context)
-  }
+  const collectorApiBaseUrl = (import.meta.env.VITE_COLLECTOR_API_BASE_URL || '').replace(/\/$/, '')
+  const response = await fetch(`${collectorApiBaseUrl}/api/ai/box-map/query`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, context }),
+  })
+  if (!response.ok) throw new Error(await response.text() || 'AI 服务异常')
+  return await response.json() as AiReply
 }
 
 /** 后端 SSE：进度先到达，answer-delta 直接来自模型生成过程，complete 补齐结构化结果。 */
@@ -231,8 +256,7 @@ export async function queryBoxMapAssistantStream(question: string, context: AiQu
   } catch (error) {
     // 用户主动停止时必须将 AbortError 抛回界面；不能降级为本地回答。
     if (signal?.aborted || (error instanceof DOMException && error.name === 'AbortError')) throw error
-    // 优先清运必须使用后端三个因子的确定性评分，不能在失败后伪造本地回答。
-    if (isPriorityCleanupQuestion(question)) throw error
-    return buildLocalReply(question, context)
+    // 所有实时调度结论都必须来自后端工具结果，不能在浏览器伪造本地评分或回答。
+    throw error
   }
 }

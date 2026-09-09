@@ -828,7 +828,8 @@ const currentResidenceDuration = computed(() => {
   return formatStayDuration(Math.floor((residenceNow.value - arrival) / 60_000))
 })
 const currentOverflowDuration = computed(() => {
-  if (!currentOverflow.value?.overflowing || !currentOverflow.value.overflowStartedAt) return '0分钟'
+  if (!currentOverflow.value?.overflowing) return '0分钟'
+  if (!currentOverflow.value.overflowStartedAt) return '开始时间未知'
   const startedAt = new Date(currentOverflow.value.overflowStartedAt).getTime()
   return formatStayDuration(Math.max(0, Math.floor((residenceNow.value - startedAt) / 60_000)))
 })
@@ -1278,6 +1279,7 @@ async function loadFromCloud(silent = false) {
     indexTransportTasks(transportTaskList)
     // 先分配箱体归属，再赋值 boxes（避免渲染时 boxAreas 为空导致筛选选项缓存为空）
     if (boxList.length && pointList.length) assignBoxAreas(boxList, pointList)
+    residenceCache.clear()
     boxes.value = boxList
     gcjPoints = new WeakMap<Box, GcjPoint>()
     syncSelectedBox(boxList)

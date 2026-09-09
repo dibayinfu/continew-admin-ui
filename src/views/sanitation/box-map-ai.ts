@@ -98,6 +98,8 @@ export interface AiReply {
 export interface AiQueryContext {
   boxes: AiBoxSnapshot[]
   selectedBoxNo?: string
+  /** 仅用于 AI 使用记录中的展示，不会传给模型。 */
+  operatorName?: string
 }
 
 export interface AiStreamCallbacks {

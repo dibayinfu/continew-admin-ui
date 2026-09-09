@@ -22,6 +22,7 @@
           <a-button>更多<icon-down /></a-button>
           <template #content>
             <a-doption @click="openLogin()">登录</a-doption>
+            <a-doption @click="openAiQueryLogs"><template #icon><icon-file /></template>AI 使用记录</a-doption>
             <a-doption @click="openTokenModal">Token</a-doption>
             <a-doption @click="openRefreshSettings">刷新设置</a-doption>
             <a-doption @click="importVisible = true">导入 JSON</a-doption>
@@ -315,6 +316,22 @@
         </a-form-item>
       </a-form>
     </a-modal>
+    <a-drawer v-model:visible="aiQueryLogsVisible" title="AI 使用记录" :width="960" unmount-on-close>
+      <a-space wrap class="ai-log-filters">
+        <a-input v-model="aiLogKeyword" allow-clear placeholder="搜索提问内容" style="width: 220px" @press-enter="loadAiQueryLogs(0)" />
+        <a-select v-model="aiLogStatus" allow-clear placeholder="全部状态" style="width: 130px" @change="loadAiQueryLogs(0)">
+          <a-option value="SUCCESS">成功</a-option><a-option value="FAILED">失败</a-option>
+        </a-select>
+        <a-button type="primary" :loading="aiQueryLogsLoading" @click="loadAiQueryLogs(0)"><template #icon><icon-search /></template>查询</a-button>
+      </a-space>
+      <a-table class="ai-query-log-table" row-key="id" :data="aiQueryLogs" :loading="aiQueryLogsLoading" :columns="aiQueryLogColumns" :scroll="{ x: 900 }" :pagination="{ current: aiLogPage + 1, pageSize: 20, total: aiLogTotal, showTotal: true }" @page-change="onAiLogPageChange">
+        <template #createdAt="{ record }"><span class="ai-log-time">{{ record.createdAt || '-' }}</span></template>
+        <template #question="{ record }"><a-tooltip :content="record.question || '-'"><span class="ai-log-ellipsis ai-log-two-lines">{{ record.question || '-' }}</span></a-tooltip></template>
+        <template #answer="{ record }"><a-tooltip :content="record.answer || '-'"><span class="ai-log-ellipsis ai-log-two-lines">{{ record.answer || '-' }}</span></a-tooltip></template>
+        <template #status="{ record }"><a-tag :color="record.status === '成功' ? 'green' : 'red'">{{ record.status || '-' }}</a-tag></template>
+        <template #duration="{ record }"><span class="ai-log-duration">{{ record.duration || '-' }}</span></template>
+      </a-table>
+    </a-drawer>
   </div>
 </template>
 
@@ -323,7 +340,7 @@ import { Message } from '@arco-design/web-vue'
 import { useFullscreen } from '@vueuse/core'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useDevice } from '@/hooks'
-import { useAppStore } from '@/stores'
+import { useAppStore, useUserStore } from '@/stores'
 import { type AMapInfoWindow, type AMapInstance, type AMapMarker, type AMapMarkerCluster, type AMapMassMarks, loadAmapJsApi, loadAmapMarkerClusterer } from '@/utils/amap'
 import { daasAuth, collectorMapRequest, collectorVehicleRuntimeRequest, collectorVehicleTypesRequest, getHiddenBoxIds, saveSharedDaasToken } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
@@ -432,6 +449,7 @@ const mapRef = ref<HTMLDivElement>()
 const pageFullscreenRef = ref<HTMLElement | null>(null)
 const mapFullscreenRef = ref<HTMLElement | null>(null)
 const appStore = useAppStore()
+const userStore = useUserStore()
 const { isDesktop } = useDevice()
 const { isFullscreen: isPageFullscreen, toggle: togglePageFullscreen } = useFullscreen(pageFullscreenRef, {
   onFullscreenChange: () => { nextTick(() => map?.resize()) },
@@ -471,6 +489,18 @@ function initialAiMessages(): AiMessage[] {
   return [{ id: Date.now(), role: 'assistant', content: '我是 AI 调度助手。可分析箱体调度，也可回答通用问题；实时公开信息会附上来源。' }]
 }
 const aiMessages = ref<AiMessage[]>(initialAiMessages())
+interface AiQueryLog { id: number, question: string, answer?: string, questionDomain?: string, status: string, totalDurationMs: number | null, duration?: string, createdAt: string }
+const aiQueryLogsVisible = ref(false)
+const aiQueryLogsLoading = ref(false)
+const aiQueryLogs = ref<AiQueryLog[]>([])
+const aiLogKeyword = ref('')
+const aiLogStatus = ref<string>()
+const aiLogPage = ref(0)
+const aiLogTotal = ref(0)
+const aiQueryLogColumns = [
+  { title: '提问时间', dataIndex: 'createdAt', slotName: 'createdAt', width: 140 }, { title: '问题', dataIndex: 'question', slotName: 'question', width: 230 },
+  { title: '回答', dataIndex: 'answer', slotName: 'answer', width: 360 }, { title: '状态', dataIndex: 'status', slotName: 'status', width: 72 }, { title: '耗时', dataIndex: 'duration', slotName: 'duration', width: 76 },
+]
 const tokenModalVisible = ref(false)
 const tokenInput = ref(daasAuth.token)
 const refreshSettingsVisible = ref(false)
@@ -626,8 +656,28 @@ async function aiContext(): Promise<AiRequestContext> {
   return {
     selectedBoxNo: selectedBox.value?.containerNo,
     boxes: snapshots,
+    operatorName: userStore.nickname || userStore.username || undefined,
   }
 }
+async function openAiQueryLogs() {
+  aiQueryLogsVisible.value = true
+  await loadAiQueryLogs(0)
+}
+async function loadAiQueryLogs(page = aiLogPage.value) {
+  aiQueryLogsLoading.value = true
+  try {
+    const base = (import.meta.env.VITE_COLLECTOR_API_BASE_URL || '').replace(/\/$/, '')
+    const params = new URLSearchParams({ page: String(page), size: '20' })
+    if (aiLogKeyword.value.trim()) params.set('keyword', aiLogKeyword.value.trim())
+    if (aiLogStatus.value) params.set('status', aiLogStatus.value)
+    const response = await fetch(`${base}/api/ai/query-logs?${params}`)
+    if (!response.ok) throw new Error(await response.text() || '加载 AI 使用记录失败')
+    const data = await response.json() as { items: AiQueryLog[], total: number, page: number }
+    aiQueryLogs.value = data.items || []; aiLogTotal.value = data.total || 0; aiLogPage.value = data.page || 0
+  } catch (error) { Message.error(error instanceof Error ? error.message : '加载 AI 使用记录失败') }
+  finally { aiQueryLogsLoading.value = false }
+}
+function onAiLogPageChange(page: number) { void loadAiQueryLogs(page - 1) }
 function formatPriorityScore(value: number) {
   return String(Math.round(Number(value || 0)))
 }
@@ -1381,6 +1431,7 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window
 .modal-tip { margin-top: 0; color: #4e5969; }.modal-tip code { padding: 1px 4px; background: #f2f3f5; }
 .residence-summary { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 4px; padding: 8px 10px; border-radius: 4px; background: #f2f7ff; }.residence-summary span { color: #4e5969; font-size: 12px; }.location-summary .residence-summary b { color: #165dff; font-size: 13px; }
 .ai-progress { color: #86909c; font-size: 12px; }
+.ai-log-filters { margin-bottom: 14px; }.ai-query-log-table :deep(.arco-table-th) { padding: 9px 10px; color: #4e5969; font-size: 12px; white-space: nowrap; }.ai-query-log-table :deep(.arco-table-td) { padding: 9px 10px; vertical-align: middle; font-size: 12px; }.ai-log-ellipsis { overflow: hidden; text-overflow: ellipsis; }.ai-log-two-lines { display: -webkit-box; color: #4e5969; line-height: 18px; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }.ai-log-time, .ai-log-duration { color: #4e5969; white-space: nowrap; }.ai-query-log-table :deep(.arco-tag) { margin: 0; font-size: 11px; line-height: 20px; }
 .token-expired-banner { display: flex; align-items: center; gap: 6px; padding: 9px 14px; border: 1px solid #fbaca3; border-radius: 4px; background: #ffece8; color: #f53f3f; font-size: 13px; }
 .token-reset-link { color: #165dff; cursor: pointer; text-decoration: underline; }
 /* 左侧导航展开宽度为 230px；助手与入口固定在内容区左下，给右侧箱体详情留出完整空间。 */

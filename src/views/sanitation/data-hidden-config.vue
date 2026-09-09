@@ -152,14 +152,20 @@ function openLogin() {
 
 const visibleBoxRows = computed(() => {
   const q = boxKeyword.value.trim().toLowerCase()
-  return boxes.value.filter((b) => !q || b.containerNo.toLowerCase().includes(q) || b.containerName.toLowerCase().includes(q))
+  return boxes.value
+    .filter((b) => !q || b.containerNo.toLowerCase().includes(q) || b.containerName.toLowerCase().includes(q))
+    // 已隐藏项置顶，便于管理员快速核查；同一状态下维持接口原始顺序。
+    .sort((a, b) => Number(hiddenBoxIds.value.has(b.id)) - Number(hiddenBoxIds.value.has(a.id)))
 })
 const visiblePointRows = computed(() => {
   const q = pointKeyword.value.trim().toLowerCase()
-  return points.value.filter((p) => !q
-    || p.pointName.toLowerCase().includes(q)
-    || p.townshipName.toLowerCase().includes(q)
-    || p.villageName.toLowerCase().includes(q))
+  return points.value
+    .filter((p) => !q
+      || p.pointName.toLowerCase().includes(q)
+      || p.townshipName.toLowerCase().includes(q)
+      || p.villageName.toLowerCase().includes(q))
+    // 已隐藏项置顶，便于管理员快速核查；同一状态下维持接口原始顺序。
+    .sort((a, b) => Number(hiddenPointIds.value.has(b.id)) - Number(hiddenPointIds.value.has(a.id)))
 })
 
 let persistChain = Promise.resolve()

@@ -1,5 +1,5 @@
 <template>
-  <div ref="pageFullscreenRef" class="gi_page box-map-page" :class="{ 'ai-open': aiVisible }" :style="aiOverlayStyle">
+  <div ref="pageFullscreenRef" class="gi_page box-map-page" :class="{ 'ai-open': aiVisible, 'fullscreen-fallback': pageFallbackFullscreen }" :style="aiOverlayStyle">
     <div class="page-header">
       <div>
         <div class="page-title">箱体地图</div>
@@ -170,7 +170,7 @@
     </div>
 
     <div class="map-layout">
-      <div ref="mapFullscreenRef" class="map-card-wrap">
+      <div ref="mapFullscreenRef" class="map-card-wrap" :class="{ 'fullscreen-fallback': mapFallbackFullscreen }">
         <a-card class="map-card" :bordered="false">
           <div ref="mapRef" class="amap-container"></div>
           <div class="map-stats">
@@ -463,13 +463,56 @@ const mapFullscreenRef = ref<HTMLElement | null>(null)
 const appStore = useAppStore()
 const userStore = useUserStore()
 const { isDesktop } = useDevice()
-const { isFullscreen: isPageFullscreen, toggle: togglePageFullscreen } = useFullscreen(pageFullscreenRef, {
+const { isFullscreen: isNativePageFullscreen, toggle: toggleNativePageFullscreen } = useFullscreen(pageFullscreenRef, {
   onFullscreenChange: () => { nextTick(() => map?.resize()) },
 })
-const { isFullscreen: isMapFullscreen, toggle: toggleMapFullscreen } = useFullscreen(mapFullscreenRef, {
+const { isFullscreen: isNativeMapFullscreen, toggle: toggleNativeMapFullscreen } = useFullscreen(mapFullscreenRef, {
   // 进入/退出全屏后地图容器尺寸变化，通知高德地图重算视口
   onFullscreenChange: () => { nextTick(() => map?.resize()) },
 })
+// iOS Safari 和部分内嵌手机浏览器不支持元素 Fullscreen API。保留原生全屏，
+// 不可用时降级为 CSS 沉浸全屏，避免点击按钮没有任何反馈。
+const pageFallbackFullscreen = ref(false)
+const mapFallbackFullscreen = ref(false)
+const isPageFullscreen = computed(() => isNativePageFullscreen.value || pageFallbackFullscreen.value)
+const isMapFullscreen = computed(() => isNativeMapFullscreen.value || mapFallbackFullscreen.value)
+
+function supportsNativeFullscreen() {
+  return typeof document !== 'undefined' && document.fullscreenEnabled === true
+}
+
+async function resizeMapAfterLayout() {
+  await nextTick()
+  requestAnimationFrame(() => map?.resize())
+}
+
+async function togglePageFullscreen() {
+  if (!supportsNativeFullscreen()) {
+    pageFallbackFullscreen.value = !pageFallbackFullscreen.value
+    await resizeMapAfterLayout()
+    return
+  }
+  try {
+    await toggleNativePageFullscreen()
+  } catch {
+    pageFallbackFullscreen.value = !pageFallbackFullscreen.value
+    await resizeMapAfterLayout()
+  }
+}
+
+async function toggleMapFullscreen() {
+  if (!supportsNativeFullscreen()) {
+    mapFallbackFullscreen.value = !mapFallbackFullscreen.value
+    await resizeMapAfterLayout()
+    return
+  }
+  try {
+    await toggleNativeMapFullscreen()
+  } catch {
+    mapFallbackFullscreen.value = !mapFallbackFullscreen.value
+    await resizeMapAfterLayout()
+  }
+}
 /** 侧栏展开 230px、折叠 48px；全屏/移动端没有侧栏，助手贴内容区边缘。 */
 const aiOverlayStyle = computed(() => ({
   '--ai-left': `${isPageFullscreen.value || !isDesktop.value ? 10 : appStore.menuCollapse ? 72 : 254}px`,
@@ -1433,6 +1476,7 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window
 <style scoped lang="scss">
 .box-map-page { min-height: calc(100vh - 112px); display: flex; flex-direction: column; gap: 16px; }
 .box-map-page:fullscreen { width: 100%; height: 100%; min-height: 0; padding: 16px; overflow: auto; box-sizing: border-box; background: #f2f3f5; }
+.box-map-page.fullscreen-fallback { position: fixed; inset: 0; z-index: 1000; width: 100%; height: 100dvh; min-height: 0; padding: 16px; overflow: auto; box-sizing: border-box; background: #f2f3f5; }
 .page-header { display: flex; align-items: center; justify-content: space-between; padding: 2px 0; }
 .page-title { color: #1d2129; font-size: 20px; font-weight: 600; line-height: 30px; }
 .page-subtitle, .filter-result { color: #86909c; font-size: 13px; }
@@ -1452,7 +1496,7 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window
 .chip.unmatched.active { background: #4e5969; border-color: #4e5969; color: #fff; }
 .chip-more { border-style: dashed; color: #165dff; }.chip-more:hover { border-color: #165dff; color: #165dff; }
 .map-layout { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr); overflow: hidden; }
-.map-card-wrap { position: relative; min-height: 0; overflow: hidden; display: flex; }.map-card-wrap .map-card { flex: 1; min-height: 0; }.map-card-wrap:fullscreen { position: fixed; inset: 0; z-index: 1001; background: #f2f3f5; }
+.map-card-wrap { position: relative; min-height: 0; overflow: hidden; display: flex; }.map-card-wrap .map-card { flex: 1; min-height: 0; }.map-card-wrap:fullscreen, .map-card-wrap.fullscreen-fallback { position: fixed; inset: 0; z-index: 1001; background: #f2f3f5; }
 .map-card { min-height: 0; overflow: hidden; }
 .map-card :deep(.arco-card-body) { height: 100%; padding: 0; }
 .detail-card { position: absolute; top: 16px; right: 16px; z-index: 2; width: 304px; max-height: calc(100% - 32px); display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 8px 24px rgb(29 33 41 / 18%); }
@@ -1501,7 +1545,7 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window
 /* 手机端优先保证地图可见面积：筛选项横向滑动，不再把地图推到首屏之外。 */
 @media (max-width: 600px) {
   .box-map-page { min-height: 100%; gap: 10px; padding: 10px; }
-  .box-map-page:fullscreen { padding: 10px; }
+  .box-map-page:fullscreen, .box-map-page.fullscreen-fallback { padding: 10px; }
   .page-header { gap: 8px; }
   .page-title { font-size: 18px; line-height: 26px; }
   .page-subtitle { display: none; }

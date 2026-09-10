@@ -1498,6 +1498,50 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window
 :global(.history-track-pin.start) { background: #00b42a; }:global(.history-track-pin.end) { background: #f53f3f; }:global(.history-track-pin.visit) { background: #165dff; }
 @media (max-width: 960px) { .detail-card { top: auto; right: 10px; bottom: 10px; left: 10px; width: auto; max-height: 58%; }.page-header { align-items: flex-start; gap: 12px; flex-direction: column; } }
 @media (max-width: 960px) { .box-map-page.ai-open .detail-card { display: none; }.ai-floating-trigger { bottom: 10px; }.ai-assistant { right: auto; bottom: 10px; max-width: calc(100vw - var(--ai-left) - 10px); height: min(600px, calc(100vh - 20px)); } }
+/* 手机端优先保证地图可见面积：筛选项横向滑动，不再把地图推到首屏之外。 */
+@media (max-width: 600px) {
+  .box-map-page { min-height: 100%; gap: 10px; padding: 10px; }
+  .box-map-page:fullscreen { padding: 10px; }
+  .page-header { gap: 8px; }
+  .page-title { font-size: 18px; line-height: 26px; }
+  .page-subtitle { display: none; }
+  .page-header :deep(.arco-space) { width: 100%; flex-wrap: wrap; gap: 8px; }
+  .page-header :deep(.arco-space-item) { flex: 1 1 auto; }
+  .page-header :deep(.arco-btn) { width: 100%; min-height: 36px; }
+
+  .filter-card :deep(.arco-card-body) { padding: 10px; }
+  .filter-block { gap: 6px; margin-bottom: 6px; }
+  .filter-block:not(:first-child) { flex-wrap: nowrap; padding-bottom: 2px; overflow-x: auto; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch; }
+  .filter-block:first-child :deep(.arco-input-wrapper) { width: 100% !important; }
+  .filter-label, .filter-result { font-size: 12px; }
+  .filter-result { width: 100%; }
+  .status-filter-checkbox { padding: 2px 7px; font-size: 12px; line-height: 20px; }
+  .chip { flex: 0 0 auto; padding: 1px 10px; font-size: 12px; line-height: 20px; }
+
+  .map-layout { flex: 0 0 auto; height: clamp(420px, 62dvh, 680px); overflow: visible; }
+  .map-card-wrap { min-height: 0; }
+  .map-stats { top: 10px; left: 10px; gap: 5px; }
+  .map-stat { min-width: 58px; padding: 5px 6px; font-size: 10px; }
+  .map-stat b { font-size: 17px; line-height: 21px; }
+  .map-controls { top: 10px; right: 10px; gap: 4px; }
+  .map-theme-picker { height: 30px; gap: 0; padding: 0 5px; }
+  .map-theme-picker > span { display: none; }
+  .map-theme-picker :deep(.arco-select) { width: 70px; }
+  .map-fullscreen-btn { height: 30px; padding: 0 7px; }
+  .vehicle-legend { right: 10px; bottom: 10px; left: 10px; max-width: none; padding: 6px 8px; transform: none; }
+  .vehicle-legend :deep(.arco-checkbox-group) { gap: 8px; }
+  .vehicle-legend :deep(.arco-checkbox) { font-size: 11px; }
+
+  .detail-card { right: 6px; bottom: 6px; left: 6px; max-height: min(52dvh, 430px); border-radius: 10px; }
+  .detail-panel-header { padding: 10px 12px; }
+  .detail-panel-header h2 { font-size: 24px; line-height: 30px; }
+  .detail-card .detail-scroll { padding: 12px; }
+  .history-overlay { inset: 0; padding: 10px; }
+  .history-title h2 { font-size: 20px; }
+
+  .ai-floating-trigger { bottom: max(10px, env(safe-area-inset-bottom)); }
+  .ai-assistant { bottom: max(6px, env(safe-area-inset-bottom)); width: calc(100vw - 20px); max-width: calc(100vw - 20px); height: min(78dvh, 600px); border-radius: 10px; }
+}
 @media (max-width: 480px) { .ai-shortcuts { padding-right: 10px; padding-left: 10px; } }
 @media (max-width: 720px) { .history-overlay { inset: 10px; padding: 12px; }.history-layout { grid-template-columns: 1fr; grid-template-rows: minmax(300px, 1fr) 190px; }.history-visits { border-top: 1px solid #e5e6eb; border-left: 0; }.history-toolbar { align-items: flex-start; flex-direction: column; } }
 </style>

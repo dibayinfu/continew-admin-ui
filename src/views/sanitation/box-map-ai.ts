@@ -47,6 +47,25 @@ export interface AiTransportMetrics {
   dataUpdatedAt?: string
 }
 
+export interface AiBoxStatistics {
+  status: 'SUPPORTED' | 'PARTIAL' | 'UNSUPPORTED' | 'NO_DATA' | 'AMBIGUOUS'
+  totalCount?: number
+  scope?: string
+  groups?: Array<{ dimension: string, count: number }>
+}
+
+export interface AiOverflowDurationItem {
+  boxId: number
+  boxNo: string
+  boxName: string
+  pointName: string
+  townshipName: string
+  villageName: string
+  fillLevel: number
+  overflowStartedAt?: string | null
+  durationMinutes?: number
+}
+
 export interface AiMapAction {
   type: 'focusBox' | 'showOverflow'
   boxNo?: string
@@ -84,8 +103,13 @@ export interface AiReply {
   mapActions?: AiMapAction[]
   /** AI 实际联网检索到的公开来源；调度数据回答不会伪造该字段。 */
   sources?: AiSourceLink[]
+  /** 通用回答的时效性判断与实际联网状态，由后端校验后返回。 */
+  freshness?: 'stable' | 'current' | 'unknown'
+  webSearched?: boolean
   priorityRanking?: AiPriorityRankingItem[]
   transportMetrics?: AiTransportMetrics
+  boxStatistics?: AiBoxStatistics
+  overflowDuration?: { status: string, items: AiOverflowDurationItem[] }
   /** 优先清运的确定性评分是否由后端成功返回。 */
   priorityRankingAvailable?: boolean
   queryDurationMs?: number

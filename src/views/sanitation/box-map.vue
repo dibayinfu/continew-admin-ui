@@ -519,6 +519,8 @@ const historyMapRef = ref<HTMLDivElement>()
 const historyData = ref<HistoryTrackResponse>()
 /** boxNo -> 最近一条临时视为“正在运输”的任务单 */
 const transportTasksByBoxNo = ref<Map<string, TransportTask>>(new Map())
+/** 当前收集点停留不足一小时的箱体；由地图数据接口批量返回。 */
+const newBoxIds = ref<Set<number>>(new Set())
 let map: AMapInstance | undefined
 let markers: AMapMarker[] = []
 let vehicleMarkers: AMapMarker[] = []
@@ -851,12 +853,25 @@ function toGcj(lng: number, lat: number): GcjPoint {
 }
 
 function markerTone(box: Box) { return box.overflowStatus === 1 ? 'overflow' : box.fillLevel >= 70 ? 'warning' : '' }
+function isNewBox(box: Box) { return box.overflowStatus !== 1 && newBoxIds.value.has(box.id) }
 function markerClass(box: Box) {
   const classes = ['box-map-marker', markerTone(box)]
+  if (isNewBox(box)) classes.push('new')
   if (hasTransportTask(box)) classes.push('transporting')
   if (box === selectedBox.value) classes.push('selected')
   if (matchedBoxes.value?.has(box)) classes.push('matched')
   return classes.filter(Boolean).join(' ')
+}
+async function loadNewBoxIds() {
+  // “新”角标为增强信息；独立请求失败时保留当前角标，不干扰箱体地图主数据。
+  try {
+    const response = await fetch(`${COLLECTOR_API_BASE_URL}/api/collector/box-map/new-box-ids`)
+    if (!response.ok) return
+    const result = await response.json() as { newBoxIds?: unknown }
+    if (!Array.isArray(result.newBoxIds)) return
+    newBoxIds.value = new Set(result.newBoxIds.map(Number).filter(Number.isSafeInteger))
+    drawMarkers(false)
+  } catch { /* 角标服务异常不影响地图主流程。 */ }
 }
 function normalizeBoxNo(value: unknown) { return String(value ?? '').trim() }
 function taskStatus(task: TransportTask) { return String(task.status ?? task.taskStatus ?? task.statusName ?? task.taskStatusName ?? '').trim() }
@@ -1142,7 +1157,8 @@ function drawVehicleMarkers() {
 }
 function createBoxMarker(box: Box, index: number, selected = false) {
   const point = getGcjPoint(box)
-  const marker = new amap!.Marker({ position: [point.lng, point.lat], offset: new amap!.Pixel(-18, -34), content: `<div class="${markerClass(box)}${selected ? ' selected' : ''}">${escapeHtml(box.containerNo)}</div>`, title: box.containerName, zIndex: selected ? 1000 : 10 + index })
+  const newBadge = isNewBox(box) ? '<span class="box-marker-new-badge">新</span>' : ''
+  const marker = new amap!.Marker({ position: [point.lng, point.lat], offset: new amap!.Pixel(-18, -34), content: `<div class="${markerClass(box)}${selected ? ' selected' : ''}">${escapeHtml(box.containerNo)}${newBadge}</div>`, title: box.containerName, zIndex: selected ? 1000 : 10 + index })
   marker.on('click', () => selectBox(box))
   marker.setMap(map!)
   return marker
@@ -1283,6 +1299,8 @@ async function loadFromCloud(silent = false) {
     saveCachedBoxes(boxList)
     saveCachedPoints(pointList)
     drawMarkers(false)
+    // 地图主数据完成后再异步加载角标；此请求不参与刷新成功/失败判断。
+    void loadNewBoxIds()
     if (!silent) Message.success(`已从云端更新 ${boxList.length} 个箱体`)
   } catch (error) {
     if (!silent) Message.warning(`云端数据加载失败：${error instanceof Error ? error.message : '网络异常'}`)
@@ -1446,7 +1464,8 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window
 .ai-input { padding: 10px 12px; border-top: 1px solid #e5e6eb; background: #fff; }.ai-textarea-wrap { position: relative; }.ai-input :deep(.arco-textarea-wrapper) { border-radius: 7px; }.ai-input :deep(textarea) { padding-right: 42px; font-size: 13px; }.ai-send-btn { position: absolute; right: 7px; bottom: 7px; z-index: 1; width: 26px; height: 26px; padding: 0; }.ai-send-btn :deep(.arco-icon) { font-size: 15px; }.ai-stop-icon { display: block; width: 10px; height: 10px; border-radius: 1px; background: currentcolor; }
 .ai-transport-visualization { display: grid; gap: 8px; margin-top: 10px; }.ai-transport-visualization > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-left: 3px solid #00b42a; background: #f2fff6; }.ai-transport-visualization > header b { color: #1d2129; font-size: 12px; }.ai-transport-visualization > header span { color: #86909c; font-size: 10px; }.ai-transport-metrics { display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; border: 1px solid #d9f7e4; border-radius: 4px; background: #fff; }.ai-transport-metrics span { display: grid; gap: 2px; padding: 10px; }.ai-transport-metrics span + span { border-left: 1px solid #f2f3f5; }.ai-transport-metrics small { color: #86909c; font-size: 10px; }.ai-transport-metrics b { color: #00a870; font-size: 20px; line-height: 1.1; }.ai-transport-metrics em { margin-left: 2px; color: #00a870; font-size: 10px; font-style: normal; }.ai-transport-table-wrap { overflow: hidden; border: 1px solid #d9f7e4; border-radius: 4px; background: #fff; }.ai-transport-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }.ai-transport-table th { padding: 7px 8px; background: #f6fffa; color: #86909c; font-size: 10px; font-weight: 500; text-align: left; }.ai-transport-table th:nth-child(2), .ai-transport-table th:nth-child(3), .ai-transport-table td:nth-child(2), .ai-transport-table td:nth-child(3) { text-align: right; }.ai-transport-table td { overflow: hidden; padding: 8px; border-top: 1px solid #f2f3f5; color: #4e5969; text-overflow: ellipsis; white-space: nowrap; }.ai-transport-line-chart { padding: 8px 10px 5px; border: 1px solid #d9f7e4; border-radius: 4px; background: #fff; }.ai-transport-line-chart svg { display: block; width: 100%; height: 96px; overflow: visible; }.ai-transport-line-chart polyline { fill: none; stroke: #00b42a; stroke-linecap: round; stroke-linejoin: round; stroke-width: 3; }.ai-transport-line-labels { display: flex; justify-content: space-between; color: #86909c; font-size: 9px; }.ai-transport-bars { display: grid; gap: 0; padding: 5px 9px; border: 1px solid #d9f7e4; border-radius: 4px; background: #fff; }.ai-transport-bar-row { display: grid; grid-template-columns: 68px minmax(0, 1fr) 36px; align-items: center; gap: 7px; padding: 6px 0; }.ai-transport-bar-row > span { overflow: hidden; color: #4e5969; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }.ai-transport-bar-row i { height: 8px; overflow: hidden; border-radius: 999px; background: #e5e6eb; }.ai-transport-bar-row b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #00b42a, #7be188); }.ai-transport-bar-row em { color: #4e5969; font-size: 10px; font-style: normal; text-align: right; }
 :global(.box-map-marker) { position: relative; min-width: 36px; height: 26px; padding: 0 8px; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; border-radius: 4px; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 12px; font-weight: 600; }
-:global(.box-map-marker::after) { content: ''; position: absolute; bottom: -6px; left: 50%; width: 10px; height: 10px; border-right: 1px solid #fff; border-bottom: 1px solid #fff; background: inherit; transform: translateX(-50%) rotate(45deg); }.box-map-page :global(.box-map-marker.transporting::before) { content: '运'; position: absolute; top: -9px; right: -9px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; border-radius: 50%; background: #165dff; box-shadow: 0 1px 4px rgb(29 33 41 / 25%); color: #fff; font-size: 10px; font-weight: 700; }.box-map-page :global(.box-map-marker.warning) { background: #ff7d00; }.box-map-page :global(.box-map-marker.overflow) { background: #f53f3f; }.box-map-page :global(.box-map-marker.matched) { box-shadow: 0 0 0 3px #00b42a, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.1); z-index: 1; }.box-map-page :global(.box-map-marker.selected) { border: 2px solid #fff; box-shadow: 0 0 0 3px #165dff, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.15); opacity: 1; z-index: 2; }
+:global(.box-marker-new-badge) { position: absolute; top: -9px; right: -9px; z-index: 3; min-width: 18px; height: 18px; padding: 0 3px; display: flex; align-items: center; justify-content: center; box-sizing: border-box; border: 2px solid #fff; border-radius: 9px; background: #b7eb8f; box-shadow: 0 1px 4px rgb(29 33 41 / 20%); color: #237804; font-size: 10px; font-weight: 700; line-height: 1; }
+:global(.box-map-marker::after) { content: ''; position: absolute; bottom: -6px; left: 50%; width: 10px; height: 10px; border-right: 1px solid #fff; border-bottom: 1px solid #fff; background: inherit; transform: translateX(-50%) rotate(45deg); }.box-map-page :global(.box-map-marker.transporting::before) { content: '运'; position: absolute; top: -9px; left: -9px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; border-radius: 50%; background: #165dff; box-shadow: 0 1px 4px rgb(29 33 41 / 25%); color: #fff; font-size: 10px; font-weight: 700; }.box-map-page :global(.box-map-marker.warning) { background: #ff7d00; }.box-map-page :global(.box-map-marker.overflow) { background: #f53f3f; }.box-map-page :global(.box-map-marker.matched) { box-shadow: 0 0 0 3px #00b42a, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.1); z-index: 1; }.box-map-page :global(.box-map-marker.selected) { border: 2px solid #fff; box-shadow: 0 0 0 3px #165dff, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.15); opacity: 1; z-index: 2; }
 :global(.vehicle-map-marker) { display: flex; align-items: center; gap: 4px; min-height: 22px; padding: 2px 6px; border: 1px solid #fff; border-radius: 11px; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; }.box-map-page :global(.vehicle-map-marker i) { width: 8px; height: 8px; display: block; border: 1px solid rgb(255 255 255 / 80%); border-radius: 2px; background: currentcolor; transform: skewX(-20deg); }.box-map-page :global(.vehicle-map-marker.large) { background: #722ed1; }.box-map-page :global(.vehicle-map-marker.tricycle) { background: #00b42a; }.box-map-page :global(.vehicle-map-marker.compact) { box-sizing: border-box; width: 28px; height: 28px; min-height: 28px; justify-content: center; padding: 2px; border: 2px solid #fff; border-radius: 50%; cursor: pointer; transition: width .15s ease, height .15s ease, box-shadow .15s ease; }.box-map-page :global(.vehicle-map-marker.compact.selected) { width: 36px; height: 36px; min-height: 36px; box-shadow: 0 0 0 3px rgb(0 180 42 / 28%), 0 3px 8px rgb(0 180 42 / 42%); }.box-map-page :global(.vehicle-map-marker.compact svg) { flex: none; }.box-map-page :global(.vehicle-map-marker.compact.selected svg) { width: 28px; height: 28px; }.box-map-page :global(.vehicle-cluster-marker) { display: flex; align-items: center; justify-content: center; min-width: 32px; height: 32px; padding: 0 6px; border: 2px solid #fff; border-radius: 50%; background: #00b42a; box-shadow: 0 2px 8px rgb(0 180 42 / 36%); color: #fff; font-size: 12px; font-weight: 700; }.box-map-page :global(.vehicle-map-info) { display: grid; gap: 5px; min-width: 220px; padding: 2px; color: #4e5969; font-size: 12px; }.box-map-page :global(.vehicle-map-info b) { color: #1d2129; font-size: 14px; }.box-map-page :global(.vehicle-status) { width: fit-content; padding: 1px 6px; border-radius: 3px; font-size: 11px; line-height: 18px; }.box-map-page :global(.vehicle-status.online) { background: #e8ffea; color: #00a870; }.box-map-page :global(.vehicle-status.offline) { background: #f2f3f5; color: #86909c; }.box-map-page :global(.vehicle-status.charging) { background: #fff7e8; color: #ff7d00; }.box-map-page :global(.vehicle-location) { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 4px; color: #86909c; font-size: 11px; line-height: 17px; }.box-map-page :global(.vehicle-location em) { color: #4e5969; font-style: normal; }.box-map-page :global(.vehicle-location span) { overflow-wrap: anywhere; }
 .history-overlay { position: absolute; inset: 16px; z-index: 10; display: flex; min-height: 0; flex-direction: column; padding: 16px; overflow: hidden; background: #f7f8fa; box-shadow: 0 12px 36px rgb(29 33 41 / 28%); }.history-overlay-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; padding-bottom: 12px; }.history-title { display: flex; align-items: baseline; gap: 8px; }.history-title h2 { margin: 0; color: #1d2129; font-size: 24px; line-height: 32px; }.history-title span { color: #86909c; font-size: 12px; }.history-close-btn { color: #86909c; }.history-close-btn:hover { color: #1d2129; background: #e5e6eb; }
 .history-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; padding: 0 0 12px; }.history-summary { color: #4e5969; font-size: 13px; }

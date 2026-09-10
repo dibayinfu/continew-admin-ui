@@ -126,12 +126,9 @@
         <a-input v-model="keyword" allow-clear placeholder="输入箱体编号或名称" style="width: 240px" @press-enter="focusMatchedBox">
           <template #prefix><icon-search /></template>
         </a-input>
-        <a-button :type="overflowOnly ? 'primary' : 'outline'" :status="overflowOnly ? 'danger' : 'normal'" @click="overflowOnly = !overflowOnly">
-          {{ overflowOnly ? '已筛选满溢' : '只看满溢' }}
-        </a-button>
-        <a-button :type="transportingOnly ? 'primary' : 'outline'" @click="transportingOnly = !transportingOnly">
-          {{ transportingOnly ? '已筛选运输中' : '只看运输中' }}
-        </a-button>
+        <span class="filter-label">筛选条件</span>
+        <a-checkbox v-model="overflowOnly" class="status-filter-checkbox danger" :class="{ selected: overflowOnly }">只看满溢</a-checkbox>
+        <a-checkbox v-model="transportingOnly" class="status-filter-checkbox" :class="{ selected: transportingOnly }">只看运输中</a-checkbox>
         <span class="filter-result">{{ keyword.trim() ? `匹配到 ${matchedCount} 个箱体` : `当前显示 ${visibleBoxes.length} 个箱体` }}</span>
       </div>
       <div class="filter-block">
@@ -1402,6 +1399,10 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window
 .filter-block { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .filter-block:last-child { margin-bottom: 0; }
 .filter-label { color: #4e5969; font-size: 13px; white-space: nowrap; }
+.status-filter-checkbox { margin: 0; padding: 4px 8px; border: 1px solid #e5e6eb; border-radius: 4px; background: #fff; color: #4e5969; line-height: 22px; transition: all .15s; }
+.status-filter-checkbox:hover { border-color: #165dff; color: #165dff; }
+.status-filter-checkbox.selected { border-color: #165dff; background: #f2f7ff; color: #165dff; }
+.status-filter-checkbox.danger.selected { border-color: #f53f3f; background: #fff2f0; color: #f53f3f; }
 .chip { padding: 2px 13px; border: 1px solid #e5e6eb; border-radius: 14px; background: #fff; color: #4e5969; font-size: 13px; line-height: 22px; cursor: pointer; transition: all .15s; }
 .chip:hover { border-color: #165dff; color: #165dff; }
 .chip.active { background: #165dff; border-color: #165dff; color: #fff; }

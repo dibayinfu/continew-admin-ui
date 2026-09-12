@@ -1,5 +1,5 @@
 <template>
-  <div ref="pageFullscreenRef" class="gi_page box-map-page" :class="{ 'ai-open': aiVisible, 'fullscreen-fallback': pageFallbackFullscreen }" :style="aiOverlayStyle">
+  <div ref="pageFullscreenRef" class="gi_page box-map-page" :class="{ 'ai-open': aiVisible, 'ai-docked': aiVisible && aiLayout === 'docked', 'fullscreen-fallback': pageFallbackFullscreen }" :style="aiOverlayStyle">
     <div class="page-header">
       <div>
         <div class="page-title">箱体地图</div>
@@ -32,15 +32,19 @@
       </a-space>
     </div>
 
-    <a-tooltip v-if="!aiVisible" content="打开 AI 调度助手" position="right">
-      <a-button class="ai-floating-trigger" type="primary" shape="circle" aria-label="打开 AI 调度助手" @click="openAiAssistant">
+    <a-tooltip v-if="!aiVisible" content="打开 AI助手" position="right">
+      <a-button class="ai-floating-trigger" type="primary" shape="circle" aria-label="打开 AI助手" @click="openAiAssistant">
         <template #icon><icon-robot /></template>
       </a-button>
     </a-tooltip>
-    <section v-if="aiVisible" class="ai-assistant" aria-label="AI 调度助手">
+    <section v-if="aiVisible" class="ai-assistant" :class="`ai-assistant--${aiLayout}`" aria-label="AI助手">
+      <div v-if="aiLayout === 'docked'" class="ai-resize-handle" role="separator" aria-label="调整 AI助手宽度" aria-orientation="vertical" @mousedown.prevent="startAiResize"></div>
       <header class="ai-header">
-        <div><span class="ai-avatar"><icon-robot /></span><span><b>AI 调度助手</b></span></div>
+        <div><span class="ai-avatar"><icon-robot /></span><span><b>AI助手</b></span></div>
         <a-space :size="2">
+          <a-tooltip :content="aiLayout === 'docked' ? '缩小为地图浮窗' : '放大为右侧常驻面板'">
+            <a-button type="text" size="mini" :aria-label="aiLayout === 'docked' ? '缩小为地图浮窗' : '放大为右侧常驻面板'" @click="toggleAiLayout"><template #icon><icon-fullscreen-exit v-if="aiLayout === 'docked'" /><icon-fullscreen v-else /></template></a-button>
+          </a-tooltip>
           <a-tooltip content="清空当前会话">
             <a-button type="text" size="mini" aria-label="清空当前会话" @click="clearAiConversation"><template #icon><icon-delete /></template></a-button>
           </a-tooltip>
@@ -434,6 +438,7 @@ interface TricycleClusterPoint extends Record<string, unknown> { lnglat: [number
 
 const VEHICLE_TYPES: VehicleType[] = ['小勾臂车', '大勾臂车', '小三轮']
 const REFRESH_SETTINGS_KEY = 'sbg-monitor:box-map-refresh-settings'
+const AI_LAYOUT_SETTINGS_KEY = 'sbg-monitor:box-map-ai-layout'
 const DEFAULT_BOX_REFRESH_MINUTES = 5
 const DEFAULT_VEHICLE_REFRESH_MINUTES = 1
 
@@ -516,6 +521,7 @@ async function toggleMapFullscreen() {
 /** 侧栏展开 230px、折叠 48px；全屏/移动端没有侧栏，助手贴内容区边缘。 */
 const aiOverlayStyle = computed(() => ({
   '--ai-left': `${isPageFullscreen.value || !isDesktop.value ? 10 : appStore.menuCollapse ? 72 : 254}px`,
+  '--ai-panel-width': `${aiPanelWidth.value}px`,
 }))
 const keyword = ref('')
 const overflowOnly = ref(false)
@@ -534,6 +540,19 @@ const vehicleLoading = ref(false)
 const importVisible = ref(false)
 const importText = ref('')
 const aiVisible = ref(false)
+type AiLayout = 'floating' | 'docked'
+function readAiLayout(): AiLayout {
+  try { return JSON.parse(localStorage.getItem(AI_LAYOUT_SETTINGS_KEY) || '{}').layout === 'docked' ? 'docked' : 'floating' } catch { return 'floating' }
+}
+function readAiPanelWidth() {
+  try {
+    const width = Number(JSON.parse(localStorage.getItem(AI_LAYOUT_SETTINGS_KEY) || '{}').width)
+    return Number.isFinite(width) ? Math.min(680, Math.max(380, Math.round(width))) : 460
+  } catch { return 460 }
+}
+const aiLayout = ref<AiLayout>(readAiLayout())
+const aiPanelWidth = ref(readAiPanelWidth())
+let aiResizing = false
 const aiQuestion = ref('')
 const aiLoading = ref(false)
 let aiConversationId = createAiConversationId()
@@ -542,7 +561,7 @@ const aiMessagesRef = ref<HTMLElement>()
 const aiShortcuts = ['哪些箱体需要优先清运？', '今天收运了多少垃圾？', '近 7 天运单情况', '哪个乡镇清运压力最大？']
 type AiMessage = { id: number, role: 'user' | 'assistant', content: string, loading?: boolean, progress?: string, reply?: AiReply }
 function initialAiMessages(): AiMessage[] {
-  return [{ id: Date.now(), role: 'assistant', content: '我是 AI 调度助手。可分析箱体调度，也可回答通用问题；实时公开信息会附上来源。' }]
+  return [{ id: Date.now(), role: 'assistant', content: '我是 AI助手。可分析箱体调度，也可回答通用问题；实时公开信息会附上来源。' }]
 }
 const aiMessages = ref<AiMessage[]>(initialAiMessages())
 interface AiQueryLog { id: number, question: string, answer?: string, questionDomain?: string, status: string, answerQuality?: string, toolAudit?: string, totalDurationMs: number | null, duration?: string, createdAt: string }
@@ -777,6 +796,36 @@ function submitAiOnEnter(event: KeyboardEvent) {
 function openAiAssistant() {
   aiVisible.value = true
   void nextTick(() => aiMessagesRef.value?.scrollTo({ top: aiMessagesRef.value.scrollHeight }))
+}
+function persistAiLayout() {
+  localStorage.setItem(AI_LAYOUT_SETTINGS_KEY, JSON.stringify({ layout: aiLayout.value, width: aiPanelWidth.value }))
+}
+function toggleAiLayout() {
+  // 小屏幕保持浮窗，防止右栏压缩地图至不可操作的宽度。
+  if (!isDesktop.value) return
+  aiLayout.value = aiLayout.value === 'docked' ? 'floating' : 'docked'
+  persistAiLayout()
+  void resizeMapAfterLayout()
+}
+function onAiResize(event: MouseEvent) {
+  if (!aiResizing) return
+  aiPanelWidth.value = Math.min(680, Math.max(380, Math.round(window.innerWidth - event.clientX)))
+}
+function stopAiResize() {
+  if (!aiResizing) return
+  aiResizing = false
+  document.body.classList.remove('ai-panel-resizing')
+  window.removeEventListener('mousemove', onAiResize)
+  window.removeEventListener('mouseup', stopAiResize)
+  persistAiLayout()
+  void resizeMapAfterLayout()
+}
+function startAiResize() {
+  if (aiLayout.value !== 'docked' || !isDesktop.value) return
+  aiResizing = true
+  document.body.classList.add('ai-panel-resizing')
+  window.addEventListener('mousemove', onAiResize)
+  window.addEventListener('mouseup', stopAiResize)
 }
 function clearAiConversation() {
   // 清空时同步中止未完成请求，避免旧响应在新会话中继续写入。
@@ -1348,6 +1397,7 @@ watch([overflowOnly, transportingOnly, townshipFilter, villageFilter], drawMarke
 watch(boxes, () => drawMarkers(false))
 watch([vehicles, enabledVehicleTypes, vehicleTypeById], () => drawVehicleMarkers(), { deep: true })
 watch(mapTheme, (theme) => map?.setMapStyle(`amap://styles/${theme}`))
+watch(aiLayout, () => { void resizeMapAfterLayout() })
 async function loadFromCloud(silent = false) {
   // 手动刷新与定时刷新重叠时复用正在进行的请求，避免短时间重复请求。
   if (cloudLoading.value) return
@@ -1473,11 +1523,12 @@ onMounted(async () => {
   // 仅更新已加载驻留时间的显示，不会请求后端。
   residenceClockTimer = window.setInterval(() => { residenceNow.value = Date.now() }, 60 * 1000)
 })
-onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window.clearInterval(boxRefreshTimer); if (vehicleRefreshTimer) window.clearInterval(vehicleRefreshTimer); if (residenceClockTimer) window.clearInterval(residenceClockTimer); clearBoxOverlays(); clearVehicleOverlays(); map?.destroy(); destroyHistoryMap() })
+onBeforeUnmount(() => { stopAiResize(); offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window.clearInterval(boxRefreshTimer); if (vehicleRefreshTimer) window.clearInterval(vehicleRefreshTimer); if (residenceClockTimer) window.clearInterval(residenceClockTimer); clearBoxOverlays(); clearVehicleOverlays(); map?.destroy(); destroyHistoryMap() })
 </script>
 
 <style scoped lang="scss">
-.box-map-page { min-height: calc(100vh - 112px); display: flex; flex-direction: column; gap: 16px; }
+.box-map-page { min-height: calc(100vh - 112px); display: flex; flex-direction: column; gap: 16px; transition: padding-right .2s ease; }
+.box-map-page.ai-docked { padding-right: calc(var(--ai-panel-width) + 16px); }
 .box-map-page:fullscreen { width: 100%; height: 100%; min-height: 0; padding: 16px; overflow: auto; box-sizing: border-box; background: #f2f3f5; }
 .box-map-page.fullscreen-fallback { position: fixed; inset: 0; z-index: 1000; width: 100%; height: 100dvh; min-height: 0; padding: 16px; overflow: auto; box-sizing: border-box; background: #f2f3f5; }
 .page-header { display: flex; align-items: center; justify-content: space-between; padding: 2px 0; }
@@ -1528,6 +1579,9 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window
 /* 左侧导航展开宽度为 230px；助手与入口固定在内容区左下，给右侧箱体详情留出完整空间。 */
 .ai-floating-trigger { position: fixed; bottom: 24px; left: var(--ai-left); z-index: 1002; width: 44px; height: 44px; box-shadow: 0 8px 22px rgb(22 93 255 / 30%); }.ai-floating-trigger :deep(.arco-icon) { font-size: 21px; }
 .ai-assistant { position: fixed; bottom: 24px; left: var(--ai-left); z-index: 1002; display: flex; width: 368px; max-width: calc(100vw - var(--ai-left) - 24px); height: min(610px, calc(100vh - 48px)); flex-direction: column; overflow: hidden; border: 1px solid #e5e6eb; border-radius: 0; background: #fff; box-shadow: 0 18px 52px rgb(29 33 41 / 24%); }
+.ai-assistant--docked { top: 0; right: 0; bottom: 0; left: auto; width: var(--ai-panel-width); max-width: 42vw; height: auto; border-width: 0 0 0 1px; box-shadow: -8px 0 28px rgb(29 33 41 / 10%); }
+.ai-resize-handle { position: absolute; top: 0; bottom: 0; left: -5px; z-index: 3; width: 10px; cursor: col-resize; }.ai-resize-handle::after { position: absolute; top: 50%; left: 3px; width: 3px; height: 38px; border-radius: 3px; background: transparent; content: ''; transform: translateY(-50%); transition: background .15s; }.ai-resize-handle:hover::after { background: #165dff; }
+:global(body.ai-panel-resizing) { cursor: col-resize; user-select: none; }
 .ai-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 14px 12px 16px; border-bottom: 1px solid #f2f3f5; }.ai-header > div { display: flex; align-items: center; gap: 9px; }.ai-header b { display: block; color: #1d2129; font-size: 14px; }.ai-header small { display: block; margin-top: 2px; color: #86909c; font-size: 11px; }.ai-avatar, .ai-mini-avatar { display: inline-flex; align-items: center; justify-content: center; color: #fff; border-radius: 8px; background: linear-gradient(135deg, #165dff, #722ed1); }.ai-avatar { width: 30px; height: 30px; font-size: 17px; }.ai-mini-avatar { width: 24px; height: 24px; flex: 0 0 auto; border-radius: 7px; font-size: 14px; }
 .ai-shortcuts { display: flex; gap: 6px; padding: 10px 14px; overflow-x: auto; border-bottom: 1px solid #f2f3f5; background: #fafcff; }.ai-shortcuts button { flex: 0 0 auto; padding: 4px 8px; border: 1px solid #bedaff; border-radius: 12px; background: #fff; color: #165dff; font-size: 11px; cursor: pointer; }.ai-shortcuts button:hover { background: #e8f3ff; }
 .ai-messages { flex: 1; min-height: 0; padding: 14px; overflow-y: auto; background: #f7f8fa; }.ai-message { display: flex; gap: 7px; margin-bottom: 12px; }.ai-message.user { justify-content: flex-end; }.ai-bubble { max-width: calc(100% - 31px); padding: 9px 11px; border-radius: 9px; background: #fff; color: #4e5969; box-shadow: 0 1px 2px rgb(29 33 41 / 6%); font-size: 13px; line-height: 20px; }.ai-message.user .ai-bubble { max-width: 82%; background: #165dff; color: #fff; }.ai-bubble p { margin: 0; white-space: pre-wrap; }.ai-priority-ranking { display: grid; gap: 8px; margin-top: 10px; }.ai-priority-ranking > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-left: 3px solid #165dff; background: #f2f7ff; }.ai-priority-ranking > header div { display: grid; gap: 1px; }.ai-priority-ranking > header b { color: #1d2129; font-size: 12px; }.ai-priority-ranking > header span { color: #4e5969; font-size: 10px; line-height: 15px; }.ai-priority-ranking > header > em { flex: 0 0 auto; color: #86909c; font-size: 9px; font-style: normal; }.ai-priority-table-wrap, .ai-priority-bar-chart { overflow: hidden; border: 1px solid #d9e8ff; border-radius: 4px; background: #fff; }.ai-priority-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }.ai-priority-table th { padding: 7px 6px; background: #f7faff; color: #86909c; font-size: 10px; font-weight: 500; text-align: left; }.ai-priority-table th:nth-child(1) { width: 35px; text-align: center; }.ai-priority-table th:nth-child(2) { width: 55px; }.ai-priority-table th:nth-child(4) { width: 58px; text-align: right; }.ai-priority-table td { min-width: 0; padding: 8px 6px; border-top: 1px solid #f2f3f5; color: #4e5969; vertical-align: middle; }.ai-priority-table td:nth-child(1) { text-align: center; }.ai-priority-table td:nth-child(2) b { color: #1d2129; font-size: 11px; white-space: nowrap; }.ai-priority-table td:nth-child(3) { overflow: hidden; color: #86909c; text-overflow: ellipsis; white-space: nowrap; }.ai-priority-table td:last-child { color: #165dff; text-align: right; white-space: nowrap; }.ai-priority-table td:last-child strong { font-size: 15px; line-height: 1; }.ai-priority-table td:last-child em { margin-left: 1px; color: #165dff; font-size: 9px; font-style: normal; }.ai-priority-rank { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 4px; background: #e8f3ff; color: #165dff; font-size: 10px; font-weight: 700; }.ai-priority-bar-chart { display: grid; gap: 0; padding: 5px 9px; }.ai-priority-bar-row { display: grid; grid-template-columns: 42px minmax(0, 1fr) 35px; align-items: center; gap: 7px; padding: 6px 0; }.ai-priority-bar-row > span { overflow: hidden; color: #4e5969; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }.ai-priority-bar-row i { height: 9px; overflow: hidden; border-radius: 999px; background: #e5e6eb; }.ai-priority-bar-row b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #165dff, #4080ff); }.ai-priority-bar-row em { color: #4e5969; font-size: 10px; font-style: normal; text-align: right; }.ai-evidence { display: grid; gap: 3px; margin: 8px 0 0; padding: 7px 0 0 16px; border-top: 1px solid #f2f3f5; color: #86909c; font-size: 11px; line-height: 17px; }.ai-sources { display: grid; gap: 3px; margin: 8px 0 0; padding: 7px 0 0 16px; border-top: 1px solid #f2f3f5; font-size: 11px; line-height: 17px; }.ai-sources a { color: #165dff; text-decoration: none; }.ai-sources a:hover { text-decoration: underline; }.ai-message-footer { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 8px; color: #86909c; font-size: 10px; }.ai-message-footer :deep(.arco-btn) { height: 20px; padding: 0 3px; font-size: 11px; }
@@ -1544,7 +1598,7 @@ onBeforeUnmount(() => { offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window
 :global(.history-track-pin) { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; color: #fff; font-size: 13px; font-weight: 700; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 2px 8px rgb(0 0 0 / 36%), 0 0 0 1px rgb(22 93 255 / 35%); }.history-track-pin.start { background: #00b42a; }.history-track-pin.end { background: #f53f3f; }.history-track-pin.visit { background: #165dff; }
 :global(.history-track-pin.start) { background: #00b42a; }:global(.history-track-pin.end) { background: #f53f3f; }:global(.history-track-pin.visit) { background: #165dff; }
 @media (max-width: 960px) { .detail-card { top: auto; right: 10px; bottom: 10px; left: 10px; width: auto; max-height: 58%; }.page-header { align-items: flex-start; gap: 12px; flex-direction: column; } }
-@media (max-width: 960px) { .box-map-page.ai-open .detail-card { display: none; }.ai-floating-trigger { bottom: 10px; }.ai-assistant { right: auto; bottom: 10px; max-width: calc(100vw - var(--ai-left) - 10px); height: min(600px, calc(100vh - 20px)); } }
+@media (max-width: 960px) { .box-map-page.ai-open .detail-card { display: none; }.box-map-page.ai-docked { padding-right: 0; }.ai-floating-trigger { bottom: 10px; }.ai-assistant, .ai-assistant--docked { top: auto; right: auto; bottom: 10px; left: var(--ai-left); width: 368px; max-width: calc(100vw - var(--ai-left) - 10px); height: min(600px, calc(100vh - 20px)); border: 1px solid #e5e6eb; box-shadow: 0 18px 52px rgb(29 33 41 / 24%); }.ai-resize-handle { display: none; } }
 /* 手机端优先保证地图可见面积：筛选项横向滑动，不再把地图推到首屏之外。 */
 @media (max-width: 600px) {
   .box-map-page { min-height: 100%; gap: 10px; padding: 10px; }

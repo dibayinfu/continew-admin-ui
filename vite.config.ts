@@ -26,6 +26,9 @@ export default defineConfig(({ command, mode }) => {
     },
     // 添加需要vite优化的依赖
     optimizeDeps: {
+      // 某次预构建中断后，浏览器可能继续请求已被清理的 chunk-*.js，表现为部分
+      // 懒加载菜单 URL 已变化但页面仍停留在旧页。开发启动时强制重建可避免该状态。
+      force: command === 'serve',
       include: ['vue-draggable-plus'],
     },
     server: {

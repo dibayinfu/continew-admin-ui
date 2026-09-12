@@ -126,6 +126,11 @@ export interface AiQueryContext {
   operatorName?: string
 }
 
+/** 浏览器生成的匿名会话 ID；仅用于后端隔离 15 分钟短期筛选上下文。 */
+export function createAiConversationId() {
+  return crypto.randomUUID().replace(/-/g, '')
+}
+
 export interface AiStreamCallbacks {
   onProgress?: (message: string) => void
   onAnswerDelta?: (text: string) => void
@@ -238,21 +243,21 @@ export async function queryPriorityCleanup(limit = 5, signal?: AbortSignal): Pro
   }
 }
 
-export async function queryBoxMapAssistant(question: string, context: AiQueryContext): Promise<AiReply> {
+export async function queryBoxMapAssistant(question: string, context: AiQueryContext, conversationId?: string): Promise<AiReply> {
   const collectorApiBaseUrl = (import.meta.env.VITE_COLLECTOR_API_BASE_URL || '').replace(/\/$/, '')
   const response = await fetch(`${collectorApiBaseUrl}/api/ai/box-map/query`, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, context }),
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ question, context, conversationId }),
   })
   if (!response.ok) throw new Error(await response.text() || 'AI 服务异常')
   return await response.json() as AiReply
 }
 
 /** 后端 SSE：进度先到达，answer-delta 直接来自模型生成过程，complete 补齐结构化结果。 */
-export async function queryBoxMapAssistantStream(question: string, context: AiQueryContext, callbacks: AiStreamCallbacks = {}, signal?: AbortSignal): Promise<AiReply> {
+export async function queryBoxMapAssistantStream(question: string, context: AiQueryContext, conversationId: string | undefined, callbacks: AiStreamCallbacks = {}, signal?: AbortSignal): Promise<AiReply> {
   try {
     const collectorApiBaseUrl = (import.meta.env.VITE_COLLECTOR_API_BASE_URL || '').replace(/\/$/, '')
     const response = await fetch(`${collectorApiBaseUrl}/api/ai/box-map/query/stream`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' }, body: JSON.stringify({ question, context }), signal,
+      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream' }, body: JSON.stringify({ question, context, conversationId }), signal,
     })
     if (!response.ok || !response.body) throw new Error(await response.text())
     const reader = response.body.getReader()

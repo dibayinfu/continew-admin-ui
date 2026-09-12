@@ -356,7 +356,7 @@ import { useAppStore, useUserStore } from '@/stores'
 import { type AMapInfoWindow, type AMapInstance, type AMapMarker, type AMapMarkerCluster, type AMapMassMarks, loadAmapJsApi, loadAmapMarkerClusterer } from '@/utils/amap'
 import { daasAuth, collectorMapRequest, collectorVehicleRuntimeRequest, collectorVehicleTypesRequest, getHiddenBoxIds, saveSharedDaasToken } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
-import { type AiMapAction, type AiOverflowDurationItem, type AiReply, type AiTransportMetricRow, queryBoxMapAssistantStream } from './box-map-ai'
+import { createAiConversationId, type AiMapAction, type AiOverflowDurationItem, type AiReply, type AiTransportMetricRow, queryBoxMapAssistantStream } from './box-map-ai'
 
 defineOptions({ name: 'SanitationBoxMap' })
 
@@ -536,6 +536,7 @@ const importText = ref('')
 const aiVisible = ref(false)
 const aiQuestion = ref('')
 const aiLoading = ref(false)
+let aiConversationId = createAiConversationId()
 let activeAiRequest: AbortController | undefined
 const aiMessagesRef = ref<HTMLElement>()
 const aiShortcuts = ['哪些箱体需要优先清运？', '今天收运了多少垃圾？', '近 7 天运单情况', '哪个乡镇清运压力最大？']
@@ -784,6 +785,8 @@ function clearAiConversation() {
   aiLoading.value = false
   aiQuestion.value = ''
   aiMessages.value = initialAiMessages()
+  // 新会话使用新 ID，旧会话的短期筛选条件不会串入。
+  aiConversationId = createAiConversationId()
 }
 async function askAi(question: string) {
   const text = question.trim()
@@ -800,7 +803,7 @@ async function askAi(question: string) {
   aiMessagesRef.value?.scrollTo({ top: aiMessagesRef.value.scrollHeight, behavior: 'smooth' })
   try {
     Object.assign(pending, { loading: false, progress: '正在理解问题并选择数据工具…' })
-    const reply = await queryBoxMapAssistantStream(text, await aiContext(), {
+    const reply = await queryBoxMapAssistantStream(text, await aiContext(), aiConversationId, {
         onProgress: (progress) => { pending.progress = progress },
         onAnswerDelta: (delta) => { pending.progress = '正在流式生成回答…'; pending.content += delta },
       }, request.signal)

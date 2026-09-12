@@ -53,8 +53,12 @@
           </a-tooltip>
         </a-space>
       </header>
+      <div class="ai-context" aria-label="当前分析范围">
+        <span class="ai-context-title">当前范围</span>
+        <span v-for="item in aiContextLabels" :key="item">{{ item }}</span>
+      </div>
       <div class="ai-shortcuts">
-        <button v-for="item in aiShortcuts" :key="item" type="button" @click="askAi(item)">{{ item }}</button>
+        <button v-for="item in aiShortcuts" :key="item.label" type="button" @click="askAi(item.question)">{{ item.label }}</button>
       </div>
       <div ref="aiMessagesRef" class="ai-messages">
         <template v-for="message in aiMessages" :key="message.id">
@@ -64,14 +68,27 @@
               <a-spin v-if="message.loading" size="small" />
               <template v-else>
                 <p v-if="message.progress" class="ai-progress">{{ message.progress }}</p>
-                <p v-if="message.reply?.answer || message.content">{{ message.reply?.answer || message.content }}</p>
+                <p v-if="message.reply?.answer || message.content">{{ displayAiAnswer(message) }}</p>
+                <section v-if="message.reply?.structured" class="ai-structured-answer">
+                  <div v-if="message.reply.structured.impact?.length"><b>影响范围</b><ul><li v-for="item in message.reply.structured.impact" :key="item">{{ item }}</li></ul></div>
+                  <div v-if="message.reply.structured.recommendations?.length"><b>建议动作</b><ol><li v-for="item in message.reply.structured.recommendations" :key="item">{{ item }}</li></ol></div>
+                </section>
+                <section v-if="message.reply?.dispatchGuide" class="ai-dispatch-guide">
+                  <header><div><b>{{ message.reply.dispatchGuide.title }}</b><span>仅供人工决策参考，不会创建或修改业务单据</span></div><a-tag color="orange">需人工执行</a-tag></header>
+                  <div v-if="message.reply.dispatchGuide.targetBoxes.length" class="ai-guide-row"><span>处理对象</span><div><button v-for="boxNo in message.reply.dispatchGuide.targetBoxes" :key="boxNo" type="button" @click="focusAiBox(boxNo)">{{ boxNo }} 号箱</button></div></div>
+                  <div v-if="message.reply.dispatchGuide.suggestedOrder.length" class="ai-guide-row"><span>建议顺序</span><p>{{ message.reply.dispatchGuide.suggestedOrder.join(' → ') }}</p></div>
+                  <div v-if="message.reply.dispatchGuide.suggestedVehicles.length" class="ai-guide-row"><span>建议资源</span><p>{{ message.reply.dispatchGuide.suggestedVehicles.join('；') }}</p></div>
+                  <div v-if="message.reply.dispatchGuide.rationale.length" class="ai-guide-row"><span>建议依据</span><p>{{ message.reply.dispatchGuide.rationale.join('；') }}</p></div>
+                  <div v-if="message.reply.dispatchGuide.risks.length" class="ai-guide-risks"><b>核查提示</b><ul><li v-for="item in message.reply.dispatchGuide.risks" :key="item">{{ item }}</li></ul></div>
+                  <footer>{{ message.reply.dispatchGuide.nextStep }}</footer>
+                </section>
                 <section v-if="message.reply?.priorityRanking?.length" class="ai-priority-ranking">
                   <header><div><b>{{ message.reply.visualization?.title || '优先清运排名' }}</b><span>由满溢率、满溢时长、停留时长三项综合评分得出</span></div><em>满分 100</em></header>
                   <div v-if="message.reply.visualization?.type !== 'bar'" class="ai-priority-table-wrap">
                     <table class="ai-priority-table">
                       <thead><tr><th>排名</th><th>箱体</th><th>收集点</th><th>综合评分</th></tr></thead>
                       <tbody>
-                        <tr v-for="(item, index) in message.reply.priorityRanking" :key="item.boxNo">
+                        <tr v-for="(item, index) in message.reply.priorityRanking" :key="item.boxNo" class="ai-focus-row" @click="focusAiBox(item.boxNo)">
                           <td><span class="ai-priority-rank">{{ index + 1 }}</span></td>
                           <td><b>{{ item.boxNo }} 号箱</b></td>
                           <td :title="[item.townshipName, item.villageName, item.pointName].filter(Boolean).join(' · ')">{{ [item.townshipName, item.villageName, item.pointName].filter(Boolean).join(' · ') || '未匹配收集点' }}</td>
@@ -81,7 +98,7 @@
                     </table>
                   </div>
                   <div v-else class="ai-priority-bar-chart">
-                    <div v-for="item in message.reply.priorityRanking" :key="item.boxNo" class="ai-priority-bar-row">
+                    <div v-for="item in message.reply.priorityRanking" :key="item.boxNo" class="ai-priority-bar-row ai-focus-row" @click="focusAiBox(item.boxNo)">
                       <span>{{ item.boxNo }}号</span><i><b :style="{ width: `${Math.max(0, Math.min(100, Number(item.priorityScore) || 0))}%` }"></b></i><em>{{ formatPriorityScore(item.priorityScore) }}</em>
                     </div>
                   </div>
@@ -113,7 +130,7 @@
                 <section v-if="message.reply?.overflowDuration?.items?.length" class="ai-transport-visualization">
                   <header><b>持续满溢箱体</b><span>{{ hasOverflowDurationData(message.reply) ? '按最早满溢时间排序' : '持续时长待补齐' }}</span></header>
                   <div v-if="hasOverflowDurationData(message.reply)" class="ai-overflow-list">
-                    <article v-for="item in overflowDurationRows(message.reply)" :key="item.boxNo" class="ai-overflow-item">
+                    <article v-for="item in overflowDurationRows(message.reply)" :key="item.boxNo" class="ai-overflow-item ai-focus-row" @click="focusAiBox(item.boxNo)">
                       <b>{{ item.boxNo }} 号箱</b><span :title="overflowLocation(item)">{{ overflowLocation(item) }}</span><em>满溢率 {{ Math.round(item.fillLevel) }}% · {{ formatMinutes(item.durationMinutes) }}</em>
                     </article>
                   </div>
@@ -360,7 +377,7 @@ import { useAppStore, useUserStore } from '@/stores'
 import { type AMapInfoWindow, type AMapInstance, type AMapMarker, type AMapMarkerCluster, type AMapMassMarks, loadAmapJsApi, loadAmapMarkerClusterer } from '@/utils/amap'
 import { daasAuth, collectorMapRequest, collectorVehicleRuntimeRequest, collectorVehicleTypesRequest, getHiddenBoxIds, saveSharedDaasToken } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
-import { createAiConversationId, type AiMapAction, type AiOverflowDurationItem, type AiReply, type AiTransportMetricRow, queryBoxMapAssistantStream } from './box-map-ai'
+import { createAiConversationId, type AiMapAction, type AiOverflowDurationItem, type AiQueryContext, type AiReply, type AiTransportMetricRow, queryBoxMapAssistantStream } from './box-map-ai'
 
 defineOptions({ name: 'SanitationBoxMap' })
 
@@ -417,7 +434,7 @@ interface HistoryPointVisit { pointId: number, pointName: string, townshipName: 
 interface HistoryTrackResponse { track: HistoryTrackPoint[], pointVisits: HistoryPointVisit[], summary: { snapshotCount: number, uniquePointCount: number, visitCount: number } }
 interface CurrentResidence { boxId: number, pointId: number, pointName: string, townshipName: string, villageName: string, arrivalTime: string, lastSeenTime: string }
 interface CurrentOverflow { boxId: number, overflowing: boolean, overflowStartedAt: string | null, lastSeenTime: string }
-interface AiRequestContext { boxes: import('./box-map-ai').AiBoxSnapshot[], selectedBoxNo?: string }
+interface AiRequestContext extends AiQueryContext {}
 type VehicleType = '小勾臂车' | '大勾臂车' | '小三轮'
 interface VehicleRuntime {
   id: number
@@ -558,12 +575,35 @@ const aiLoading = ref(false)
 let aiConversationId = createAiConversationId()
 let activeAiRequest: AbortController | undefined
 const aiMessagesRef = ref<HTMLElement>()
-const aiShortcuts = ['哪些箱体需要优先清运？', '今天收运了多少垃圾？', '近 7 天运单情况', '哪个乡镇清运压力最大？']
+const aiShortcuts = computed(() => selectedBox.value
+  ? [
+      { label: `解释 ${selectedBox.value.containerNo} 号箱异常`, question: `解释 ${selectedBox.value.containerNo} 号箱当前异常，并给出人工处理建议。` },
+      { label: '分析停留与满溢风险', question: `分析 ${selectedBox.value.containerNo} 号箱的停留与满溢风险。` },
+      { label: '推荐处理顺序', question: `针对 ${selectedBox.value.containerNo} 号箱，给出只读的人工调度建议，不要创建运单。` },
+    ]
+  : [
+      { label: '分析满溢风险', question: '哪些箱体需要优先清运？' },
+      { label: '分析滞留箱体', question: '当前有哪些箱体停留时间较长，需要重点关注？' },
+      { label: '生成清运建议', question: '根据当前地图范围生成只读的人工清运建议，不要创建运单或派单。' },
+      { label: '解释当前异常', question: '解释当前地图范围内最需要关注的异常。' },
+    ])
+const aiContextLabels = computed(() => {
+  const labels = [townshipFilter.value === UNMATCHED ? '未匹配乡镇' : townshipFilter.value || '全部区域']
+  if (villageFilter.value) labels.push(villageFilter.value === UNMATCHED ? '未匹配村庄' : villageFilter.value)
+  if (overflowOnly.value) labels.push('仅满溢')
+  if (transportingOnly.value) labels.push('仅运输中')
+  if (selectedBox.value) labels.push(`已选 ${selectedBox.value.containerNo} 号箱`)
+  labels.push(`${visibleBoxes.value.length} 个箱体`)
+  return labels
+})
 type AiMessage = { id: number, role: 'user' | 'assistant', content: string, loading?: boolean, progress?: string, reply?: AiReply }
 function initialAiMessages(): AiMessage[] {
   return [{ id: Date.now(), role: 'assistant', content: '我是 AI助手。可分析箱体调度，也可回答通用问题；实时公开信息会附上来源。' }]
 }
 const aiMessages = ref<AiMessage[]>(initialAiMessages())
+function displayAiAnswer(message: AiMessage) {
+  return message.reply?.structured?.conclusion || message.reply?.answer || message.content
+}
 interface AiQueryLog { id: number, question: string, answer?: string, questionDomain?: string, status: string, answerQuality?: string, toolAudit?: string, totalDurationMs: number | null, duration?: string, createdAt: string }
 const aiQueryLogsVisible = ref(false)
 const aiQueryLogsLoading = ref(false)
@@ -734,6 +774,13 @@ async function aiContext(): Promise<AiRequestContext> {
   })
   return {
     selectedBoxNo: selectedBox.value?.containerNo,
+    scope: {
+      township: townshipFilter.value === UNMATCHED ? '未匹配' : townshipFilter.value || undefined,
+      village: villageFilter.value === UNMATCHED ? '未匹配' : villageFilter.value || undefined,
+      overflowOnly: overflowOnly.value || undefined,
+      transportingOnly: transportingOnly.value || undefined,
+      visibleBoxCount: visibleBoxes.value.length,
+    },
     boxes: snapshots,
     operatorName: userStore.nickname || userStore.username || undefined,
   }
@@ -883,6 +930,10 @@ function applyAiActions(actions: AiMapAction[]) {
     const box = boxes.value.find((item) => item.containerNo === focus.boxNo)
     if (box) selectBox(box)
   }
+}
+function focusAiBox(boxNo: string) {
+  const box = boxes.value.find((item) => item.containerNo === boxNo)
+  if (box) selectBox(box)
 }
 
 /** 「未匹配」箱体数量：乡镇=无乡镇归属；村庄=无村庄归属（跟随乡镇筛选级联，同 villageOptions） */
@@ -1583,7 +1634,9 @@ onBeforeUnmount(() => { stopAiResize(); offBoxes?.(); offPoints?.(); if (boxRefr
 .ai-resize-handle { position: absolute; top: 0; bottom: 0; left: -5px; z-index: 3; width: 10px; cursor: col-resize; }.ai-resize-handle::after { position: absolute; top: 50%; left: 3px; width: 3px; height: 38px; border-radius: 3px; background: transparent; content: ''; transform: translateY(-50%); transition: background .15s; }.ai-resize-handle:hover::after { background: #165dff; }
 :global(body.ai-panel-resizing) { cursor: col-resize; user-select: none; }
 .ai-header { display: flex; align-items: center; justify-content: space-between; padding: 14px 14px 12px 16px; border-bottom: 1px solid #f2f3f5; }.ai-header > div { display: flex; align-items: center; gap: 9px; }.ai-header b { display: block; color: #1d2129; font-size: 14px; }.ai-header small { display: block; margin-top: 2px; color: #86909c; font-size: 11px; }.ai-avatar, .ai-mini-avatar { display: inline-flex; align-items: center; justify-content: center; color: #fff; border-radius: 8px; background: linear-gradient(135deg, #165dff, #722ed1); }.ai-avatar { width: 30px; height: 30px; font-size: 17px; }.ai-mini-avatar { width: 24px; height: 24px; flex: 0 0 auto; border-radius: 7px; font-size: 14px; }
+.ai-context { display: flex; align-items: center; gap: 5px; min-height: 30px; padding: 6px 14px; overflow-x: auto; border-bottom: 1px solid #f2f3f5; background: #fff; color: #4e5969; font-size: 10px; white-space: nowrap; }.ai-context-title { color: #86909c; }.ai-context > span:not(.ai-context-title) { padding: 2px 6px; border-radius: 3px; background: #f2f7ff; color: #165dff; }
 .ai-shortcuts { display: flex; gap: 6px; padding: 10px 14px; overflow-x: auto; border-bottom: 1px solid #f2f3f5; background: #fafcff; }.ai-shortcuts button { flex: 0 0 auto; padding: 4px 8px; border: 1px solid #bedaff; border-radius: 12px; background: #fff; color: #165dff; font-size: 11px; cursor: pointer; }.ai-shortcuts button:hover { background: #e8f3ff; }
+.ai-structured-answer, .ai-dispatch-guide { display: grid; gap: 9px; margin-top: 10px; }.ai-structured-answer > div { padding: 8px 10px; border-left: 3px solid #165dff; background: #f7faff; }.ai-structured-answer b, .ai-dispatch-guide b { color: #1d2129; font-size: 12px; }.ai-structured-answer ul, .ai-structured-answer ol, .ai-guide-risks ul { display: grid; gap: 2px; margin: 5px 0 0; padding-left: 17px; color: #4e5969; font-size: 11px; line-height: 17px; }.ai-dispatch-guide { overflow: hidden; border: 1px solid #ffe7ba; border-radius: 5px; background: #fff; }.ai-dispatch-guide > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; padding: 9px 10px; background: #fffaf0; }.ai-dispatch-guide > header div { display: grid; gap: 2px; }.ai-dispatch-guide > header span, .ai-dispatch-guide footer { color: #86909c; font-size: 10px; line-height: 15px; }.ai-dispatch-guide :deep(.arco-tag) { flex: 0 0 auto; margin: 0; font-size: 10px; }.ai-guide-row { display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 8px; padding: 0 10px; }.ai-guide-row > span { color: #86909c; font-size: 11px; }.ai-guide-row p { margin: 0; color: #4e5969; font-size: 11px; line-height: 17px; }.ai-guide-row button { margin: 0 4px 4px 0; padding: 2px 5px; border: 1px solid #bedaff; border-radius: 3px; background: #fff; color: #165dff; font-size: 10px; cursor: pointer; }.ai-guide-risks { margin: 0 10px; padding: 7px 8px; border-radius: 3px; background: #fff7e8; }.ai-guide-risks b { color: #d46b08; }.ai-dispatch-guide footer { padding: 8px 10px; border-top: 1px solid #f2f3f5; background: #fafafa; }.ai-focus-row { cursor: pointer; }.ai-focus-row:hover { background: #f2f7ff; }
 .ai-messages { flex: 1; min-height: 0; padding: 14px; overflow-y: auto; background: #f7f8fa; }.ai-message { display: flex; gap: 7px; margin-bottom: 12px; }.ai-message.user { justify-content: flex-end; }.ai-bubble { max-width: calc(100% - 31px); padding: 9px 11px; border-radius: 9px; background: #fff; color: #4e5969; box-shadow: 0 1px 2px rgb(29 33 41 / 6%); font-size: 13px; line-height: 20px; }.ai-message.user .ai-bubble { max-width: 82%; background: #165dff; color: #fff; }.ai-bubble p { margin: 0; white-space: pre-wrap; }.ai-priority-ranking { display: grid; gap: 8px; margin-top: 10px; }.ai-priority-ranking > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-left: 3px solid #165dff; background: #f2f7ff; }.ai-priority-ranking > header div { display: grid; gap: 1px; }.ai-priority-ranking > header b { color: #1d2129; font-size: 12px; }.ai-priority-ranking > header span { color: #4e5969; font-size: 10px; line-height: 15px; }.ai-priority-ranking > header > em { flex: 0 0 auto; color: #86909c; font-size: 9px; font-style: normal; }.ai-priority-table-wrap, .ai-priority-bar-chart { overflow: hidden; border: 1px solid #d9e8ff; border-radius: 4px; background: #fff; }.ai-priority-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }.ai-priority-table th { padding: 7px 6px; background: #f7faff; color: #86909c; font-size: 10px; font-weight: 500; text-align: left; }.ai-priority-table th:nth-child(1) { width: 35px; text-align: center; }.ai-priority-table th:nth-child(2) { width: 55px; }.ai-priority-table th:nth-child(4) { width: 58px; text-align: right; }.ai-priority-table td { min-width: 0; padding: 8px 6px; border-top: 1px solid #f2f3f5; color: #4e5969; vertical-align: middle; }.ai-priority-table td:nth-child(1) { text-align: center; }.ai-priority-table td:nth-child(2) b { color: #1d2129; font-size: 11px; white-space: nowrap; }.ai-priority-table td:nth-child(3) { overflow: hidden; color: #86909c; text-overflow: ellipsis; white-space: nowrap; }.ai-priority-table td:last-child { color: #165dff; text-align: right; white-space: nowrap; }.ai-priority-table td:last-child strong { font-size: 15px; line-height: 1; }.ai-priority-table td:last-child em { margin-left: 1px; color: #165dff; font-size: 9px; font-style: normal; }.ai-priority-rank { display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border-radius: 4px; background: #e8f3ff; color: #165dff; font-size: 10px; font-weight: 700; }.ai-priority-bar-chart { display: grid; gap: 0; padding: 5px 9px; }.ai-priority-bar-row { display: grid; grid-template-columns: 42px minmax(0, 1fr) 35px; align-items: center; gap: 7px; padding: 6px 0; }.ai-priority-bar-row > span { overflow: hidden; color: #4e5969; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }.ai-priority-bar-row i { height: 9px; overflow: hidden; border-radius: 999px; background: #e5e6eb; }.ai-priority-bar-row b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #165dff, #4080ff); }.ai-priority-bar-row em { color: #4e5969; font-size: 10px; font-style: normal; text-align: right; }.ai-evidence { display: grid; gap: 3px; margin: 8px 0 0; padding: 7px 0 0 16px; border-top: 1px solid #f2f3f5; color: #86909c; font-size: 11px; line-height: 17px; }.ai-sources { display: grid; gap: 3px; margin: 8px 0 0; padding: 7px 0 0 16px; border-top: 1px solid #f2f3f5; font-size: 11px; line-height: 17px; }.ai-sources a { color: #165dff; text-decoration: none; }.ai-sources a:hover { text-decoration: underline; }.ai-message-footer { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: 8px; color: #86909c; font-size: 10px; }.ai-message-footer :deep(.arco-btn) { height: 20px; padding: 0 3px; font-size: 11px; }
 .ai-input { padding: 10px 12px; border-top: 1px solid #e5e6eb; background: #fff; }.ai-textarea-wrap { position: relative; }.ai-input :deep(.arco-textarea-wrapper) { border-radius: 7px; }.ai-input :deep(textarea) { padding-right: 42px; font-size: 13px; }.ai-send-btn { position: absolute; right: 7px; bottom: 7px; z-index: 1; width: 26px; height: 26px; padding: 0; }.ai-send-btn :deep(.arco-icon) { font-size: 15px; }.ai-stop-icon { display: block; width: 10px; height: 10px; border-radius: 1px; background: currentcolor; }
 .ai-transport-visualization { display: grid; gap: 8px; margin-top: 10px; }.ai-transport-visualization > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-left: 3px solid #00b42a; background: #f2fff6; }.ai-transport-visualization > header b { color: #1d2129; font-size: 12px; }.ai-transport-visualization > header span { color: #86909c; font-size: 10px; }.ai-transport-metrics { display: grid; grid-template-columns: 1fr 1fr; overflow: hidden; border: 1px solid #d9f7e4; border-radius: 4px; background: #fff; }.ai-transport-metrics span { display: grid; gap: 2px; padding: 10px; }.ai-transport-metrics span + span { border-left: 1px solid #f2f3f5; }.ai-transport-metrics small { color: #86909c; font-size: 10px; }.ai-transport-metrics b { color: #00a870; font-size: 20px; line-height: 1.1; }.ai-transport-metrics em { margin-left: 2px; color: #00a870; font-size: 10px; font-style: normal; }.ai-transport-table-wrap { overflow: hidden; border: 1px solid #d9f7e4; border-radius: 4px; background: #fff; }.ai-transport-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 11px; }.ai-transport-table th { padding: 7px 8px; background: #f6fffa; color: #86909c; font-size: 10px; font-weight: 500; text-align: left; }.ai-transport-table th:nth-child(2), .ai-transport-table th:nth-child(3), .ai-transport-table td:nth-child(2), .ai-transport-table td:nth-child(3) { text-align: right; }.ai-transport-table td { overflow: hidden; padding: 8px; border-top: 1px solid #f2f3f5; color: #4e5969; text-overflow: ellipsis; white-space: nowrap; }.ai-transport-line-chart { padding: 8px 10px 5px; border: 1px solid #d9f7e4; border-radius: 4px; background: #fff; }.ai-transport-line-chart svg { display: block; width: 100%; height: 96px; overflow: visible; }.ai-transport-line-chart polyline { fill: none; stroke: #00b42a; stroke-linecap: round; stroke-linejoin: round; stroke-width: 3; }.ai-transport-line-labels { display: flex; justify-content: space-between; color: #86909c; font-size: 9px; }.ai-transport-bars { display: grid; gap: 0; padding: 5px 9px; border: 1px solid #d9f7e4; border-radius: 4px; background: #fff; }.ai-transport-bar-row { display: grid; grid-template-columns: 68px minmax(0, 1fr) 36px; align-items: center; gap: 7px; padding: 6px 0; }.ai-transport-bar-row > span { overflow: hidden; color: #4e5969; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }.ai-transport-bar-row i { height: 8px; overflow: hidden; border-radius: 999px; background: #e5e6eb; }.ai-transport-bar-row b { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #00b42a, #7be188); }.ai-transport-bar-row em { color: #4e5969; font-size: 10px; font-style: normal; text-align: right; }.ai-overflow-list { display: grid; max-height: 238px; overflow: auto; border: 1px solid #d9f7e4; border-radius: 4px; background: #fff; }.ai-overflow-item { display: grid; grid-template-columns: 66px minmax(0, 1fr); gap: 2px 8px; padding: 9px 10px; border-top: 1px solid #f2f3f5; }.ai-overflow-item:first-child { border-top: 0; }.ai-overflow-item b { grid-row: span 2; align-self: center; color: #1d2129; font-size: 12px; white-space: nowrap; }.ai-overflow-item span { overflow: hidden; color: #4e5969; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }.ai-overflow-item em { color: #00a870; font-size: 10px; font-style: normal; }.ai-data-unavailable { display: grid; gap: 4px; padding: 10px; border: 1px solid #ffe7ba; border-radius: 4px; background: #fffaf0; }.ai-data-unavailable b { color: #d46b08; font-size: 11px; }.ai-data-unavailable span { color: #86909c; font-size: 10px; line-height: 16px; }

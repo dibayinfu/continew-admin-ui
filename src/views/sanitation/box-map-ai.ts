@@ -71,6 +71,23 @@ export interface AiMapAction {
   boxNo?: string
 }
 
+/** 非查询类请求只返回只读建议，前端不得据此创建或修改任何业务单据。 */
+export interface AiDispatchGuide {
+  title: string
+  targetBoxes: string[]
+  suggestedOrder: string[]
+  suggestedVehicles: string[]
+  rationale: string[]
+  risks: string[]
+  nextStep: string
+}
+
+export interface AiStructuredAnswer {
+  conclusion?: string
+  impact?: string[]
+  recommendations?: string[]
+}
+
 export interface AiSourceLink {
   title: string
   url: string
@@ -98,6 +115,8 @@ export interface AiPriorityRankingItem {
 export interface AiReply {
   answer: string
   evidence: string[]
+  structured?: AiStructuredAnswer
+  dispatchGuide?: AiDispatchGuide
   chart?: AiChart
   visualization?: AiVisualization
   mapActions?: AiMapAction[]
@@ -122,6 +141,7 @@ export interface AiReply {
 export interface AiQueryContext {
   boxes: AiBoxSnapshot[]
   selectedBoxNo?: string
+  scope?: { township?: string, village?: string, overflowOnly?: boolean, transportingOnly?: boolean, visibleBoxCount?: number }
   /** 仅用于 AI 使用记录中的展示，不会传给模型。 */
   operatorName?: string
 }

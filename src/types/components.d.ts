@@ -157,6 +157,7 @@ declare module 'vue' {
     IconDriveFile: typeof import('@arco-design/web-vue/es/icon')['IconDriveFile']
     IconEdit: typeof import('@arco-design/web-vue/es/icon')['IconEdit']
     IconEmail: typeof import('@arco-design/web-vue/es/icon')['IconEmail']
+    IconExclamationCircle: typeof import('@arco-design/web-vue/es/icon')['IconExclamationCircle']
     IconExclamationCircleFill: typeof import('@arco-design/web-vue/es/icon')['IconExclamationCircleFill']
     IconEye: typeof import('@arco-design/web-vue/es/icon')['IconEye']
     IconEyeInvisible: typeof import('@arco-design/web-vue/es/icon')['IconEyeInvisible']

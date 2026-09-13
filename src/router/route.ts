@@ -141,7 +141,8 @@ export const systemRoutes: RouteRecordRaw[] = [
           { path: '/sanitation/swap-statistics', name: 'SanitationSwapStatistics', component: () => import('@/views/sanitation/swap-statistics.vue'), meta: { title: '换箱统计', icon: 'swap', hidden: false } },
           { path: '/sanitation/temp-command-center', name: 'SanitationTempCommandCenter', component: () => import('@/views/sanitation/temp-command-center.vue'), meta: { title: '临时大屏', icon: 'dashboard', hidden: false } },
           { path: '/sanitation/weighing-analysis', name: 'SanitationWeighingAnalysis', component: () => import('@/views/sanitation/weighing-analysis.vue'), meta: { title: '称重分析', icon: 'line-chart', hidden: false } },
-          { path: '/sanitation/dataHiddenConfig', name: 'SanitationDataHiddenConfig', component: () => import('@/views/sanitation/data-hidden-config.vue'), meta: { title: '数据隐藏配置', icon: 'eye-invisible', hidden: false } },
+          // 保留原路由地址，兼容既有收藏链接；页面现统一管理展示范围与公司收集点排除规则。
+          { path: '/sanitation/dataHiddenConfig', name: 'SanitationBusinessParameterConfig', component: () => import('@/views/sanitation/data-hidden-config.vue'), meta: { title: '业务参数配置', icon: 'settings', hidden: false } },
         ],
       },
 

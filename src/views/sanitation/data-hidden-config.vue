@@ -2,11 +2,11 @@
   <div class="gi_page data-hidden-page">
     <div class="page-header">
       <div>
-        <div class="page-title">数据隐藏配置</div>
-        <div class="page-subtitle">配置后，「箱体地图」「箱体收集点地图」将不显示被隐藏的箱体与收集点。</div>
+        <div class="page-title">业务参数配置</div>
+        <div class="page-subtitle">统一维护展示范围与公司收集点排除规则；两类配置的业务影响不同。</div>
       </div>
       <a-space>
-        <a-button type="primary" :loading="loading" @click="loadAll()">
+        <a-button type="primary" :loading="loading || excludedPointsLoading" @click="refreshAll">
           <template #icon><icon-sync /></template>
           更新
         </a-button>
@@ -79,6 +79,30 @@
             </template>
           </a-table>
         </a-tab-pane>
+
+        <a-tab-pane key="excluded-points" title="公司收集点排除">
+          <div class="parameter-tip warning">
+            <icon-exclamation-circle />
+            <span>已排除的公司收集点不参与换箱统计、满溢收运优先排名和 AI 清运建议；地图展示、原始采集数据及满溢告警不受影响。</span>
+          </div>
+          <div class="toolbar">
+            <a-input v-model="excludedPointKeyword" allow-clear placeholder="搜索名称/乡镇/村庄" style="width: 260px">
+              <template #prefix><icon-search /></template>
+            </a-input>
+            <a-button size="small" :loading="excludedPointsLoading" @click="loadExcludedPoints">更新配置</a-button>
+            <span class="toolbar-info">共 {{ excludedPoints.length }} 个，已排除 {{ excludedPointIds.size }} 个</span>
+          </div>
+          <a-table :data="visibleExcludedPointRows" :loading="excludedPointsLoading" :pagination="{ pageSize: 50, showTotal: true }" :scroll="{ y: 520 }" row-key="pointId" size="small">
+            <template #columns>
+              <a-table-column title="收集点" data-index="pointName" :min-width="220" />
+              <a-table-column title="乡镇" data-index="townshipName" :width="120" />
+              <a-table-column title="村庄" data-index="villageName" :width="120" />
+              <a-table-column title="是否排除" :width="120" align="center">
+                <template #cell="{ record }"><a-switch :model-value="excludedPointIds.has(record.pointId)" checked-text="排除" unchecked-text="参与" @change="(v) => toggleExcludedPoint(record.pointId, v)" /></template>
+              </a-table-column>
+            </template>
+          </a-table>
+        </a-tab-pane>
       </a-tabs>
     </a-card>
 
@@ -102,7 +126,7 @@ import {
 } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
 
-defineOptions({ name: 'SanitationDataHiddenConfig' })
+defineOptions({ name: 'SanitationBusinessParameterConfig' })
 
 
 interface Box {
@@ -118,6 +142,7 @@ interface Point {
   villageName: string
   containerCount: number
 }
+interface ExcludedPoint { pointId: number, pointName: string, townshipName: string, villageName: string, excluded: boolean }
 
 const activeTab = ref('boxes')
 const loading = ref(false)
@@ -127,6 +152,11 @@ const hiddenBoxIds = ref<Set<number>>(new Set(getHiddenBoxIds()))
 const hiddenPointIds = ref<Set<number>>(new Set(getHiddenPointIds()))
 const boxKeyword = ref('')
 const pointKeyword = ref('')
+const excludedPointKeyword = ref('')
+const excludedPointsLoading = ref(false)
+const excludedPoints = ref<ExcludedPoint[]>([])
+const excludedPointIds = ref<Set<number>>(new Set())
+const collectorBaseUrl = (import.meta.env.VITE_COLLECTOR_API_BASE_URL || '').replace(/\/$/, '')
 
 const tokenModalVisible = ref(false)
 const tokenInput = ref(daasAuth.token)
@@ -167,6 +197,12 @@ const visiblePointRows = computed(() => {
     // 已隐藏项置顶，便于管理员快速核查；同一状态下维持接口原始顺序。
     .sort((a, b) => Number(hiddenPointIds.value.has(b.id)) - Number(hiddenPointIds.value.has(a.id)))
 })
+const visibleExcludedPointRows = computed(() => {
+  const q = excludedPointKeyword.value.trim().toLowerCase()
+  return excludedPoints.value
+    .filter((point) => !q || [point.pointName, point.townshipName, point.villageName].some((value) => value?.toLowerCase().includes(q)))
+    .sort((a, b) => Number(excludedPointIds.value.has(b.pointId)) - Number(excludedPointIds.value.has(a.pointId)))
+})
 
 let persistChain = Promise.resolve()
 function persist() {
@@ -196,6 +232,37 @@ function hideAllBoxes() { hiddenBoxIds.value = new Set(boxes.value.map((b) => b.
 function showAllPoints() { hiddenPointIds.value = new Set(); void persist(); Message.success('收集点已全部显示') }
 function hideAllPoints() { hiddenPointIds.value = new Set(points.value.map((p) => p.id)); void persist(); Message.success('收集点已全部隐藏') }
 
+let excludedPersistChain = Promise.resolve()
+async function loadExcludedPoints() {
+  excludedPointsLoading.value = true
+  try {
+    const response = await fetch(`${collectorBaseUrl}/api/collector/statistics/excluded-points`)
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    excludedPoints.value = await response.json() as ExcludedPoint[]
+    excludedPointIds.value = new Set(excludedPoints.value.filter((point) => point.excluded).map((point) => point.pointId))
+  } catch (error) {
+    Message.error(`加载公司收集点排除配置失败：${error instanceof Error ? error.message : '网络异常'}`)
+  } finally { excludedPointsLoading.value = false }
+}
+function persistExcludedPoints() {
+  const pointIds = Array.from(excludedPointIds.value)
+  excludedPersistChain = excludedPersistChain.catch(() => undefined).then(async () => {
+    const response = await fetch(`${collectorBaseUrl}/api/collector/statistics/excluded-points`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pointIds }),
+    })
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    Message.success('公司收集点排除配置已保存，后续统计和 AI 排名立即生效')
+  }).catch((error) => Message.error(`保存公司收集点排除配置失败：${error instanceof Error ? error.message : '网络异常'}`))
+  return excludedPersistChain
+}
+function toggleExcludedPoint(pointId: number, excluded: boolean) {
+  const next = new Set(excludedPointIds.value)
+  if (excluded) next.add(pointId)
+  else next.delete(pointId)
+  excludedPointIds.value = next
+  void persistExcludedPoints()
+}
+
 async function loadAll(silent = false) {
   if (loading.value) return
   loading.value = true
@@ -216,6 +283,9 @@ async function loadAll(silent = false) {
   if (ok) { if (!silent) Message.success(`已加载 ${boxes.value.length} 个箱体、${points.value.length} 个收集点`) }
   else if (!silent) Message.warning('数据加载失败，请检查网络或稍后重试')
 }
+async function refreshAll() {
+  await Promise.all([loadAll(), loadExcludedPoints()])
+}
 
 let offBoxes: () => void
 let offPoints: () => void
@@ -233,6 +303,7 @@ onMounted(() => {
     if (Array.isArray(list) && list.length) points.value = list as Point[]
   })
   loadAll(true)
+  void loadExcludedPoints()
 })
 onBeforeUnmount(() => {
   offBoxes?.()
@@ -250,6 +321,7 @@ onBeforeUnmount(() => {
 .config-card :deep(.arco-card-body) { padding: 14px 16px; }
 .toolbar { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
 .toolbar-info { color: #86909c; font-size: 13px; }
+.parameter-tip { display: flex; align-items: flex-start; gap: 7px; margin-bottom: 14px; padding: 10px 12px; border: 1px solid #ffe7ba; border-radius: 4px; background: #fffaf0; color: #8d5f08; font-size: 13px; line-height: 20px; }.parameter-tip :deep(.arco-icon) { flex: 0 0 auto; margin-top: 2px; color: #ff7d00; }
 .modal-tip { margin-top: 0; color: #4e5969; }
 .modal-tip code { padding: 1px 4px; background: #f2f3f5; }
 .fill-high { color: #f53f3f; font-weight: 600; }

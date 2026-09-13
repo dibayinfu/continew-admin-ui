@@ -6,7 +6,6 @@
         <div class="page-subtitle">按收集点识别满溢旧箱与新箱的更换记录</div>
       </div>
       <a-space>
-        <a-button size="small" @click="openExcludedPoints">排除收集点配置</a-button>
         <a-dropdown position="br">
           <a-button size="small">更多<icon-down /></a-button>
           <template #content>
@@ -93,14 +92,6 @@
       </a-table>
     </a-card>
 
-    <a-modal v-model:visible="excludedPointsVisible" title="不纳入换箱统计的收集点" :width="640" :ok-loading="excludedPointsSaving" @before-ok="saveExcludedPoints">
-      <p class="modal-tip">配置垃圾倾倒点等不应统计换箱的收集点。保存后，后端后续采集将跳过这些收集点。</p>
-      <a-select v-model="excludedPointIds" multiple allow-clear allow-search placeholder="选择需要排除的收集点" style="width: 100%" :loading="excludedPointsLoading">
-        <a-option v-for="point in allPoints" :key="point.pointId" :value="point.pointId">
-          {{ [point.townshipName, point.villageName, point.pointName].filter(Boolean).join(' / ') }}
-        </a-option>
-      </a-select>
-    </a-modal>
   </div>
 </template>
 
@@ -116,7 +107,6 @@ defineOptions({ name: 'SanitationSwapStatistics' })
 interface DailyStatistic { day: string, boxCount: number }
 interface TownshipStatistic { townshipName: string, boxCount: number }
 interface StatisticsOverview { daily: DailyStatistic[], townships: TownshipStatistic[] }
-interface PointOption { pointId: number, pointName: string, townshipName: string, villageName: string, excluded: boolean }
 interface SwapRecord {
   id: number
   swapTime: string
@@ -145,11 +135,6 @@ const loading = ref(false)
 const recordLoading = ref(false)
 /** 换箱明细采用服务端分页：默认 20 条/页，支持 20/50/100/200。 */
 const pagination = reactive({ current: 1, pageSize: 20, total: 0, showTotal: true, showPageSize: true, pageSizeOptions: [20, 50, 100, 200] })
-const excludedPointsVisible = ref(false)
-const excludedPointsLoading = ref(false)
-const excludedPointsSaving = ref(false)
-const allPoints = ref<PointOption[]>([])
-const excludedPointIds = ref<number[]>([])
 
 const maxCount = computed(() => Math.max(...daily.value.map((item) => item.boxCount), 1))
 const maxTownshipCount = computed(() => Math.max(...townships.value.map((item) => item.boxCount), 1))
@@ -245,36 +230,6 @@ function applyRange(range: 'week' | 'month') {
   to.value = dayjs().format('YYYY-MM-DD')
   from.value = dayjs().subtract(range === 'week' ? 6 : 1, range === 'week' ? 'day' : 'month').format('YYYY-MM-DD')
   loadStatistics()
-}
-
-async function openExcludedPoints() {
-  excludedPointsVisible.value = true
-  excludedPointsLoading.value = true
-  try {
-    const response = await fetch(endpoint('/excluded-points'))
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    allPoints.value = await response.json() as PointOption[]
-    excludedPointIds.value = allPoints.value.filter((point) => point.excluded).map((point) => point.pointId)
-  } catch (error) {
-    Message.error(`获取收集点配置失败：${error instanceof Error ? error.message : '网络异常'}`)
-  } finally { excludedPointsLoading.value = false }
-}
-
-async function saveExcludedPoints() {
-  excludedPointsSaving.value = true
-  try {
-    const response = await fetch(endpoint('/excluded-points'), {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pointIds: excludedPointIds.value }),
-    })
-    if (!response.ok) throw new Error(`HTTP ${response.status}`)
-    Message.success('排除收集点配置已保存，将在后续采集中生效')
-    return true
-  } catch (error) {
-    Message.error(`保存收集点配置失败：${error instanceof Error ? error.message : '网络异常'}`)
-    return false
-  } finally { excludedPointsSaving.value = false }
 }
 
 /** 校验采集任务实际使用的 Redis Token，不依赖浏览器登录状态。 */

@@ -54,6 +54,27 @@ export interface AiBoxStatistics {
   groups?: Array<{ dimension: string, count: number }>
 }
 
+/** 不含优先级评分的实时箱体原始清单。 */
+export interface AiBoxListItem {
+  boxId: number
+  boxNo: string
+  boxName: string
+  townshipName: string
+  villageName: string
+  pointName: string
+  fillLevel: number
+  overflowed: boolean
+}
+
+export interface AiBoxList {
+  status: 'SUPPORTED' | 'UNSUPPORTED' | 'NO_DATA' | 'AMBIGUOUS'
+  scope?: string
+  totalCount?: number
+  returnedCount?: number
+  truncated?: boolean
+  items: AiBoxListItem[]
+}
+
 export interface AiOverflowDurationItem {
   boxId: number
   boxNo: string
@@ -128,6 +149,7 @@ export interface AiReply {
   priorityRanking?: AiPriorityRankingItem[]
   transportMetrics?: AiTransportMetrics
   boxStatistics?: AiBoxStatistics
+  boxList?: AiBoxList
   overflowDuration?: { status: string, items: AiOverflowDurationItem[] }
   /** 优先清运的确定性评分是否由后端成功返回。 */
   priorityRankingAvailable?: boolean

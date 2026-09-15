@@ -103,6 +103,15 @@
                     </div>
                   </div>
                 </section>
+                <section v-if="message.reply?.boxList?.items?.length" class="ai-transport-visualization">
+                  <header><div><b>{{ message.reply.visualization?.title || '箱体明细' }}</b><span>按乡镇、村庄、箱号排列；不含综合评分</span></div><span>共 {{ message.reply.boxList.totalCount ?? message.reply.boxList.items.length }} 个</span></header>
+                  <div class="ai-transport-table-wrap">
+                    <table class="ai-transport-table ai-box-list-table"><thead><tr><th>乡镇</th><th>村庄</th><th>箱号</th><th>收集点</th><th>满溢率</th></tr></thead><tbody>
+                      <tr v-for="item in message.reply.boxList.items" :key="item.boxNo" class="ai-focus-row" @click="focusAiBox(item.boxNo)"><td>{{ item.townshipName || '未归属' }}</td><td>{{ item.villageName || '未归属' }}</td><td><b>{{ item.boxNo }}号</b></td><td>{{ item.pointName || '未匹配收集点' }}</td><td>{{ Math.round(item.fillLevel) }}%</td></tr>
+                    </tbody></table>
+                  </div>
+                  <div v-if="message.reply.boxList.truncated" class="ai-data-unavailable"><b>明细仅展示 {{ message.reply.boxList.returnedCount }} / {{ message.reply.boxList.totalCount }} 个</b><span>请缩小乡镇、村庄范围后继续查询。</span></div>
+                </section>
                 <section v-if="message.reply?.transportMetrics" class="ai-transport-visualization">
                   <header><b>{{ message.reply.visualization?.title || '运单指标' }}</b><span>{{ message.reply.transportMetrics.startDate }} ～ {{ message.reply.transportMetrics.endDate }}</span></header>
                   <div v-if="message.reply.visualization?.type === 'metric'" class="ai-transport-metrics">
@@ -140,7 +149,7 @@
                 <ul v-if="message.reply?.sources?.length" class="ai-sources">
                   <li v-for="item in message.reply.sources" :key="item.url"><a :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title || item.url }}</a></li>
                 </ul>
-                <div v-if="message.reply" class="ai-message-footer"><span>{{ message.reply.source === 'ai' ? 'AI' : '本地演示' }} · {{ message.reply.dataUpdatedAt }}<template v-if="message.reply.totalDurationMs !== undefined"> · 查询 {{ formatAiSeconds(message.reply.queryDurationMs) }} · AI {{ formatAiSeconds(message.reply.aiDurationMs) }} · 总计 {{ formatAiSeconds(message.reply.totalDurationMs) }}</template></span><a-button v-if="message.reply.mapActions?.length" size="mini" type="text" @click="applyAiActions(message.reply.mapActions)">在地图查看</a-button></div>
+                <div v-if="message.reply" class="ai-message-footer"><span>{{ message.reply.dataUpdatedAt }}<template v-if="message.reply.totalDurationMs !== undefined"> · 查询 {{ formatAiSeconds(message.reply.queryDurationMs) }} · AI {{ formatAiSeconds(message.reply.aiDurationMs) }} · 总计 {{ formatAiSeconds(message.reply.totalDurationMs) }}</template></span><a-button v-if="message.reply.mapActions?.length" size="mini" type="text" @click="applyAiActions(message.reply.mapActions)">在地图查看</a-button></div>
               </template>
             </div>
           </div>

@@ -69,10 +69,6 @@
               <template v-else>
                 <p v-if="message.progress" class="ai-progress">{{ message.progress }}</p>
                 <p v-if="message.reply?.answer || message.content">{{ displayAiAnswer(message) }}</p>
-                <section v-if="message.reply?.structured" class="ai-structured-answer">
-                  <div v-if="message.reply.structured.impact?.length"><b>影响范围</b><ul><li v-for="item in message.reply.structured.impact" :key="item">{{ item }}</li></ul></div>
-                  <div v-if="message.reply.structured.recommendations?.length"><b>建议动作</b><ol><li v-for="item in message.reply.structured.recommendations" :key="item">{{ item }}</li></ol></div>
-                </section>
                 <section v-if="message.reply?.dispatchGuide" class="ai-dispatch-guide">
                   <header><div><b>{{ message.reply.dispatchGuide.title }}</b><span>仅供人工决策参考，不会创建或修改业务单据</span></div><a-tag color="orange">需人工执行</a-tag></header>
                   <div v-if="message.reply.dispatchGuide.targetBoxes.length" class="ai-guide-row"><span>处理对象</span><div><button v-for="boxNo in message.reply.dispatchGuide.targetBoxes" :key="boxNo" type="button" @click="focusAiBox(boxNo)">{{ boxNo }} 号箱</button></div></div>
@@ -149,7 +145,7 @@
                 <ul v-if="message.reply?.sources?.length" class="ai-sources">
                   <li v-for="item in message.reply.sources" :key="item.url"><a :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title || item.url }}</a></li>
                 </ul>
-                <div v-if="message.reply" class="ai-message-footer"><span>{{ message.reply.dataUpdatedAt }}<template v-if="message.reply.totalDurationMs !== undefined"> · 查询 {{ formatAiSeconds(message.reply.queryDurationMs) }} · AI {{ formatAiSeconds(message.reply.aiDurationMs) }} · 总计 {{ formatAiSeconds(message.reply.totalDurationMs) }}</template></span><a-button v-if="message.reply.mapActions?.length" size="mini" type="text" @click="applyAiActions(message.reply.mapActions)">在地图查看</a-button></div>
+                <div v-if="message.reply" class="ai-message-footer"><span>{{ message.reply.dataUpdatedAt }}<template v-if="message.reply.totalDurationMs !== undefined"> · 查询 {{ formatAiSeconds(message.reply.queryDurationMs) }} · AI {{ formatAiSeconds(message.reply.aiDurationMs) }} · 总计 {{ formatAiSeconds(message.reply.totalDurationMs) }}</template></span><div class="ai-message-actions"><a-tooltip content="复制结果"><a-button size="mini" type="text" aria-label="复制结果" @click="copyAiResult(message)"><template #icon><icon-copy /></template></a-button></a-tooltip><a-button v-if="message.reply.mapActions?.length" size="mini" type="text" @click="applyAiActions(message.reply.mapActions)">在地图查看</a-button></div></div>
               </template>
             </div>
           </div>
@@ -612,6 +608,26 @@ function initialAiMessages(): AiMessage[] {
 const aiMessages = ref<AiMessage[]>(initialAiMessages())
 function displayAiAnswer(message: AiMessage) {
   return message.reply?.structured?.conclusion || message.reply?.answer || message.content
+}
+function aiResultText(message: AiMessage) {
+  const reply = message.reply
+  if (!reply) return message.content
+  const lines = [displayAiAnswer(message)]
+  if (reply.boxList?.items?.length) {
+    lines.push(`箱体明细（共 ${reply.boxList.totalCount ?? reply.boxList.items.length} 个）：`)
+    reply.boxList.items.forEach(item => lines.push(`${item.townshipName || '未归属'}｜${item.villageName || '未归属'}｜${item.boxNo}号｜${item.pointName || '未匹配收集点'}｜满溢率 ${Math.round(item.fillLevel)}%`))
+  }
+  if (reply.priorityRanking?.length) {
+    lines.push('综合评分排名：')
+    reply.priorityRanking.forEach((item, index) => lines.push(`${index + 1}. ${item.boxNo}号｜${[item.townshipName, item.villageName, item.pointName].filter(Boolean).join('｜')}｜${formatPriorityScore(item.priorityScore)}分`))
+  }
+  if (reply.evidence?.length) lines.push('数据说明：', ...reply.evidence.map(item => `- ${item}`))
+  return lines.filter(Boolean).join('\n')
+}
+async function copyAiResult(message: AiMessage) {
+  const text = aiResultText(message)
+  try { await navigator.clipboard.writeText(text); Message.success('结果已复制') }
+  catch { window.prompt('复制以下结果：', text) }
 }
 interface AiQueryLog { id: number, question: string, answer?: string, questionDomain?: string, status: string, answerQuality?: string, toolAudit?: string, totalDurationMs: number | null, duration?: string, createdAt: string }
 const aiQueryLogsVisible = ref(false)
@@ -1707,4 +1723,5 @@ onBeforeUnmount(() => { stopAiResize(); offBoxes?.(); offPoints?.(); if (boxRefr
 }
 @media (max-width: 480px) { .ai-shortcuts { padding-right: 10px; padding-left: 10px; } }
 @media (max-width: 720px) { .history-overlay { inset: 10px; padding: 12px; }.history-layout { grid-template-columns: 1fr; grid-template-rows: minmax(300px, 1fr) 190px; }.history-visits { border-top: 1px solid #e5e6eb; border-left: 0; }.history-toolbar { align-items: flex-start; flex-direction: column; } }
+.ai-message-actions { display: flex; align-items: center; gap: 4px; }
 </style>

@@ -145,7 +145,7 @@
                 <ul v-if="message.reply?.sources?.length" class="ai-sources">
                   <li v-for="item in message.reply.sources" :key="item.url"><a :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title || item.url }}</a></li>
                 </ul>
-                <div v-if="message.reply" class="ai-message-footer"><span>{{ message.reply.dataUpdatedAt }}<template v-if="message.reply.totalDurationMs !== undefined"> · 查询 {{ formatAiSeconds(message.reply.queryDurationMs) }} · AI {{ formatAiSeconds(message.reply.aiDurationMs) }} · 总计 {{ formatAiSeconds(message.reply.totalDurationMs) }}</template></span><div class="ai-message-actions"><a-tooltip content="复制结果"><a-button size="mini" type="text" aria-label="复制结果" @click="copyAiResult(message)"><template #icon><icon-copy /></template></a-button></a-tooltip><a-button v-if="message.reply.mapActions?.length" size="mini" type="text" @click="applyAiActions(message.reply.mapActions)">在地图查看</a-button></div></div>
+                <div v-if="message.reply" class="ai-message-footer"><span v-if="message.reply.totalDurationMs !== undefined">查询 {{ formatAiSeconds(message.reply.queryDurationMs) }} · AI {{ formatAiSeconds(message.reply.aiDurationMs) }} · 总计 {{ formatAiSeconds(message.reply.totalDurationMs) }}</span><div class="ai-message-actions"><a-tooltip content="复制结果"><a-button size="mini" type="text" aria-label="复制结果" @click="copyAiResult(message)"><template #icon><icon-copy /></template></a-button></a-tooltip><a-button v-if="message.reply.mapActions?.length" size="mini" type="text" @click="applyAiActions(message.reply.mapActions)">在地图查看</a-button></div></div>
               </template>
             </div>
           </div>
@@ -1723,5 +1723,5 @@ onBeforeUnmount(() => { stopAiResize(); offBoxes?.(); offPoints?.(); if (boxRefr
 }
 @media (max-width: 480px) { .ai-shortcuts { padding-right: 10px; padding-left: 10px; } }
 @media (max-width: 720px) { .history-overlay { inset: 10px; padding: 12px; }.history-layout { grid-template-columns: 1fr; grid-template-rows: minmax(300px, 1fr) 190px; }.history-visits { border-top: 1px solid #e5e6eb; border-left: 0; }.history-toolbar { align-items: flex-start; flex-direction: column; } }
-.ai-message-actions { display: flex; align-items: center; gap: 4px; }
+.ai-message-footer { display: flex; align-items: flex-start; flex-direction: column; gap: 3px; }.ai-message-actions { display: flex; align-items: center; gap: 4px; }
 </style>

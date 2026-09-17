@@ -424,7 +424,7 @@ defineOptions({ name: 'SanitationTempCommandCenter' })
 
 
 const DESIGN_WIDTH = 4784
-const DESIGN_HEIGHT = 1560
+const DESIGN_HEIGHT = 2688
 const LAYOUT_STATISTICS_WIDTH = 520
 const LAYOUT_CHARTS_WIDTH = 800
 const LAYOUT_DISPATCH_WIDTH = 900

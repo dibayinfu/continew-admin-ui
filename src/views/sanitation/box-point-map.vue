@@ -621,8 +621,9 @@ function importData() {
 // 关键字仅高亮定位，不重缩放；筛选条件变化时按筛选结果重新缩放适配
 watch(keyword, () => drawMarkers(false))
 watch([multiFilter, overflowFilter, townshipFilter, villageFilter, showBoxes, showPoints], drawMarkers)
-watch(boxes, drawMarkers)
-watch(points, drawMarkers)
+// 云端更新仅重绘标记，保留用户当前的中心点和缩放比例；筛选变化仍自动适配视野。
+watch(boxes, () => drawMarkers(false))
+watch(points, () => drawMarkers(false))
 watch(selectedPoint, drawSelectedRadiusLabel)
 watch(mapTheme, (theme) => map?.setMapStyle(`amap://styles/${theme}`))
 async function loadFromCloud(silent = false) {

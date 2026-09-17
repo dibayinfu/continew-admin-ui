@@ -241,7 +241,7 @@
 .screen-shell {
   position: relative;
   width: 4784px;
-  height: 1560px;
+  height: 2688px;
   transform-origin: left top;
   color: #dbeeff;
   background:
@@ -2690,7 +2690,7 @@
   animation: mapPointBreath 2s ease-in-out infinite;
 }
 
-/* 4784×1560 设计画布在测试模式会整体缩放，ICON 需保留足够的物理像素才能识别车型。 */
+/* 4784×2688 设计画布在测试模式会整体缩放，ICON 需保留足够的物理像素才能识别车型。 */
 .screen-shell .map-entity {
   width: 72px;
   height: 72px;

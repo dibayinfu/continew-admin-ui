@@ -72,8 +72,8 @@
           </section>
 
           <main class="map-panel">
-            <div class="map-stage" :class="`map-theme-${activeMapTheme}`" @wheel.prevent="onMapWheel">
-              <div ref="v2MapBaseRef" class="v2-map-base" />
+            <div class="map-stage" :class="`map-theme-${activeMapTheme}`">
+              <div ref="v2MapBaseRef" class="v2-map-base" :style="mapBaseStyle" />
               <div v-if="mapEngineError" class="map-engine-error">{{ mapEngineError }}</div>
 
               <div class="map-kpis">
@@ -424,7 +424,7 @@ defineOptions({ name: 'SanitationTempCommandCenter' })
 
 
 const DESIGN_WIDTH = 4784
-const DESIGN_HEIGHT = 2688
+const DESIGN_HEIGHT = 1880
 const LAYOUT_STATISTICS_WIDTH = 520
 const LAYOUT_CHARTS_WIDTH = 800
 const LAYOUT_DISPATCH_WIDTH = 900
@@ -464,6 +464,13 @@ const stageViewportStyle = computed(() => ({
   width: `${DESIGN_WIDTH * screenScale.value}px`,
   height: `${DESIGN_HEIGHT * screenScale.value}px`,
 }))
+// 高德地图在画布缩放后按实际可视尺寸运行，再反向抵消父级 transform。
+// 这样地图边框仍属于大屏等比布局，地图交互则与普通响应式地图一致。
+const mapBaseStyle = computed(() => ({
+  width: `${screenScale.value * 100}%`,
+  height: `${screenScale.value * 100}%`,
+  transform: `scale(${1 / screenScale.value})`,
+}))
 
 type MapThemeKey = 'darkblue' | 'dark' | 'blue'
 interface MapTheme {
@@ -489,6 +496,8 @@ function selectMapTheme(theme: MapThemeKey) {
 interface AMapInstance {
   destroy: () => void
   getZoom: () => number
+  on: (event: 'zoomend', handler: () => void) => void
+  resize: () => void
   setMapStyle: (style: string) => void
   setZoom: (zoom: number, immediately?: boolean) => void
   setCenter: (center: [number, number]) => void
@@ -515,8 +524,6 @@ let amap: AMapNamespace | null = null
 let largeScreenMarkers: AMapMarker[] = []
 let hasReceivedLargeScreenData = false
 let hasFittedLargeScreenMap = false
-let wheelZoomTimer: number | undefined
-let pendingWheelZoom = 0
 let amapLoader: Promise<AMapNamespace> | undefined
 
 function amapStyle(theme: MapThemeKey) {
@@ -580,11 +587,13 @@ async function initV2BaseMap() {
       jogEnable: false,
       resizeEnable: true,
       zoomEnable: true,
-      doubleClickZoom: false,
+      // 地图底图已在 mapBaseStyle 中抵消画布缩放，可直接使用高德原生交互。
+      doubleClickZoom: true,
       keyboardEnable: false,
       scrollWheel: true,
       showIndoorMap: false,
     })
+    v2BaseMap.on('zoomend', syncMapZoom)
     if (hasReceivedLargeScreenData && !hasFittedLargeScreenMap) {
       drawLargeScreenMarkers(true)
       hasFittedLargeScreenMap = true
@@ -606,6 +615,10 @@ function updateScreenScale() {
   autoTestScale.value = Math.min(1, availableWidth / DESIGN_WIDTH, availableHeight / DESIGN_HEIGHT)
 }
 
+watch(screenScale, () => {
+  nextTick(() => v2BaseMap?.resize())
+})
+
 onMounted(() => {
   nextTick(updateScreenScale)
   window.setTimeout(initV2BaseMap, 100)
@@ -623,9 +636,6 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   window.removeEventListener('resize', updateScreenScale)
   document.removeEventListener('fullscreenchange', syncFullscreenState)
-  if (wheelZoomTimer !== undefined) {
-    window.clearTimeout(wheelZoomTimer)
-  }
   if (trackTimer !== undefined) {
     window.clearInterval(trackTimer)
   }
@@ -649,7 +659,7 @@ const archiveStats = [
   { icon: '♙', value: '540', unit: '辆', label: '小三轮车' },
   { icon: '♜', value: '20', unit: '台', label: '小勾臂车' },
   { icon: '▰', value: '6', unit: '台', label: '大勾臂车' },
-  { icon: '☷', value: '约 19 万', unit: '人', label: '覆盖人口' },
+  { icon: '☷', value: '19', unit: '万', label: '覆盖人口' },
 ]
 
 const operationStats = [
@@ -1111,11 +1121,16 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
 }
 
+function syncMapZoom() {
+  if (!v2BaseMap) return
+  mapZoom.value = +clamp(1 + (v2BaseMap.getZoom() - 13) * 0.2, 0.4, 3.4).toFixed(2)
+}
+
 function zoomMap(delta: number) {
   if (v2BaseMap) {
     const nextZoom = clamp(v2BaseMap.getZoom() + delta, 8, 20)
     v2BaseMap.setZoom(nextZoom, true)
-    mapZoom.value = +clamp(1 + (nextZoom - 13) * 0.2, 0.4, 3.4).toFixed(2)
+    syncMapZoom()
     return
   }
   mapZoom.value = +clamp(mapZoom.value + delta, 0.4, 3.4).toFixed(2)
@@ -1124,18 +1139,6 @@ function zoomMap(delta: number) {
 function resetMapZoom() {
   mapZoom.value = 1
   v2BaseMap?.setZoom(13, true)
-}
-
-function onMapWheel(event: WheelEvent) {
-  pendingWheelZoom += event.deltaY > 0 ? -1 : 1
-  if (wheelZoomTimer !== undefined) return
-
-  wheelZoomTimer = window.setTimeout(() => {
-    const direction = pendingWheelZoom >= 0 ? 1 : -1
-    pendingWheelZoom = 0
-    wheelZoomTimer = undefined
-    zoomMap(direction)
-  }, 110)
 }
 
 const visibleMapEntities = computed(() => {

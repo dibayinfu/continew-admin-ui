@@ -241,7 +241,7 @@
 .screen-shell {
   position: relative;
   width: 4784px;
-  height: 2688px;
+  height: 1880px;
   transform-origin: left top;
   color: #dbeeff;
   background:
@@ -932,8 +932,10 @@
 
 .v2-map-base {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
   z-index: 2;
+  transform-origin: top left;
   background: radial-gradient(circle at 50% 42%, #0b2d42, #040c17 68%);
 
   :deep(.amap-container) {
@@ -2690,7 +2692,7 @@
   animation: mapPointBreath 2s ease-in-out infinite;
 }
 
-/* 4784×2688 设计画布在测试模式会整体缩放，ICON 需保留足够的物理像素才能识别车型。 */
+/* 4784×1880 设计画布在测试模式会整体缩放，ICON 需保留足够的物理像素才能识别车型。 */
 .screen-shell .map-entity {
   width: 72px;
   height: 72px;

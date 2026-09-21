@@ -1,6 +1,13 @@
 .command-v2-page {
   position: relative;
-  min-height: calc(100vh - 84px);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  flex: 1;
+  contain: inline-size;
   overflow: auto;
   padding: 8px 8px 12px;
   background: #020813;
@@ -234,8 +241,7 @@
   position: relative;
   margin: 0 auto;
   overflow: hidden;
-  transition: width 0.28s ease, height 0.28s ease;
-
+  &.is-measuring { visibility: hidden; }
 }
 
 .screen-shell {
@@ -250,7 +256,6 @@
     linear-gradient(rgba(23, 95, 145, 0.12) 1px, transparent 1px),
     #04101e;
   background-size: 100% 100%, 48px 48px, 48px 48px, 100% 100%;
-  transition: transform 0.28s ease;
 
   &::before {
     position: absolute;
@@ -540,9 +545,37 @@
 
 .left-rail {
   grid-column: 1;
-  // 保持基础档案高度，压缩资产区并把空间补给累计数据，避免底部模块拥挤或大面积留白。
-  grid-template-rows: 1.8fr 1.05fr 0.45fr;
+  // 设备区保持紧凑，上方按数据行数分配余下高度，三块共同铺满整列。
+  grid-template-rows: minmax(0, 8fr) minmax(0, 5fr) 460px;
   animation: panelEnterLeft 0.7s ease both;
+}
+
+.screen-shell .left-rail {
+  .archive-card,
+  .result-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .archive-card > .panel-title,
+  .result-card > .panel-title {
+    flex: 0 0 72px;
+  }
+
+  .archive-list,
+  .operation-list {
+    flex: 1;
+    min-height: 0;
+    grid-auto-rows: minmax(0, 1fr);
+    gap: 8px;
+    padding: 8px 30px 18px;
+  }
+
+  .archive-row,
+  .operation-row {
+    min-height: 0;
+  }
 }
 
 .analysis-column {
@@ -594,10 +627,11 @@
 .asset-health-card .asset-health-grid {
   display: grid;
   box-sizing: border-box;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: repeat(3, minmax(0, 1fr));
+  gap: 10px;
   height: calc(100% - 72px);
-  padding: 2px 12px 8px;
+  padding: 8px 16px 16px;
   background: transparent;
   border: 0;
   border-radius: 0;
@@ -607,11 +641,11 @@
   position: relative;
   display: grid;
   // 图标列固定，避免百分比网格在大屏缩放后挤压右侧数字区。
-  grid-template-columns: 58px minmax(0, 1fr);
+  grid-template-columns: 64px minmax(0, 1fr);
   grid-template-rows: 1fr;
   min-width: 0;
   min-height: 0;
-  padding: 5px 12px;
+  padding: 10px 12px;
   overflow: visible;
   color: #dff3ff;
   cursor: default;
@@ -620,7 +654,7 @@
   border-radius: 0;
   box-shadow: none;
 
-  &:not(:last-child) { border-right: 1px solid rgba(78, 186, 226, 0.42); }
+  &:not(:last-child) { border-bottom: 1px solid rgba(78, 186, 226, 0.22); }
 }
 
 .asset-health-card .asset-art {
@@ -656,24 +690,27 @@
 .asset-health-card .asset-copy {
   z-index: 2;
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-content: center;
-  gap: 2px;
+  gap: 10px 12px;
   min-width: 0;
   padding: 0;
 }
 
 .asset-health-card .asset-copy strong {
   color: #e3f7ff;
-  font-size: 15px;
+  font-size: 24px;
   font-weight: 700;
   letter-spacing: 1px;
 }
 
 .asset-health-card .asset-copy em {
+  grid-column: 2;
+  grid-row: 1;
+  text-align: right;
   color: #f3fbff;
   font-family: DINPro, Arial, sans-serif;
-  font-size: 24px;
+  font-size: 30px;
   font-style: normal;
   font-weight: 500;
   line-height: 1;
@@ -682,11 +719,12 @@
 }
 
 .asset-health-card .asset-copy b {
-  display: flex;
-  grid-column: auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) 58px;
+  grid-column: 1 / -1;
   align-items: center;
-  justify-content: flex-start;
-  gap: 4px;
+  justify-content: space-between;
+  gap: 10px;
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
@@ -694,7 +732,7 @@
   margin-top: 1px;
   padding: 0;
   color: #67eca9;
-  font-size: 12px;
+  font-size: 22px;
   font-weight: 500;
   line-height: 1.15;
   white-space: nowrap;
@@ -709,9 +747,24 @@
 
 .asset-health-card .asset-copy b i {
   color: inherit;
-  font-size: 17px;
+  font-size: 24px;
   font-style: normal;
   font-weight: 800;
+  text-align: right;
+}
+
+.asset-health-track {
+  display: block;
+  height: 12px;
+  overflow: hidden;
+  background: #183448;
+  border-radius: 3px;
+}
+.asset-health-fill {
+  display: block;
+  height: 100%;
+  background: currentColor;
+  border-radius: inherit;
 }
 
 .asset-health-card .asset-copy b.warning { color: #ffc65d; border-color: rgba(255, 194, 84, 0.42); }
@@ -1536,11 +1589,6 @@
   transform: translateX(-50%);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
 
-  > span {
-    color: rgba(140, 200, 240, 0.6);
-    margin-right: 4px;
-  }
-
   button {
     display: flex;
     align-items: center;
@@ -1567,29 +1615,46 @@
     }
   }
 
-  i {
-    font-size: 16px;
-    font-style: normal;
-  }
-
-  .layer-icon {
+  .layer-checkbox {
     flex: 0 0 auto;
-    width: 28px;
-    height: 28px;
-    object-fit: contain;
-    filter: drop-shadow(0 0 5px rgba(80, 210, 255, 0.42));
-    opacity: 0.46;
-    transition: opacity 0.2s, filter 0.2s, transform 0.2s;
+    position: relative;
+    width: 14px;
+    height: 14px;
+    border: 1px solid rgba(143, 194, 226, 0.58);
+    border-radius: 2px;
+    transition: border-color 0.2s, background 0.2s;
   }
 
-  button:hover .layer-icon,
-  button.active .layer-icon {
+  .layer-checkbox::after {
+    position: absolute;
+    top: -4px;
+    left: 1px;
+    color: #dff6ff;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 14px;
+    content: '✓';
+    opacity: 0;
+    transform: scale(0.7);
+    transition: opacity 0.2s, transform 0.2s;
+  }
+
+  .layer-color {
+    flex: 0 0 auto;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    box-shadow: 0 0 6px currentColor;
+  }
+
+  button.active .layer-checkbox {
+    border-color: rgba(177, 230, 255, 0.95);
+    background: rgba(79, 171, 226, 0.18);
+  }
+
+  button.active .layer-checkbox::after {
     opacity: 1;
-    filter: drop-shadow(0 0 7px rgba(95, 221, 255, 0.72));
-  }
-
-  button:hover .layer-icon {
-    transform: translateY(-1px) scale(1.08);
+    transform: scale(1);
   }
 }
 
@@ -2485,10 +2550,6 @@
     font-size: 26px;
     border-radius: 14px;
 
-    > span {
-      margin-right: 8px;
-    }
-
     button {
       height: 52px;
       padding: 0 14px;
@@ -2497,8 +2558,21 @@
       white-space: nowrap;
     }
 
-    i {
-      font-size: 32px;
+    .layer-checkbox {
+      width: 26px;
+      height: 26px;
+    }
+
+    .layer-checkbox::after {
+      top: -8px;
+      left: 2px;
+      font-size: 26px;
+      line-height: 26px;
+    }
+
+    .layer-color {
+      width: 14px;
+      height: 14px;
     }
   }
 
@@ -2797,11 +2871,6 @@
 
 .screen-shell .map-entity.pulse {
   animation: mapPointIn 0.5s ease both, mapPointBreath 2.2s ease-in-out infinite;
-}
-
-.screen-shell .map-layer-bar .layer-icon {
-  width: 42px;
-  height: 42px;
 }
 
 @keyframes chartGrow {

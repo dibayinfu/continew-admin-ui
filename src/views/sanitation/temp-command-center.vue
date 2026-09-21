@@ -1,6 +1,6 @@
 <template>
-  <div ref="pageRootRef" class="command-v2-page" :class="{ 'is-fullscreen': isFullscreen }">
-    <div ref="stageViewportRef" class="stage-viewport" :style="stageViewportStyle">
+  <div ref="pageRootRef" class="command-v2-page" :class="{ 'is-fullscreen': isFullscreen }" :style="{ maxWidth: viewportWidthLimit }">
+    <div ref="stageViewportRef" class="stage-viewport" :style="stageViewportStyle" :class="{ 'is-measuring': !screenReady }">
       <div class="screen-shell" :style="{ transform: `scale(${screenScale})` }">
         <header class="screen-header">
           <div class="header-left">
@@ -52,7 +52,16 @@
               <div class="asset-health-grid">
                 <div v-for="item in assetHealthStats" :key="item.key" class="asset-health-row">
                   <img class="asset-art" :class="item.key" :src="item.asset" :alt="`${item.label}图标`" />
-                  <span class="asset-copy"><strong>{{ item.label }}</strong><em>{{ item.count }}{{ item.unit }}</em><b :class="item.tone">健康度 <i>{{ item.health }}%</i></b></span>
+                  <span class="asset-copy">
+                    <strong>{{ item.label }}</strong><em>{{ item.count }}{{ item.unit }}</em>
+                    <b :class="item.tone">
+                      <span>健康度</span>
+                      <span class="asset-health-track" role="progressbar" :aria-label="`${item.label}健康度`" :aria-valuenow="clamp(item.health, 0, 100)" :aria-valuemin="0" :aria-valuemax="100">
+                        <span class="asset-health-fill" :style="{ width: `${clamp(item.health, 0, 100)}%` }" />
+                      </span>
+                      <i>{{ item.health }}%</i>
+                    </b>
+                  </span>
                 </div>
               </div>
             </PanelCard>
@@ -113,10 +122,17 @@
                   </button>
                 </div>
               </div>
-              <div class="map-layer-bar">
-                <span>图层 · {{ visibleMapEntities.length }}/{{ mapEntities.length }}</span>
-                <button v-for="layer in mapLayers" :key="layer.key" :class="{ active: activeLayers.includes(layer.key) }" @click="toggleLayer(layer.key)">
-                  <img class="layer-icon" :src="layer.icon" :alt="`${layer.label}图标`" />{{ layer.label }}
+              <div class="map-layer-bar" aria-label="地图图层筛选">
+                <button
+                  v-for="layer in mapLayers"
+                  :key="layer.key"
+                  :class="{ active: activeLayers.includes(layer.key) }"
+                  :aria-pressed="activeLayers.includes(layer.key)"
+                  @click="toggleLayer(layer.key)"
+                >
+                  <span class="layer-checkbox" aria-hidden="true" />
+                  <span class="layer-color" :style="{ backgroundColor: layer.color, color: layer.color }" aria-hidden="true" />
+                  <span>{{ layer.label }}</span>
                 </button>
               </div>
             </div>
@@ -422,9 +438,9 @@ import assetHealthBox from '@/assets/images/command-center/asset-health-box.png'
 import assetHealthVehicle from '@/assets/images/command-center/asset-health-vehicle.png'
 import assetHealthTricycle from '@/assets/images/command-center/asset-health-tricycle.png'
 import { useCommandCenterCharts } from './data/command-center-v2-charts'
-import { createGeneratedMapEntities, initialMapEntities, LONGAN_BOUNDS, mapLayerIconMap, type MapEntity } from './data/command-center-v2-map-data'
+import { createGeneratedMapEntities, initialMapEntities, LONGAN_BOUNDS, type MapEntity } from './data/command-center-v2-map-data'
 import { alarmDestinations, alarmDrivers, alarmVehicles, boxMonitorRows, rightTabs, safetyAttachments, safetyMonitorRows, simulatedTrackPoints, taskMonitorDetailMap, taskMonitorRows, taskMonitorStats, taskTransferTargets, trackSpeeds, vehicleCameras, vehicleMonitorRows, vehicleStatusFilters, vehicleTypeStats, type BoxType, type SafetyMonitorRow, type TaskMonitorDetail, type TaskMonitorRow, type VehicleMonitorRow } from './data/command-center-v2-panel-data'
-import { collectorDaasFetch, getHiddenBoxIds, getHiddenPointIds, loadDataVisibility } from '@/utils/daas'
+import { collectorDaasFetch, collectorMapRequest, collectorVehicleRuntimeRequest, collectorVehicleTypesRequest, getHiddenBoxIds, getHiddenPointIds } from '@/utils/daas'
 
 defineOptions({ name: 'SanitationTempCommandCenter' })
 
@@ -452,6 +468,7 @@ const headerNotice = ref('')
 const LARGE_SCREEN_ORGANIZATION_ID = 506
 function notifyHeader(message: string) { headerNotice.value = message; window.setTimeout(() => { headerNotice.value = '' }, 2200) }
 const pageRootRef = ref<HTMLElement>()
+const viewportWidthLimit = ref('100%')
 const isFullscreen = ref(false)
 async function toggleFullscreen() {
   const page = pageRootRef.value
@@ -464,11 +481,13 @@ async function toggleFullscreen() {
 }
 function syncFullscreenState() {
   isFullscreen.value = document.fullscreenElement === pageRootRef.value
+  nextTick(updateScreenScale)
 }
 function refreshDashboard() { notifyHeader('数据已刷新') }
 function saveOrganization() { settingsOpen.value = false; notifyHeader(`已切换至${selectedOrganization.value}`) }
 const stageViewportRef = ref<HTMLElement>()
 const autoTestScale = ref(0.35)
+const screenReady = ref(false)
 const screenScale = computed(() => autoTestScale.value)
 const stageViewportStyle = computed(() => ({
   width: `${DESIGN_WIDTH * screenScale.value}px`,
@@ -517,12 +536,21 @@ interface AMapInstance {
 interface AMapMarker {
   setMap: (map: AMapInstance | null) => void
   on: (event: 'click', handler: () => void) => void
+  setContent: (content: string) => void
+  setOffset: (offset: unknown) => void
 }
+
+interface AMapCircle { setMap: (map: AMapInstance | null) => void }
+interface AMapMarkerCluster { setMap: (map: AMapInstance | null) => void }
 
 interface AMapNamespace {
   Map: new (container: HTMLElement, options: Record<string, unknown>) => AMapInstance
   Marker: new (options: Record<string, unknown>) => AMapMarker
+  MarkerCluster?: new (map: AMapInstance, points: Array<Record<string, unknown>>, options?: Record<string, unknown>) => AMapMarkerCluster
+  Circle: new (options: Record<string, unknown>) => AMapCircle
+  LngLat: new (lng: number, lat: number) => unknown
   Pixel: new (x: number, y: number) => unknown
+  plugin?: (plugins: string[], callback: () => void) => void
 }
 
 let resizeObserver: ResizeObserver | undefined
@@ -532,6 +560,8 @@ const mapEngineError = ref('')
 let v2BaseMap: AMapInstance | null = null
 let amap: AMapNamespace | null = null
 let largeScreenMarkers: AMapMarker[] = []
+let largeScreenRadiusCircles: AMapCircle[] = []
+let largeScreenTricycleCluster: AMapMarkerCluster | null = null
 let hasReceivedLargeScreenData = false
 let hasFittedLargeScreenMap = false
 let amapLoader: Promise<AMapNamespace> | undefined
@@ -563,7 +593,7 @@ function loadAmapJsApi() {
   amapLoader = new Promise<AMapNamespace>((resolve, reject) => {
     const script = document.createElement('script')
     const timeout = window.setTimeout(() => reject(new Error('高德 JS API 加载超时')), 12000)
-    script.src = `https://webapi.amap.com/maps?v=2.0&key=${encodeURIComponent(key)}`
+    script.src = `https://webapi.amap.com/maps?v=2.0&plugin=AMap.MarkerCluster&key=${encodeURIComponent(key)}`
     script.async = true
     script.onload = () => {
       window.clearTimeout(timeout)
@@ -586,6 +616,15 @@ async function initV2BaseMap() {
   try {
     const AMap = await loadAmapJsApi()
     amap = AMap
+    if (!amap.MarkerCluster && amap.plugin) {
+      await new Promise<void>((resolve, reject) => {
+        const timeout = window.setTimeout(() => reject(new Error('小三轮聚合插件加载超时')), 12000)
+        amap!.plugin!(['AMap.MarkerCluster'], () => {
+          window.clearTimeout(timeout)
+          amap!.MarkerCluster ? resolve() : reject(new Error('小三轮聚合插件加载失败'))
+        })
+      })
+    }
     v2BaseMap?.destroy()
     v2BaseMap = new AMap.Map(v2MapBaseRef.value, {
       center: [114.30, 36.07],
@@ -617,12 +656,23 @@ async function initV2BaseMap() {
 }
 
 function updateScreenScale() {
-  if (!stageViewportRef.value) return
-  const parent = stageViewportRef.value.parentElement
-  if (!parent) return
-  const availableWidth = parent.clientWidth - 16
-  const availableHeight = Math.max(520, window.innerHeight - 132)
+  const page = pageRootRef.value
+  const host = page?.parentElement
+  if (!page || !host) return
+  const padding = getComputedStyle(page)
+  // 宿主也可能超出窗口；必须按页面真实左边缘扣除导航栏占用宽度。
+  const visibleWidth = Math.max(0, document.documentElement.clientWidth - Math.max(0, page.getBoundingClientRect().left))
+  viewportWidthLimit.value = `${visibleWidth}px`
+  const containerWidth = document.fullscreenElement === page
+    ? Math.min(page.clientWidth, visibleWidth)
+    : Math.min(page.clientWidth, host.clientWidth, visibleWidth)
+  const availableWidth = containerWidth
+    - parseFloat(padding.paddingLeft) - parseFloat(padding.paddingRight)
+  const availableHeight = page.clientHeight
+    - parseFloat(padding.paddingTop) - parseFloat(padding.paddingBottom)
+  if (availableWidth <= 0 || availableHeight <= 0) return
   autoTestScale.value = Math.min(1, availableWidth / DESIGN_WIDTH, availableHeight / DESIGN_HEIGHT)
+  screenReady.value = true
 }
 
 // 只更新地图尺寸，保留当前视野和选中态，不重新执行首次全览。
@@ -631,13 +681,17 @@ watch([screenScale, statisticsCollapsed, chartsCollapsed, dispatchCollapsed], ()
 })
 
 onMounted(() => {
-  nextTick(updateScreenScale)
-  window.setTimeout(initV2BaseMap, 100)
+  nextTick(async () => {
+    updateScreenScale()
+    await nextTick()
+    void initV2BaseMap()
+  })
   void loadLargeScreenData()
   largeScreenRefreshTimer = window.setInterval(() => { void loadLargeScreenData() }, 60_000)
   resizeObserver = new ResizeObserver(updateScreenScale)
-  if (stageViewportRef.value?.parentElement) {
-    resizeObserver.observe(stageViewportRef.value.parentElement)
+  if (pageRootRef.value) {
+    resizeObserver.observe(pageRootRef.value)
+    if (pageRootRef.value.parentElement) resizeObserver.observe(pageRootRef.value.parentElement)
   }
   window.addEventListener('resize', updateScreenScale)
   document.addEventListener('fullscreenchange', syncFullscreenState)
@@ -653,6 +707,10 @@ onBeforeUnmount(() => {
   if (v2BaseMap) {
     largeScreenMarkers.forEach((marker) => marker.setMap(null))
     largeScreenMarkers = []
+    largeScreenRadiusCircles.forEach((circle) => circle.setMap(null))
+    largeScreenRadiusCircles = []
+    largeScreenTricycleCluster?.setMap(null)
+    largeScreenTricycleCluster = null
     v2BaseMap.destroy()
     v2BaseMap = null
   }
@@ -723,6 +781,8 @@ interface LargeScreenInfo {
   name: string | null
   lat: number | string | null
   lng: number | string | null
+  serviceRadius?: number | string | null
+  radius?: number | string | null
 }
 
 interface LargeScreenCenterData {
@@ -759,7 +819,36 @@ interface SmallHookBox {
   latitude?: number | string | null
   temperature?: number | string | null
   voltage?: number | string | null
+  matchObject?: string | null
 }
+
+interface CollectorCollectionPoint {
+  id: number | string
+  pointName?: string | null
+  pointCode?: string | null
+  townshipName?: string | null
+  villageName?: string | null
+  longitude?: number | string | null
+  latitude?: number | string | null
+  containerCount?: number | string | null
+  serviceRadius?: number | string | null
+  address?: string | null
+}
+
+interface CollectorVehicleRuntime {
+  id: number | string
+  plateNumber?: string | null
+  longitude?: number | string | null
+  latitude?: number | string | null
+  onlineState?: number | null
+  chargingState?: number | null
+  organizationName?: string | null
+}
+
+interface CollectorVehicleTypeItem { id?: number | string | null }
+interface CollectorVehicleTypeGroup { modelName?: string | null, vehicleList?: CollectorVehicleTypeItem[] | null }
+interface CollectorVehicleOrganization { modelVehicleList?: CollectorVehicleTypeGroup[] | null, children?: CollectorVehicleOrganization[] | null }
+type CollectorVehicleType = '小勾臂车' | '大勾臂车' | '小三轮'
 
 const largeScreenGroups: Array<{ key: keyof LargeScreenCenterData, type: MapEntity['type'], layer: string, kind: string, label: string }> = [
   { key: 'dGbVehicles', type: '车辆', layer: 'largeTruck', kind: 'truck-large', label: '大勾臂车' },
@@ -798,6 +887,9 @@ function toMapEntity(info: LargeScreenInfo, group: typeof largeScreenGroups[numb
   const lat = toNumber(info.lat, Number.NaN)
   if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null
   const isAlarm = group.kind === 'alarm'
+  const radius = group.kind === 'collection' ? toNumber(info.serviceRadius ?? info.radius, 100)
+    : group.kind === 'station' ? toNumber(info.serviceRadius ?? info.radius, 500)
+      : group.kind === 'plant' ? toNumber(info.serviceRadius ?? info.radius, 1000) : 0
   return {
     id: `${group.key}-${info.id}`,
     type: group.type,
@@ -811,7 +903,7 @@ function toMapEntity(info: LargeScreenInfo, group: typeof largeScreenGroups[numb
     alarm: isAlarm,
     pulse: isAlarm,
     onlineText: isAlarm ? '告警  待处理' : '在线',
-    details: [{ label: '类型', value: group.label }, { label: '经纬度', value: `${lng.toFixed(6)}, ${lat.toFixed(6)}` }],
+    details: [{ label: '类型', value: group.label }, { label: '经纬度', value: `${lng.toFixed(6)}, ${lat.toFixed(6)}` }, ...(radius > 0 ? [{ label: '服务半径', value: `${radius} 米` }] : [])],
     relations: [],
   }
 }
@@ -826,7 +918,76 @@ function smallHookBoxToMapEntity(box: SmallHookBox): MapEntity | null {
     type: '箱体', layer: 'smallBox', kind: 'small-box', status: overflow ? 'danger' : toNumber(box.fillLevel) >= 70 ? 'warning' : 'online', icon: '●',
     name: box.containerName || box.containerNo || `小勾臂箱-${box.id}`, lng, lat, alarm: overflow, pulse: overflow,
     onlineText: toNumber(box.onlineStatus) === 1 ? '在线' : '离线',
-    details: [{ label: '箱体编号', value: box.containerNo || String(box.id) }, { label: '满溢率', value: `${toNumber(box.fillLevel)}%` }, { label: '经纬度', value: `${lng.toFixed(6)}, ${lat.toFixed(6)}` }],
+    details: [
+      { label: '箱体编号', value: box.containerNo || String(box.id) }, { label: '满溢率', value: `${toNumber(box.fillLevel)}%` },
+      { label: '电量', value: `${toNumber(box.voltage)}%` }, { label: '温度', value: `${toNumber(box.temperature)}℃` },
+      { label: '匹配对象', value: box.matchObject || '—' }, { label: '经纬度', value: `${lng.toFixed(6)}, ${lat.toFixed(6)}` },
+    ],
+    relations: [],
+  }
+}
+
+function collectionPointToMapEntity(point: CollectorCollectionPoint): MapEntity | null {
+  const lng = toNumber(point.longitude, Number.NaN)
+  const lat = toNumber(point.latitude, Number.NaN)
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null
+  const name = point.pointName || point.pointCode || `收集点-${point.id}`
+  return {
+    id: `collection-point-${point.id}`, type: '收集点', layer: 'collectionPoint', kind: 'collection', status: 'online', icon: '●',
+    name, lng, lat, onlineText: '运行正常',
+    details: [
+      { label: '点位名称', value: name }, { label: '所属乡镇', value: point.townshipName || '—' },
+      { label: '所在村庄', value: point.villageName || '—' }, { label: '关联箱体', value: `${toNumber(point.containerCount)} 个` }, { label: '服务半径', value: `${toNumber(point.serviceRadius, 100)} 米` },
+      { label: '位置', value: point.address || `${lng.toFixed(6)}, ${lat.toFixed(6)}` },
+    ],
+    relations: [],
+  }
+}
+
+function responseDataArray<T>(response: unknown): T[] {
+  const data = (response as { data?: unknown })?.data
+  return Array.isArray(data) ? data as T[] : []
+}
+
+function indexVehicleTypes(organizations: CollectorVehicleOrganization[]) {
+  const indexed = new Map<number, CollectorVehicleType>()
+  const allowedTypes: CollectorVehicleType[] = ['小勾臂车', '大勾臂车', '小三轮']
+  const walk = (items: CollectorVehicleOrganization[]) => {
+    for (const organization of items) {
+      for (const group of organization.modelVehicleList || []) {
+        if (!allowedTypes.includes(group.modelName as CollectorVehicleType)) continue
+        for (const vehicle of group.vehicleList || []) {
+          const id = toNumber(vehicle.id, Number.NaN)
+          if (Number.isFinite(id)) indexed.set(id, group.modelName as CollectorVehicleType)
+        }
+      }
+      walk(organization.children || [])
+    }
+  }
+  walk(organizations)
+  return indexed
+}
+
+function vehicleToMapEntity(vehicle: CollectorVehicleRuntime, vehicleType: CollectorVehicleType | undefined): MapEntity | null {
+  if (!vehicleType) return null
+  const lng = toNumber(vehicle.longitude, Number.NaN)
+  const lat = toNumber(vehicle.latitude, Number.NaN)
+  if (!Number.isFinite(lng) || !Number.isFinite(lat)) return null
+  const status = toNumber(vehicle.chargingState) === 1 ? 'charging' : toNumber(vehicle.onlineState) === 1 ? 'online' : 'offline'
+  const config = vehicleType === '小勾臂车'
+    ? { layer: 'hookTruck', kind: 'truck-hook' }
+    : vehicleType === '大勾臂车'
+      ? { layer: 'largeTruck', kind: 'truck-large' }
+      : { layer: 'smallTruck', kind: 'truck-small' }
+  const statusText = status === 'charging' ? '充电中' : status === 'online' ? '在线' : '离线'
+  return {
+    id: `vehicle-${vehicle.id}`, type: '车辆', ...config, status, icon: '●', name: vehicle.plateNumber || `${vehicleType}-${vehicle.id}`,
+    lng, lat, onlineText: statusText,
+    details: [
+      { label: '车辆类型', value: vehicleType }, { label: '车牌号', value: vehicle.plateNumber || String(vehicle.id) },
+      { label: '所属机构', value: vehicle.organizationName || '—' }, { label: '车辆状态', value: statusText },
+      { label: '经纬度', value: `${lng.toFixed(6)}, ${lat.toFixed(6)}` },
+    ],
     relations: [],
   }
 }
@@ -848,13 +1009,14 @@ async function loadLargeScreenData() {
   if (largeScreenLoading) return
   largeScreenLoading = true
   try {
-    // 大屏不经过 collectorMapRequest，需单独刷新后台全局隐藏名单。
-    await loadDataVisibility().catch(() => undefined)
     const query = new URLSearchParams({ organizationId: String(LARGE_SCREEN_ORGANIZATION_ID), options: '0' })
-    const [centerResponse, statisticsResponse, smallHookBoxesResponse] = await Promise.all([
+    // 箱体地图 / 箱体收集点地图的同源实时数据：箱体、收集点、三类车辆。
+    const [centerResponse, statisticsResponse, mapData, vehicleRuntimeResponse, vehicleTypeResponse] = await Promise.all([
       collectorDaasFetch(`/api/collector/large-screen/center-data?${query}`),
       collectorDaasFetch(`/api/collector/large-screen/statistics?organizationId=${LARGE_SCREEN_ORGANIZATION_ID}`),
-      collectorDaasFetch(`/api/collector/large-screen/small-hook-boxes`),
+      collectorMapRequest<{ boxes?: SmallHookBox[], points?: CollectorCollectionPoint[] }>(false),
+      collectorVehicleRuntimeRequest<unknown>(),
+      collectorVehicleTypesRequest<unknown>(),
     ])
     if (!centerResponse.ok || !statisticsResponse.ok) throw new Error(`HTTP ${!centerResponse.ok ? centerResponse.status : statisticsResponse.status}`)
     const center = await centerResponse.json() as LargeScreenResponse<LargeScreenCenterData>
@@ -875,16 +1037,23 @@ async function loadLargeScreenData() {
 
     const hiddenBoxIds = getHiddenBoxIds()
     const hiddenPointIds = getHiddenPointIds()
-    const smallHookBoxes = smallHookBoxesResponse.ok ? await smallHookBoxesResponse.json() as SmallHookBox[] : []
-    const visibleSmallHookBoxes = Array.isArray(smallHookBoxes) ? smallHookBoxes.filter((box) => !hiddenBoxIds.has(toNumber(box.id))) : []
+    const smallHookBoxes = Array.isArray(mapData.boxes) ? mapData.boxes : []
+    const collectionPoints = Array.isArray(mapData.points) ? mapData.points : []
+    const visibleSmallHookBoxes = smallHookBoxes.filter((box) => !hiddenBoxIds.has(toNumber(box.id)))
+    const visibleCollectionPoints = collectionPoints.filter((point) => !hiddenPointIds.has(toNumber(point.id)))
+    const vehicleTypes = indexVehicleTypes(responseDataArray<CollectorVehicleOrganization>(vehicleTypeResponse))
+    const vehicles = responseDataArray<CollectorVehicleRuntime>(vehicleRuntimeResponse)
     const smallHookRows = visibleSmallHookBoxes.map(smallHookBoxToMonitorRow)
-    // 右侧箱体监控的小勾臂箱与地图使用同一独立数据源；大勾臂箱先保留现有展示数据。
+    // 右侧箱体监控与中间地图共用箱体地图数据源；大勾臂箱先保留现有展示数据。
     liveBoxMonitorRows.value = [...liveBoxMonitorRows.value.filter((item) => item.type === 'large'), ...smallHookRows]
 
-    const entities = largeScreenGroups.filter((group) => group.key !== 'xGbxInfos').flatMap((group) => centerDataList(center.data, group.key)
+    const liveMapGroupKeys = new Set(['dGbVehicles', 'xGbVehicles', 'xslVehicles', 'xGbxInfos', 'collectionPoints'])
+    const entities = largeScreenGroups.filter((group) => !liveMapGroupKeys.has(String(group.key))).flatMap((group) => centerDataList(center.data, group.key)
       .filter((item) => group.key !== 'collectionPoints' || !hiddenPointIds.has(toNumber(item.id)))
       .map((item) => toMapEntity(item, group)).filter((item): item is MapEntity => item !== null))
     entities.push(...visibleSmallHookBoxes.map(smallHookBoxToMapEntity).filter((item): item is MapEntity => item !== null))
+    entities.push(...visibleCollectionPoints.map(collectionPointToMapEntity).filter((item): item is MapEntity => item !== null))
+    entities.push(...vehicles.map((vehicle) => vehicleToMapEntity(vehicle, vehicleTypes.get(toNumber(vehicle.id)))).filter((item): item is MapEntity => item !== null))
     mapEntities.value = entities
     if (entities.length) selectedEntity.value = entities[0]
     hasReceivedLargeScreenData = true
@@ -1114,18 +1283,17 @@ const selectedProfile = computed<EntityProfile>(() => {
 })
 
 const mapLayers = [
-  { key: 'largeTruck', label: '大勾臂车', icon: mapLayerIconMap.largeTruck },
-  { key: 'hookTruck', label: '小勾臂车', icon: mapLayerIconMap.hookTruck },
-  { key: 'smallTruck', label: '小三轮车', icon: mapLayerIconMap.smallTruck },
-  { key: 'largeBox', label: '大勾臂箱', icon: mapLayerIconMap.largeBox },
-  { key: 'smallBox', label: '小勾臂箱', icon: mapLayerIconMap.smallBox },
-  { key: 'collectionPoint', label: '收集点', icon: mapLayerIconMap.collectionPoint },
-  { key: 'station', label: '中转站', icon: mapLayerIconMap.station },
-  { key: 'plant', label: '焚烧厂', icon: mapLayerIconMap.plant },
-  { key: 'alarm', label: '告警', icon: mapLayerIconMap.alarm },
+  { key: 'smallBox', label: '小勾臂箱', color: '#165dff' },
+  { key: 'hookTruck', label: '小勾臂车', color: '#165dff' },
+  { key: 'largeBox', label: '大勾臂箱', color: '#722ed1' },
+  { key: 'largeTruck', label: '大勾臂车', color: '#722ed1' },
+  { key: 'smallTruck', label: '小三轮', color: '#00b42a' },
+  { key: 'collectionPoint', label: '收集点', color: '#5b8ff9' },
+  { key: 'station', label: '中转站', color: '#13c2c2' },
+  { key: 'plant', label: '焚烧厂', color: '#fa8c16' },
 ]
-// 小三轮车、收集点数量较大，首屏默认不加载 Marker，按需由图例开启。
-const activeLayers = ref(mapLayers.filter((layer) => !['smallTruck', 'collectionPoint', 'alarm'].includes(layer.key)).map((layer) => layer.key))
+// 首屏仅展示小勾臂箱，其他业务对象由图例按需开启。
+const activeLayers = ref(['smallBox'])
 const mapZoom = ref(1)
 
 function clamp(value: number, min: number, max: number) {
@@ -1154,7 +1322,7 @@ function resetMapZoom() {
 
 const visibleMapEntities = computed(() => {
   const densityStep = mapZoom.value >= 1.55 ? 1 : mapZoom.value >= 1.2 ? 2 : 3
-  const alwaysVisibleLayers = new Set(['alarm', 'plant', 'station', 'hookTruck', 'largeTruck', 'largeBox'])
+  const alwaysVisibleLayers = new Set(['plant', 'station', 'hookTruck', 'largeTruck', 'largeBox'])
 
   return mapEntities.value.filter((item, index) => {
     if (!activeLayers.value.includes(item.layer)) return false
@@ -1192,15 +1360,22 @@ function toGcj(lng: number, lat: number) {
 function drawLargeScreenMarkers(fit = true) {
   largeScreenMarkers.forEach((marker) => marker.setMap(null))
   largeScreenMarkers = []
+  largeScreenRadiusCircles.forEach((circle) => circle.setMap(null))
+  largeScreenRadiusCircles = []
+  largeScreenTricycleCluster?.setMap(null)
+  largeScreenTricycleCluster = null
   if (!amap || !v2BaseMap) return
-  largeScreenMarkers = visibleMapEntities.value.map((entity, index) => {
+  const tricycles = visibleMapEntities.value.filter((entity) => entity.kind === 'truck-small')
+  const standaloneEntities = visibleMapEntities.value.filter((entity) => entity.kind !== 'truck-small')
+  largeScreenMarkers = standaloneEntities.map((entity, index) => {
     const point = toGcj(entity.lng, entity.lat)
-    const fillRate = Number.parseFloat(entity.details.find((item) => item.label === '满溢率')?.value || '0') || 0
     const color = entity.kind === 'alarm'
       ? '#f53f3f'
-      : entity.kind === 'small-box'
-        ? entity.alarm ? '#f53f3f' : fillRate >= 70 ? '#ff7d00' : '#00b42a'
-        : entity.kind.includes('truck') ? '#165dff' : entity.kind.includes('box') ? '#ff7d00' : '#00b42a'
+      : entity.kind === 'small-box' || entity.kind === 'truck-hook' ? '#165dff'
+        : entity.kind === 'large-box' || entity.kind === 'truck-large' ? '#722ed1'
+          : entity.kind === 'collection' ? '#5b8ff9'
+            : entity.kind === 'station' ? '#13c2c2'
+              : entity.kind === 'plant' ? '#fa8c16' : '#00b42a'
     const label = entity.kind === 'small-box'
       ? entity.details.find((item) => item.label === '箱体编号')?.value || entity.name
       : entity.name
@@ -1214,6 +1389,48 @@ function drawLargeScreenMarkers(fit = true) {
     marker.on('click', () => selectMapEntity(entity))
     marker.setMap(v2BaseMap!)
     return marker
+  })
+
+  // 与箱体地图一致：只有小三轮使用 MarkerCluster，勾臂车、箱体和设施点保持逐点展示。
+  if (tricycles.length && amap.MarkerCluster) {
+    const markerEntities = new WeakMap<AMapMarker, MapEntity | undefined>()
+    const boundMarkers = new WeakSet<AMapMarker>()
+    largeScreenTricycleCluster = new amap.MarkerCluster(v2BaseMap, tricycles.map((entity) => {
+      const point = toGcj(entity.lng, entity.lat)
+      return { lnglat: [point.lng, point.lat], entity }
+    }), {
+      gridSize: 80,
+      maxZoom: 16,
+      averageCenter: true,
+      renderClusterMarker: (context: { count: number, marker: AMapMarker }) => {
+        context.marker.setOffset(new amap!.Pixel(-22, -22))
+        context.marker.setContent(`<div style="width:44px;height:44px;display:grid;place-items:center;border:2px solid #fff;border-radius:50%;background:#00b42a;box-shadow:0 2px 8px rgb(0 180 42 / 36%);color:#fff;font-size:14px;font-weight:700">${context.count}</div>`)
+      },
+      renderMarker: (context: { marker: AMapMarker, data?: { entity?: MapEntity } | Array<{ entity?: MapEntity }> }) => {
+        const point = Array.isArray(context.data) ? context.data[0] : context.data
+        markerEntities.set(context.marker, point?.entity)
+        context.marker.setOffset(new amap!.Pixel(-14, -14))
+        context.marker.setContent('<div style="width:28px;height:28px;display:grid;place-items:center;border:2px solid #fff;border-radius:50%;background:#00b42a;box-shadow:0 2px 6px rgb(0 180 42 / 38%);color:#fff;font-size:13px">◆</div>')
+        if (!boundMarkers.has(context.marker)) {
+          boundMarkers.add(context.marker)
+          context.marker.on('click', () => {
+            const entity = markerEntities.get(context.marker)
+            if (entity) selectMapEntity(entity)
+          })
+        }
+      },
+    })
+  }
+
+  // 采用箱体收集点地图的半径圈样式；设施当前没有半径字段时，按业务默认半径展示。
+  visibleMapEntities.value.filter((entity) => ['collection', 'station', 'plant'].includes(entity.kind)).forEach((entity) => {
+    const radiusText = entity.details.find((item) => item.label === '服务半径')?.value || ''
+    const radius = Number.parseFloat(radiusText) || (entity.kind === 'collection' ? 100 : entity.kind === 'station' ? 500 : 1000)
+    const point = toGcj(entity.lng, entity.lat)
+    const color = entity.kind === 'collection' ? '#165dff' : entity.kind === 'station' ? '#13c2c2' : '#fa8c16'
+    const circle = new amap!.Circle({ center: new amap!.LngLat(point.lng, point.lat), radius, strokeColor: color, strokeOpacity: 0.55, strokeWeight: 1.5, strokeStyle: 'dashed', fillColor: color, fillOpacity: 0.07 })
+    circle.setMap(v2BaseMap!)
+    largeScreenRadiusCircles.push(circle)
   })
   if (fit && largeScreenMarkers.length) v2BaseMap.setFitView(largeScreenMarkers, false, [60, 60, 60, 360])
 }

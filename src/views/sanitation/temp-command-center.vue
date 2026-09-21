@@ -23,7 +23,9 @@
         </header>
 
         <div class="dashboard-grid" :style="dashboardLayoutStyle">
-          <aside class="left-rail">
+          <button v-show="statisticsCollapsed" class="rail-expand statistics-expand" aria-label="展开统计侧栏" @click="statisticsCollapsed = false">统计 ›</button>
+          <aside v-show="!statisticsCollapsed" class="left-rail collapsible-rail">
+            <button class="rail-collapse" aria-label="收起统计侧栏" title="收起统计" @click="statisticsCollapsed = true">‹</button>
             <PanelCard title="基础档案" class="archive-card">
               <div class="archive-list">
                 <div v-for="item in archiveStats" :key="item.label" class="archive-row">
@@ -56,7 +58,9 @@
             </PanelCard>
           </aside>
 
-          <section class="analysis-column">
+          <button v-show="chartsCollapsed" class="rail-expand charts-expand" aria-label="展开图表侧栏" @click="chartsCollapsed = false">图表 ›</button>
+          <section v-show="!chartsCollapsed" class="analysis-column collapsible-rail">
+            <button class="rail-collapse" aria-label="收起图表侧栏" title="收起图表" @click="chartsCollapsed = true">‹</button>
             <PanelCard title="昨日垃圾量乡镇排行（吨）" class="chart-card">
               <VChart class="analysis-chart" :option="townWasteChartOption" :autoresize="false" :init-options="chartInitOptions" />
             </PanelCard>
@@ -319,7 +323,9 @@
             </aside>
           </main>
 
-          <aside class="right-rail">
+          <button v-show="dispatchCollapsed" class="rail-expand dispatch-expand" aria-label="展开调度侧栏" @click="dispatchCollapsed = false">‹ 调度</button>
+          <aside v-show="!dispatchCollapsed" class="right-rail collapsible-rail">
+            <button class="rail-collapse" aria-label="收起调度侧栏" title="收起调度" @click="dispatchCollapsed = true">›</button>
             <div class="right-tabs">
               <button v-for="tab in rightTabs" :key="tab.key" :class="{ active: activeRightTab === tab.key }" @click.stop="activeRightTab = tab.key">
                 {{ tab.label }}
@@ -428,13 +434,17 @@ const DESIGN_HEIGHT = 1880
 const LAYOUT_STATISTICS_WIDTH = 520
 const LAYOUT_CHARTS_WIDTH = 800
 const LAYOUT_DISPATCH_WIDTH = 900
+const statisticsCollapsed = ref(false)
+const chartsCollapsed = ref(false)
+const dispatchCollapsed = ref(false)
+const COLLAPSED_RAIL_WIDTH = 56
 // 图表模块保留现有紧凑排版；不对外提供分辨率切换。
 const chartDisplayMode = ref<'formal' | 'test'>('test')
-const dashboardLayoutStyle = {
-  '--layout-statistics-width': `${LAYOUT_STATISTICS_WIDTH}px`,
-  '--layout-charts-width': `${LAYOUT_CHARTS_WIDTH}px`,
-  '--layout-dispatch-width': `${LAYOUT_DISPATCH_WIDTH}px`,
-} as CSSProperties
+const dashboardLayoutStyle = computed(() => ({
+  '--layout-statistics-width': `${statisticsCollapsed.value ? COLLAPSED_RAIL_WIDTH : LAYOUT_STATISTICS_WIDTH}px`,
+  '--layout-charts-width': `${chartsCollapsed.value ? COLLAPSED_RAIL_WIDTH : LAYOUT_CHARTS_WIDTH}px`,
+  '--layout-dispatch-width': `${dispatchCollapsed.value ? COLLAPSED_RAIL_WIDTH : LAYOUT_DISPATCH_WIDTH}px`,
+}) as CSSProperties)
 const settingsOpen = ref(false)
 const organizations = ['龙安区环卫中心', '马投涧镇环卫站', '龙泉镇环卫站', '文明大道街道办']
 const selectedOrganization = ref(organizations[0])
@@ -615,7 +625,8 @@ function updateScreenScale() {
   autoTestScale.value = Math.min(1, availableWidth / DESIGN_WIDTH, availableHeight / DESIGN_HEIGHT)
 }
 
-watch(screenScale, () => {
+// 只更新地图尺寸，保留当前视野和选中态，不重新执行首次全览。
+watch([screenScale, statisticsCollapsed, chartsCollapsed, dispatchCollapsed], () => {
   nextTick(() => v2BaseMap?.resize())
 })
 

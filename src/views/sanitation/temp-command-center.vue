@@ -23,7 +23,9 @@
         </header>
 
         <div class="dashboard-grid" :style="dashboardLayoutStyle">
-          <aside class="left-rail">
+          <button v-show="statisticsCollapsed" class="rail-expand statistics-expand" aria-label="展开统计侧栏" @click="statisticsCollapsed = false">统计 ›</button>
+          <aside v-show="!statisticsCollapsed" class="left-rail collapsible-rail">
+            <button class="rail-collapse" aria-label="收起统计侧栏" title="收起统计" @click="statisticsCollapsed = true">‹</button>
             <PanelCard title="基础档案" class="archive-card">
               <div class="archive-list">
                 <div v-for="item in archiveStats" :key="item.label" class="archive-row">
@@ -56,7 +58,9 @@
             </PanelCard>
           </aside>
 
-          <section class="analysis-column">
+          <button v-show="chartsCollapsed" class="rail-expand charts-expand" aria-label="展开图表侧栏" @click="chartsCollapsed = false">图表 ›</button>
+          <section v-show="!chartsCollapsed" class="analysis-column collapsible-rail">
+            <button class="rail-collapse" aria-label="收起图表侧栏" title="收起图表" @click="chartsCollapsed = true">‹</button>
             <PanelCard title="昨日垃圾量乡镇排行（吨）" class="chart-card">
               <VChart class="analysis-chart" :option="townWasteChartOption" :autoresize="false" :init-options="chartInitOptions" />
             </PanelCard>
@@ -72,8 +76,8 @@
           </section>
 
           <main class="map-panel">
-            <div class="map-stage" :class="`map-theme-${activeMapTheme}`" @wheel.prevent="onMapWheel">
-              <div ref="v2MapBaseRef" class="v2-map-base" />
+            <div class="map-stage" :class="`map-theme-${activeMapTheme}`">
+              <div ref="v2MapBaseRef" class="v2-map-base" :style="mapBaseStyle" />
               <div v-if="mapEngineError" class="map-engine-error">{{ mapEngineError }}</div>
 
               <div class="map-kpis">
@@ -319,7 +323,9 @@
             </aside>
           </main>
 
-          <aside class="right-rail">
+          <button v-show="dispatchCollapsed" class="rail-expand dispatch-expand" aria-label="展开调度侧栏" @click="dispatchCollapsed = false">‹ 调度</button>
+          <aside v-show="!dispatchCollapsed" class="right-rail collapsible-rail">
+            <button class="rail-collapse" aria-label="收起调度侧栏" title="收起调度" @click="dispatchCollapsed = true">›</button>
             <div class="right-tabs">
               <button v-for="tab in rightTabs" :key="tab.key" :class="{ active: activeRightTab === tab.key }" @click.stop="activeRightTab = tab.key">
                 {{ tab.label }}
@@ -424,17 +430,21 @@ defineOptions({ name: 'SanitationTempCommandCenter' })
 
 
 const DESIGN_WIDTH = 4784
-const DESIGN_HEIGHT = 2688
+const DESIGN_HEIGHT = 1880
 const LAYOUT_STATISTICS_WIDTH = 520
 const LAYOUT_CHARTS_WIDTH = 800
 const LAYOUT_DISPATCH_WIDTH = 900
+const statisticsCollapsed = ref(false)
+const chartsCollapsed = ref(false)
+const dispatchCollapsed = ref(false)
+const COLLAPSED_RAIL_WIDTH = 56
 // 图表模块保留现有紧凑排版；不对外提供分辨率切换。
 const chartDisplayMode = ref<'formal' | 'test'>('test')
-const dashboardLayoutStyle = {
-  '--layout-statistics-width': `${LAYOUT_STATISTICS_WIDTH}px`,
-  '--layout-charts-width': `${LAYOUT_CHARTS_WIDTH}px`,
-  '--layout-dispatch-width': `${LAYOUT_DISPATCH_WIDTH}px`,
-} as CSSProperties
+const dashboardLayoutStyle = computed(() => ({
+  '--layout-statistics-width': `${statisticsCollapsed.value ? COLLAPSED_RAIL_WIDTH : LAYOUT_STATISTICS_WIDTH}px`,
+  '--layout-charts-width': `${chartsCollapsed.value ? COLLAPSED_RAIL_WIDTH : LAYOUT_CHARTS_WIDTH}px`,
+  '--layout-dispatch-width': `${dispatchCollapsed.value ? COLLAPSED_RAIL_WIDTH : LAYOUT_DISPATCH_WIDTH}px`,
+}) as CSSProperties)
 const settingsOpen = ref(false)
 const organizations = ['龙安区环卫中心', '马投涧镇环卫站', '龙泉镇环卫站', '文明大道街道办']
 const selectedOrganization = ref(organizations[0])
@@ -464,6 +474,13 @@ const stageViewportStyle = computed(() => ({
   width: `${DESIGN_WIDTH * screenScale.value}px`,
   height: `${DESIGN_HEIGHT * screenScale.value}px`,
 }))
+// 高德地图在画布缩放后按实际可视尺寸运行，再反向抵消父级 transform。
+// 这样地图边框仍属于大屏等比布局，地图交互则与普通响应式地图一致。
+const mapBaseStyle = computed(() => ({
+  width: `${screenScale.value * 100}%`,
+  height: `${screenScale.value * 100}%`,
+  transform: `scale(${1 / screenScale.value})`,
+}))
 
 type MapThemeKey = 'darkblue' | 'dark' | 'blue'
 interface MapTheme {
@@ -489,6 +506,8 @@ function selectMapTheme(theme: MapThemeKey) {
 interface AMapInstance {
   destroy: () => void
   getZoom: () => number
+  on: (event: 'zoomend', handler: () => void) => void
+  resize: () => void
   setMapStyle: (style: string) => void
   setZoom: (zoom: number, immediately?: boolean) => void
   setCenter: (center: [number, number]) => void
@@ -515,8 +534,6 @@ let amap: AMapNamespace | null = null
 let largeScreenMarkers: AMapMarker[] = []
 let hasReceivedLargeScreenData = false
 let hasFittedLargeScreenMap = false
-let wheelZoomTimer: number | undefined
-let pendingWheelZoom = 0
 let amapLoader: Promise<AMapNamespace> | undefined
 
 function amapStyle(theme: MapThemeKey) {
@@ -580,11 +597,13 @@ async function initV2BaseMap() {
       jogEnable: false,
       resizeEnable: true,
       zoomEnable: true,
-      doubleClickZoom: false,
+      // 地图底图已在 mapBaseStyle 中抵消画布缩放，可直接使用高德原生交互。
+      doubleClickZoom: true,
       keyboardEnable: false,
       scrollWheel: true,
       showIndoorMap: false,
     })
+    v2BaseMap.on('zoomend', syncMapZoom)
     if (hasReceivedLargeScreenData && !hasFittedLargeScreenMap) {
       drawLargeScreenMarkers(true)
       hasFittedLargeScreenMap = true
@@ -606,6 +625,11 @@ function updateScreenScale() {
   autoTestScale.value = Math.min(1, availableWidth / DESIGN_WIDTH, availableHeight / DESIGN_HEIGHT)
 }
 
+// 只更新地图尺寸，保留当前视野和选中态，不重新执行首次全览。
+watch([screenScale, statisticsCollapsed, chartsCollapsed, dispatchCollapsed], () => {
+  nextTick(() => v2BaseMap?.resize())
+})
+
 onMounted(() => {
   nextTick(updateScreenScale)
   window.setTimeout(initV2BaseMap, 100)
@@ -623,9 +647,6 @@ onBeforeUnmount(() => {
   resizeObserver?.disconnect()
   window.removeEventListener('resize', updateScreenScale)
   document.removeEventListener('fullscreenchange', syncFullscreenState)
-  if (wheelZoomTimer !== undefined) {
-    window.clearTimeout(wheelZoomTimer)
-  }
   if (trackTimer !== undefined) {
     window.clearInterval(trackTimer)
   }
@@ -649,7 +670,7 @@ const archiveStats = [
   { icon: '♙', value: '540', unit: '辆', label: '小三轮车' },
   { icon: '♜', value: '20', unit: '台', label: '小勾臂车' },
   { icon: '▰', value: '6', unit: '台', label: '大勾臂车' },
-  { icon: '☷', value: '约 19 万', unit: '人', label: '覆盖人口' },
+  { icon: '☷', value: '19', unit: '万', label: '覆盖人口' },
 ]
 
 const operationStats = [
@@ -1111,11 +1132,16 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value))
 }
 
+function syncMapZoom() {
+  if (!v2BaseMap) return
+  mapZoom.value = +clamp(1 + (v2BaseMap.getZoom() - 13) * 0.2, 0.4, 3.4).toFixed(2)
+}
+
 function zoomMap(delta: number) {
   if (v2BaseMap) {
     const nextZoom = clamp(v2BaseMap.getZoom() + delta, 8, 20)
     v2BaseMap.setZoom(nextZoom, true)
-    mapZoom.value = +clamp(1 + (nextZoom - 13) * 0.2, 0.4, 3.4).toFixed(2)
+    syncMapZoom()
     return
   }
   mapZoom.value = +clamp(mapZoom.value + delta, 0.4, 3.4).toFixed(2)
@@ -1124,18 +1150,6 @@ function zoomMap(delta: number) {
 function resetMapZoom() {
   mapZoom.value = 1
   v2BaseMap?.setZoom(13, true)
-}
-
-function onMapWheel(event: WheelEvent) {
-  pendingWheelZoom += event.deltaY > 0 ? -1 : 1
-  if (wheelZoomTimer !== undefined) return
-
-  wheelZoomTimer = window.setTimeout(() => {
-    const direction = pendingWheelZoom >= 0 ? 1 : -1
-    pendingWheelZoom = 0
-    wheelZoomTimer = undefined
-    zoomMap(direction)
-  }, 110)
 }
 
 const visibleMapEntities = computed(() => {

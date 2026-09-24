@@ -100,6 +100,7 @@ import type { TableColumnData } from '@arco-design/web-vue'
 import { Message } from '@arco-design/web-vue'
 import { computed, onMounted, reactive, ref } from 'vue'
 import dayjs from 'dayjs'
+import { beijingDate } from '@/utils/beijing-time'
 import { daasAuth, collectorDaasFetch } from '@/utils/daas'
 
 defineOptions({ name: 'SanitationSwapStatistics' })
@@ -124,8 +125,8 @@ interface SwapRecord {
 }
 
 const collectorBaseUrl = (import.meta.env.VITE_COLLECTOR_API_BASE_URL || '').replace(/\/$/, '')
-const to = ref(dayjs().format('YYYY-MM-DD'))
-const from = ref(dayjs().subtract(1, 'month').format('YYYY-MM-DD'))
+const to = ref(beijingDate())
+const from = ref(dayjs(beijingDate()).subtract(1, 'month').format('YYYY-MM-DD'))
 const rangePreset = ref<'week' | 'month' | ''>('month')
 const selectedDay = ref(to.value)
 const daily = ref<DailyStatistic[]>([])
@@ -227,8 +228,8 @@ async function loadStatistics() {
 
 function applyRange(range: 'week' | 'month') {
   rangePreset.value = range
-  to.value = dayjs().format('YYYY-MM-DD')
-  from.value = dayjs().subtract(range === 'week' ? 6 : 1, range === 'week' ? 'day' : 'month').format('YYYY-MM-DD')
+  to.value = beijingDate()
+  from.value = dayjs(beijingDate()).subtract(range === 'week' ? 6 : 1, range === 'week' ? 'day' : 'month').format('YYYY-MM-DD')
   loadStatistics()
 }
 
@@ -261,7 +262,7 @@ function handlePageSizeChange(size: number) {
 }
 
 onMounted(async () => {
-  selectedDay.value = dayjs().format('YYYY-MM-DD')
+  selectedDay.value = beijingDate()
   // 本地统计不依赖外部 DAAS 响应，先加载首屏；Token 校验仅负责失效时打开登录入口。
   void verifyDaasToken().catch((error) => {
     // 用户取消登录时不显示额外提示，登录弹窗已给出明确操作入口。

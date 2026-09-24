@@ -193,7 +193,7 @@ function handleSave(data: Record<string, any>) {
       online: data.online || '在线',
       battery: data.battery || 100,
       batteryText: data.battery ? data.battery + '%' : '100%',
-      lastControl: new Date().toLocaleString(),
+      lastControl: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }),
       controlResult: '新增注册',
       status: data.status || '正常',
     } as BoxRemoteControl)

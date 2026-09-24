@@ -225,6 +225,7 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { beijingTime } from '@/utils/beijing-time'
 import { Message as ArcoMessage } from '@arco-design/web-vue'
 import ModuleHeader from './components/ModuleHeader.vue'
 import {
@@ -249,8 +250,7 @@ const currentTime = ref('')
 let timer: ReturnType<typeof setInterval> | null = null
 onMounted(() => {
   const update = () => {
-    const now = new Date()
-    currentTime.value = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+    currentTime.value = beijingTime().slice(0, 5)
   }
   update()
   timer = setInterval(update, 30000)

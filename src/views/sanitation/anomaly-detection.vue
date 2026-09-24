@@ -182,7 +182,7 @@ function handleSave(data: Record<string, any>) {
       objectName: data.objectName || '',
       objectType: data.objectType || '',
       town: data.town || '',
-      detectTime: data.detectTime || new Date().toLocaleString(),
+      detectTime: data.detectTime || new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }),
       severity: data.severity || '一般',
       evidence: data.evidence || '',
       status: data.status || '待确认',

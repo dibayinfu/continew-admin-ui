@@ -196,7 +196,7 @@ function handleSave(data: Record<string, any>) {
       batteryText: data.battery ? data.battery + '%' : '0%',
       status: data.status || '预警',
       alertLevel: data.alertLevel || '一般',
-      alertTime: data.alertTime || new Date().toLocaleString(),
+      alertTime: data.alertTime || new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }),
       duration: data.duration || '刚刚',
       suggestAction: data.suggestAction || '',
     } as OverflowAlert)

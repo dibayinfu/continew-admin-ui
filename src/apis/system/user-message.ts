@@ -6,7 +6,7 @@ export type * from './type'
 
 const BASE_URL = '/user/message'
 
-const nowText = () => new Date().toLocaleString('zh-CN', { hour12: false })
+const nowText = () => new Date().toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' })
 
 const prototypeMessages: T.MessageResp[] = [
   {

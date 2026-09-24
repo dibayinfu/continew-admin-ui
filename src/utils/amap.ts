@@ -4,6 +4,7 @@ export interface AMapOverlay {
 
 export interface AMapMarker {
   setMap: (map: AMapInstance | null) => void
+  setPosition: (position: [number, number]) => void
   on: (event: string, handler: () => void) => void
   setContent: (content: string) => void
   setOffset: (offset: unknown) => void
@@ -24,6 +25,7 @@ export interface AMapCircle {
 
 export interface AMapPolyline {
   setMap: (map: AMapInstance | null) => void
+  setPath: (path: Array<[number, number]>) => void
 }
 
 export interface AMapInfoWindow {

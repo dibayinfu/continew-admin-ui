@@ -367,12 +367,12 @@ function handleBoxAction(box: BoxMonitorItem, action: string) {
 function handleWaybillClick(wb: WaybillItem) { ArcoMessage.info(`查看运单详情：${wb.taskName}`) }
 function handleDispatch(wb: WaybillItem) {
   wb.status = '待接单'; wb.steps[0].done = true
-  wb.steps[0].time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  wb.steps[0].time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Shanghai' })
   ArcoMessage.success(`已派单：${wb.taskName} → ${wb.driver}`)
 }
 function handleForceFinish(wb: WaybillItem) {
   wb.status = '已完成'
-  wb.steps.forEach(s => { s.done = true; if (!s.time) s.time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) })
+  wb.steps.forEach(s => { s.done = true; if (!s.time) s.time = new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Shanghai' }) })
   ArcoMessage.success(`已强制完成：${wb.taskName}`)
 }
 function handleWaybillDetail(wb: WaybillItem) { ArcoMessage.info(`运单详情 - 司机: ${wb.driver}, 车辆: ${wb.vehicle}, 截止: ${wb.deadline}`) }

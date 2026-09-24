@@ -179,7 +179,7 @@ function handleSave(data: Record<string, any>) {
     const newId = 'CW' + String(constructionWasteList.length + 1).padStart(3, '0')
     constructionWasteList.push({
       id: newId,
-      detectTime: data.detectTime || new Date().toLocaleString(),
+      detectTime: data.detectTime || new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }),
       location: data.location || '',
       town: data.town || '',
       village: data.village || '',

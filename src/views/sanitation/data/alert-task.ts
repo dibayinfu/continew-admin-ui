@@ -6,6 +6,7 @@ export type AlarmType = '满溢告警' | '低电量告警' | '设备离线' | '�
 export type BoxType = '小勾臂箱' | '大勾臂箱'
 
 import { reactive } from 'vue'
+import { beijingDateTime, parseBeijingDateTime } from '@/utils/beijing-time'
 
 export interface TrackPoint {
   label: string
@@ -96,9 +97,7 @@ export const destinations = [
 
 /** 生成最近 minutesAgo 分钟前的告警时间（演示 12 小时内未关联运单的告警） */
 function recentAlarmTime(minutesAgo: number): string {
-  const d = new Date(Date.now() - minutesAgo * 60 * 1000)
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:00`
+  return beijingDateTime(new Date(Date.now() - minutesAgo * 60 * 1000), ' ').slice(0, 16) + ':00'
 }
 
 export const sanitationAlarms: SanitationAlarm[] = reactive([
@@ -493,15 +492,12 @@ export function createCollectionTaskFromAlarm(alarm: SanitationAlarm, driverName
   return task
 }
 
-const formatNow = () => {
-  const now = new Date()
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
-}
+const formatNow = () => beijingDateTime(new Date(), ' ')
 
 const calcElapsedMinutes = (task: CollectionTask) => {
   const startText = task.startTime || task.acceptTime || task.createTime
-  const start = new Date(startText.replace(/-/g, '/'))
-  const now = new Date(formatNow().replace(/-/g, '/'))
+  const start = parseBeijingDateTime(startText)
+  const now = new Date()
   const elapsed = Math.max(1, Math.round((now.getTime() - start.getTime()) / 60000))
   return Number.isFinite(elapsed) ? elapsed : task.slaMinutes
 }

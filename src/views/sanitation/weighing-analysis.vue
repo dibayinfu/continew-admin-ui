@@ -121,6 +121,7 @@ import type { TableColumnData } from '@arco-design/web-vue'
 import type { EChartsOption } from 'echarts'
 import { Message } from '@arco-design/web-vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { beijingDateTime, parseBeijingDateTime } from '@/utils/beijing-time'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
 import { LineChart } from 'echarts/charts'
@@ -166,10 +167,18 @@ const selectedSummary = computed(() => selectedRange.value.start ? `分析区间
 const movingAverageRecords = computed(() => records.value.map((point, index) => {
   const from = Math.max(0, index - 4); const to = Math.min(records.value.length, index + 5)
   const window = records.value.slice(from, to)
-  return [point.weighTime, window.reduce((sum, item) => sum + Number(item.weight), 0) / window.length]
+  return [parseBeijingDateTime(point.weighTime).getTime(), window.reduce((sum, item) => sum + Number(item.weight), 0) / window.length]
 }))
 const chartOption = computed<EChartsOption>(() => ({
-  animation: false, grid: { left: 68, right: 28, top: 56, bottom: 86 }, tooltip: { trigger: 'axis', valueFormatter: value => formatWeight(value) }, legend: { top: 10, data: ['真实重量', '平均重量（9点）'] },
+  animation: false, grid: { left: 68, right: 28, top: 56, bottom: 86 }, tooltip: {
+    trigger: 'axis',
+    formatter: (params: any) => {
+      const items = Array.isArray(params) ? params : [params]
+      if (!items.length) return ''
+      const time = formatChartAxisTime(Number(items[0].axisValue))
+      return [time, ...items.map((item: any) => `${item.marker || ''}${item.seriesName}: ${formatWeight(item.value?.[1])}`)].join('<br>')
+    },
+  }, legend: { top: 10, data: ['真实重量', '平均重量（9点）'] },
   toolbox: { right: 18, feature: { brush: { type: ['lineX', 'clear'] }, restore: {} } }, brush: { xAxisIndex: 'all', brushMode: 'single', throttleType: 'debounce', throttleDelay: 300 },
   xAxis: { type: 'time', axisLabel: { formatter: (value: number) => formatChartAxisTime(value) } }, yAxis: { type: 'value', name: '重量(kg)', scale: true },
   dataZoom: [
@@ -179,7 +188,7 @@ const chartOption = computed<EChartsOption>(() => ({
     { type: 'slider', xAxisIndex: 0, bottom: 12, height: 24 },
   ],
   series: [
-    { type: 'line', name: '真实重量', showSymbol: false, sampling: 'lttb', lineStyle: { width: 1.5, type: 'solid', color: '#165dff' }, areaStyle: { color: 'rgba(22,93,255,.08)' }, data: records.value.map(item => [item.weighTime, item.weight]) },
+    { type: 'line', name: '真实重量', showSymbol: false, sampling: 'lttb', lineStyle: { width: 1.5, type: 'solid', color: '#165dff' }, areaStyle: { color: 'rgba(22,93,255,.08)' }, data: records.value.map(item => [parseBeijingDateTime(item.weighTime).getTime(), item.weight]) },
     { type: 'line', name: '平均重量（9点）', showSymbol: false, smooth: 0.25, lineStyle: { width: 2, color: '#00b42a' }, data: movingAverageRecords.value },
   ],
 }))
@@ -193,17 +202,15 @@ async function apiFetch(input: RequestInfo | URL, init?: RequestInit, timeout = 
   finally { window.clearTimeout(timer) }
 }
 function formatTime(value?: string) { return value ? value.replace('T', ' ').slice(0, 19) : '-' }
-/** 横轴必须使用浏览器本地时区；toISOString 会转 UTC，造成标签与悬停时间相差 8 小时。 */
+/** 横轴和悬停时间统一显示北京时间，独立于浏览器时区。 */
 function formatChartAxisTime(value: number) {
-  const date = new Date(value); const pad = (part: number) => String(part).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`
+  return beijingDateTime(new Date(value), ' ').slice(0, 16)
 }
 /** Spring 的 LocalDateTime 参数不带时区，缩放事件的时间戳需还原成同一时区的 ISO 本地时间。 */
 function chartQueryTime(value: unknown) {
   if (typeof value === 'string' && value.includes('-')) return value.replace(' ', 'T').slice(0, 19)
   const date = new Date(Number(value)); if (Number.isNaN(date.getTime())) return undefined
-  const pad = (part: number) => String(part).padStart(2, '0')
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
+  return beijingDateTime(date)
 }
 function formatTableTime(value?: string) { return value ? value.replace('T', ' ').slice(5, 16) : '-' }
 function formatPeriod(start?: string, end?: string) { const from = formatTableTime(start); const to = formatTableTime(end); return start?.slice(0, 10) === end?.slice(0, 10) ? `${from} — ${to.slice(-5)}` : `${from} — ${to}` }
@@ -213,7 +220,7 @@ function openEvidence(record: Segment) { selectedEvent.value = record; evidenceV
 function locateEvidence() {
   const event = selectedEvent.value; if (!event?.evidence) return
   const start = event.evidence.before.startTime; const end = event.evidence.after?.endTime || event.endTime
-  chart.value?.chart?.dispatchAction({ type: 'dataZoom', startValue: new Date(start).getTime() - 60_000, endValue: new Date(end).getTime() + 60_000 })
+  chart.value?.chart?.dispatchAction({ type: 'dataZoom', startValue: parseBeijingDateTime(start).getTime() - 60_000, endValue: parseBeijingDateTime(end).getTime() + 60_000 })
   evidenceVisible.value = false
 }
 async function loadBatches(selectNewest = false) {
@@ -302,8 +309,8 @@ function handleDataZoom(event: any) {
   let startValue = dataZoom?.startValue; let endValue = dataZoom?.endValue
   if ((startValue === undefined || endValue === undefined) && Number.isFinite(dataZoom?.start) && Number.isFinite(dataZoom?.end) && records.value.length) {
     // time 轴百分比按时间跨度换算，不能按记录下标：实际采样间隔从1秒到180秒不等。
-    const first = new Date(records.value[0].weighTime).getTime()
-    const span = new Date(records.value[records.value.length - 1].weighTime).getTime() - first
+    const first = parseBeijingDateTime(records.value[0].weighTime).getTime()
+    const span = parseBeijingDateTime(records.value[records.value.length - 1].weighTime).getTime() - first
     startValue = first + span * dataZoom.start / 100
     endValue = first + span * dataZoom.end / 100
   }

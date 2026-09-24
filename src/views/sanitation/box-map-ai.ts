@@ -225,7 +225,7 @@ function buildLocalReply(question: string, context: AiQueryContext): AiReply {
       labels: ranking.map(([name]) => name),
       values: ranking.map(([, count]) => count),
     },
-    dataUpdatedAt: new Date().toLocaleString('zh-CN', { hour12: false }),
+    dataUpdatedAt: new Date().toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' }),
     source: 'local' as const,
   }
 
@@ -280,7 +280,7 @@ export async function queryPriorityCleanup(limit = 5, signal?: AbortSignal): Pro
     priorityRanking: items,
     priorityRankingAvailable: true,
     mapActions: [{ type: 'showOverflow' }, ...(items[0] ? [{ type: 'focusBox' as const, boxNo: items[0].boxNo }] : [])],
-    dataUpdatedAt: ranking.dataUpdatedAt || new Date().toLocaleString('zh-CN', { hour12: false }),
+    dataUpdatedAt: ranking.dataUpdatedAt || new Date().toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' }),
     source: 'ai',
   }
 }

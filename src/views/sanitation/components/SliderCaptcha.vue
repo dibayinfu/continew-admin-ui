@@ -24,6 +24,7 @@
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
+import { beijingDateTime } from '@/utils/beijing-time'
 
 const emit = defineEmits<{ (e: 'success', captchaId: string): void }>()
 
@@ -81,8 +82,7 @@ async function loadCaptcha() {
 }
 
 function formatTime(date: Date) {
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())} ${p(date.getHours())}:${p(date.getMinutes())}:${p(date.getSeconds())}`
+  return beijingDateTime(date, ' ')
 }
 
 function onDown(e: PointerEvent) {

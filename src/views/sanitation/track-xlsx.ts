@@ -1,4 +1,5 @@
 import { unzipSync } from 'fflate'
+import { parseBeijingDateTime } from '@/utils/beijing-time'
 
 export interface TrackPoint { time: string, latitude: number, longitude: number, timestamp: number }
 
@@ -27,12 +28,13 @@ function dateText(value: string, date1904: boolean): string {
   if (/^\d+(\.\d+)?$/.test(value)) {
     const serial = Number(value)
     if (!Number.isFinite(serial) || serial < 0) throw new Error('时间无效')
+    // Excel 序列号是无时区的日历值；UTC 仅用于避免浏览器时区改变日期计算，输出仍按北京时间的墙上时间解释。
     const date = new Date(Date.UTC(date1904 ? 1904 : 1899, date1904 ? 0 : 11, date1904 ? 1 : 30) + Math.round(serial * 86400000))
     return date.toISOString().slice(0, 19).replace('T', ' ')
   }
   const normalized = value.trim().replace('T', ' ').replace(/\//g, '-')
   if (!/^\d{4}-\d{1,2}-\d{1,2} \d{1,2}:\d{2}(:\d{2})?$/.test(normalized)) throw new Error('时间格式无效')
-  const parsed = new Date(normalized.replace(' ', 'T'))
+  const parsed = parseBeijingDateTime(normalized)
   if (Number.isNaN(parsed.getTime())) throw new Error('时间无效')
   return normalized.length === 16 ? `${normalized}:00` : normalized
 }
@@ -75,7 +77,7 @@ export async function readTrackXlsx(file: File): Promise<TrackPoint[]> {
       const latitude = Number(cells.get(latColumn))
       const longitude = Number(cells.get(lngColumn))
       if (!cells.get(latColumn)?.trim() || !cells.get(lngColumn)?.trim() || !Number.isFinite(latitude) || !Number.isFinite(longitude) || Math.abs(latitude) > 90 || Math.abs(longitude) > 180) throw new Error('经纬度无效')
-      points.push({ time, latitude, longitude, timestamp: new Date(time.replace(' ', 'T')).getTime() })
+      points.push({ time, latitude, longitude, timestamp: parseBeijingDateTime(time).getTime() })
     } catch { throw new Error(`第 ${line} 行的时间或经纬度无效`) }
     if (points.length > 100000) throw new Error('最多导入 100000 个轨迹点')
   }

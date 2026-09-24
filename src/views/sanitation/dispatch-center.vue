@@ -188,7 +188,7 @@ function handleSave(data: Record<string, any>) {
       assignee: data.assignee || '未指派',
       assigneePhone: data.assigneePhone || '-',
       area: data.area || '',
-      createTime: data.createTime || new Date().toLocaleString(),
+      createTime: data.createTime || new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }),
       deadline: data.deadline || '',
       status: data.status || '待派发',
       progress: data.progress || '等待调度员指派',

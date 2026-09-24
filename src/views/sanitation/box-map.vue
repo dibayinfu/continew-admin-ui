@@ -378,6 +378,7 @@ import { Message } from '@arco-design/web-vue'
 import { useFullscreen } from '@vueuse/core'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useDevice } from '@/hooks'
+import { beijingDateTime, parseBeijingDateTime } from '@/utils/beijing-time'
 import { useAppStore, useUserStore } from '@/stores'
 import { type AMapInfoWindow, type AMapInstance, type AMapMarker, type AMapMarkerCluster, type AMapMassMarks, loadAmapJsApi, loadAmapMarkerClusterer } from '@/utils/amap'
 import { daasAuth, collectorMapRequest, collectorVehicleRuntimeRequest, collectorVehicleTypesRequest, getHiddenBoxIds, saveSharedDaasToken } from '@/utils/daas'
@@ -1017,13 +1018,13 @@ const selectedGcj = computed(() => selectedBox.value ? getGcjPoint(selectedBox.v
 const selectedArea = computed(() => selectedBox.value ? (boxAreas.get(selectedBox.value.id) || { township: '', village: '', pointName: '' }) : { township: '', village: '', pointName: '' })
 const currentResidenceDuration = computed(() => {
   if (!currentResidence.value) return ''
-  const arrival = new Date(currentResidence.value.arrivalTime).getTime()
+  const arrival = parseBeijingDateTime(currentResidence.value.arrivalTime).getTime()
   return formatStayDuration(Math.floor((residenceNow.value - arrival) / 60_000))
 })
 const currentOverflowDuration = computed(() => {
   if (!currentOverflow.value?.overflowing) return '0分钟'
   if (!currentOverflow.value.overflowStartedAt) return '开始时间未知'
-  const startedAt = new Date(currentOverflow.value.overflowStartedAt).getTime()
+  const startedAt = parseBeijingDateTime(currentOverflow.value.overflowStartedAt).getTime()
   return formatStayDuration(Math.max(0, Math.floor((residenceNow.value - startedAt) / 60_000)))
 })
 const selectedTransportTask = computed(() => selectedBox.value ? transportTasksByBoxNo.value.get(normalizeBoxNo(selectedBox.value.containerNo)) : undefined)
@@ -1075,7 +1076,7 @@ function transportTaskStatusText(task: TransportTask) {
 }
 function taskTimestamp(task: TransportTask) {
   const value = task.createTime ?? task.startTime ?? task.taskTime ?? task.updateTime
-  const timestamp = typeof value === 'string' ? new Date(value.replace(/-/g, '/')).getTime() : 0
+  const timestamp = typeof value === 'string' ? parseBeijingDateTime(value).getTime() : 0
   return Number.isFinite(timestamp) ? timestamp : 0
 }
 function hasTransportTask(box: Box) { return transportTasksByBoxNo.value.has(normalizeBoxNo(box.containerNo)) }
@@ -1129,7 +1130,7 @@ async function loadHistoryTrack() {
   try {
     const end = new Date()
     const start = new Date(end.getTime() - Number(historyRange.value) * 24 * 60 * 60 * 1000)
-    const query = new URLSearchParams({ from: start.toISOString().slice(0, 19), to: end.toISOString().slice(0, 19) })
+    const query = new URLSearchParams({ from: beijingDateTime(start), to: beijingDateTime(end) })
     const response = await fetch(`${COLLECTOR_API_BASE_URL}/api/collector/boxes/${box.id}/history-track?${query}`)
     if (!response.ok) throw new Error((await response.text()) || `HTTP ${response.status}`)
     historyData.value = await response.json() as HistoryTrackResponse
@@ -1148,7 +1149,7 @@ async function renderHistoryTrack() {
   const points = historyData.value.track.filter((point) => Number.isFinite(Number(point.longitude)) && Number.isFinite(Number(point.latitude)))
   const segments: GcjPoint[][] = []; let segment: GcjPoint[] = []; let previousTime = 0
   for (const point of points) {
-    const timestamp = new Date(point.time).getTime()
+    const timestamp = parseBeijingDateTime(point.time).getTime()
     if (segment.length && timestamp - previousTime > 30 * 60 * 1000) { segments.push(segment); segment = [] }
     segment.push(toTrackGcj(point)); previousTime = timestamp
   }

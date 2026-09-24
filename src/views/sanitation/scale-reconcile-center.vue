@@ -80,6 +80,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { beijingDate } from '@/utils/beijing-time'
 import ModuleHeader from './components/ModuleHeader.vue'
 import MetricGrid from './components/MetricGrid.vue'
 import StatusTag from './components/StatusTag.vue'
@@ -177,7 +178,7 @@ function handleSave(data: Record<string, any>) {
     const newId = 'SR' + String(scaleReconciles.length + 1).padStart(3, '0')
     scaleReconciles.push({
       id: newId,
-      date: data.date || new Date().toISOString().slice(0, 10),
+      date: data.date || beijingDate(),
       vehicle: data.vehicle || '',
       vehicleType: data.vehicleType || '',
       vehicleWeight: data.vehicleWeight || '-',

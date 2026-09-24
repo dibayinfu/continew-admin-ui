@@ -84,6 +84,7 @@
 import { computed, ref } from 'vue'
 import { Message } from '@arco-design/web-vue'
 import dayjs from 'dayjs'
+import { beijingDateTime } from '@/utils/beijing-time'
 import PrdPanel from './components/PrdPanel.vue'
 import ModuleHeader from './components/ModuleHeader.vue'
 import { wgs84ToGcj02 } from './data/longan-archive'
@@ -98,10 +99,10 @@ const boxes = [
   { id: 'E', no: '352', device: '12345678901234567895', lng: 113.854624, lat: 36.136392 },
 ]
 const mockBox = (id: string) => boxes.find((box) => box.id === id) || boxes[0]
-const mockDate = dayjs().subtract(1, 'day').format('YYYY-MM-DD')
+const mockDate = dayjs(beijingDateTime()).subtract(1, 'day').format('YYYY-MM-DD')
 const atTime = (time: string) => `${mockDate} ${time}`
-const defaultRange = () => [dayjs().subtract(7, 'day').format('YYYY-MM-DD HH:mm:ss'), dayjs().format('YYYY-MM-DD HH:mm:ss')]
-const disabledDate = (current: Date) => dayjs(current).isAfter(dayjs(), 'day')
+const defaultRange = () => [dayjs(beijingDateTime()).subtract(7, 'day').format('YYYY-MM-DD HH:mm:ss'), dayjs(beijingDateTime()).format('YYYY-MM-DD HH:mm:ss')]
+const disabledDate = (current: Date) => dayjs(current).isAfter(dayjs(beijingDateTime()), 'day')
 const boxNoInput = ref('')
 const deviceInput = ref('')
 const deviceEventInput = ref('all')
@@ -401,7 +402,7 @@ function applyQuery() {
     Message.warning('查询时间跨度最多为 7 天')
     return
   }
-  if (dayjs(start).isAfter(dayjs(), 'day') || dayjs(end).isAfter(dayjs(), 'day')) {
+  if (dayjs(start).isAfter(dayjs(beijingDateTime()), 'day') || dayjs(end).isAfter(dayjs(beijingDateTime()), 'day')) {
     Message.warning('不能查询明天及以后的日期')
     return
   }

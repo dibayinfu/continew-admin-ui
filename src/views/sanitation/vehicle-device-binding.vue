@@ -223,7 +223,7 @@ function confirmBinding() {
     ...vehicle,
     deviceNo,
     bindingStatus: '已绑定',
-    bindingTime: new Date().toLocaleString('zh-CN', { hour12: false }),
+    bindingTime: new Date().toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' }),
   })
   bindingVisible.value = false
   resetForm()

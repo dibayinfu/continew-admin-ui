@@ -193,7 +193,7 @@ function handleSave(data: Record<string, any>) {
       online: data.online || '在线',
       battery: data.battery || 100,
       batteryText: data.battery ? data.battery + '%' : '100%',
-      lastReport: new Date().toLocaleString(),
+      lastReport: new Date().toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' }),
       reportInterval: '1分钟',
       errorCount: data.errorCount || 0,
       healthScore: data.healthScore || 100,

@@ -474,6 +474,7 @@
 </template>
 
 <script setup lang="ts">
+import { beijingDate, beijingTime, parseBeijingDateTime } from '@/utils/beijing-time'
 import { type CSSProperties, computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import VChart from 'vue-echarts'
 import { commandCenterPrdSections } from './data/command-center-july-v2-prd'
@@ -741,7 +742,7 @@ const trackPlaying = ref(false)
 const trackSpeed = ref(1)
 const trackProgress = ref(0.38)
 let trackTimer: number | undefined
-const trackDay = new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()).replaceAll('/', '-')
+const trackDay = beijingDate()
 const trackPosition = computed(() => {
   const point = trackProgress.value * (simulatedTrackPoints.length - 1)
   const index = Math.min(simulatedTrackPoints.length - 2, Math.floor(point))
@@ -1052,9 +1053,8 @@ const alarmTaskFormVisible = ref(false)
 const taskCreatedNotice = ref('')
 const alarmTaskForm = ref({ driver: alarmDrivers[0], vehicle: alarmVehicles[0], destination: alarmDestinations[0], sla: 120, priority: '紧急' })
 function dateBefore(days: number) {
-  const date = new Date(`${trackDay}T00:00:00`)
-  date.setDate(date.getDate() - days)
-  return new Intl.DateTimeFormat('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit' }).format(date).replaceAll('/', '-')
+  const date = parseBeijingDateTime(trackDay)
+  return beijingDate(new Date(date.getTime() - days * 86400000))
 }
 const alarmRows = ref<AlarmRow[]>([
   { id: 'AL-001', date: trackDay, time: '10:31', name: '箱体满溢', place: '马投涧镇牛家窑村', level: 'danger', star: false, read: false, taskNo: 'RW-20260713-001', boxNo: 'XB-MT-012', rule: '垃圾占比 ≥ 90%', description: '小勾臂箱垃圾占比达到 96%，请及时安排车辆清运。' },
@@ -1134,7 +1134,7 @@ function forceCompleteTask() {
   const task = selectedTaskMonitor.value
   task.status = '已完成'
   task.tone = 'info'
-  task.events.push({ name: '强制完成', place: '运营人员手动强制完成，待补充凭证', time: new Date().toTimeString().slice(0, 5) })
+  task.events.push({ name: '强制完成', place: '运营人员手动强制完成，待补充凭证', time: beijingTime().slice(0, 5) })
   const source = taskMonitorRows.find((item) => item.id === task.id)
   if (source) { source.status = '已完成'; source.tone = 'info' }
   taskTransferVisible.value = false
@@ -1155,7 +1155,7 @@ function confirmTaskTransfer() {
   const task = selectedTaskMonitor.value
   task.driver = target.name
   task.vehicle = target.vehicle
-  task.events.push({ name: '转单', place: `已转交 ${target.name} · ${target.vehicle}`, time: new Date().toTimeString().slice(0, 5) })
+  task.events.push({ name: '转单', place: `已转交 ${target.name} · ${target.vehicle}`, time: beijingTime().slice(0, 5) })
   taskTransferVisible.value = false
   showTaskActionNotice(`任务已转单至 ${target.name}（${target.vehicle}）`)
 }

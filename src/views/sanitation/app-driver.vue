@@ -193,6 +193,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { beijingDate, beijingTime } from '@/utils/beijing-time'
 import { Modal, Message as ArcoMessage } from '@arco-design/web-vue'
 import ModuleHeader from './components/ModuleHeader.vue'
 import TaskTrackMap from './components/TaskTrackMap.vue'
@@ -296,10 +297,10 @@ function selectDate(d: string) { mineDate.value = d; showDatePicker.value = fals
 const recentDates = computed(() => {
   const dates: { value: string; label: string; isToday: boolean; count: number }[] = []
   for (let i = 14; i >= 0; i--) {
-    const d = new Date('2026-06-15'); d.setDate(d.getDate() - i)
-    const val = d.toISOString().split('T')[0]
+    const d = new Date(`${todayStr}T00:00:00Z`); d.setUTCDate(d.getUTCDate() - i)
+    const val = beijingDate(d)
     const count = driverTaskList.filter(t => t.createTime.startsWith(val)).length
-    dates.push({ value: val, label: `${d.getMonth() + 1}/${d.getDate()}`, isToday: val === todayStr, count })
+    dates.push({ value: val, label: `${Number(val.slice(5, 7))}/${Number(val.slice(8, 10))}`, isToday: val === todayStr, count })
   }
   return dates
 })
@@ -328,7 +329,7 @@ const filteredDriverTasks = computed(() => {
   return map[taskStatFilter.value] || driverTaskList
 })
 
-function nowTime() { return new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) }
+function nowTime() { return beijingTime().slice(0, 5) }
 function getShortDeadline(d: string) { return d.split(' ').pop() || d }
 function getDoneStepCount(t: DriverTask) { return t.steps.filter(s => s.done).length }
 function visibleSteps(t: DriverTask) {

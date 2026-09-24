@@ -358,6 +358,7 @@
 import type { TableColumnData } from '@arco-design/web-vue'
 import { Modal } from '@arco-design/web-vue'
 import { computed, h, reactive, ref, watch } from 'vue'
+import { parseBeijingDateTime } from '@/utils/beijing-time'
 import ModuleHeader from './ModuleHeader.vue'
 import MetricGrid from './MetricGrid.vue'
 import StatusTag from './StatusTag.vue'
@@ -756,10 +757,10 @@ const filteredRows = computed(() => {
   }
   // 日期范围筛选
   if (startDate.value && endDate.value) {
-    const start = new Date(startDate.value).getTime()
-    const end = new Date(endDate.value).getTime() + 86400000 // 包含结束日期全天
+    const start = parseBeijingDateTime(startDate.value).getTime()
+    const end = parseBeijingDateTime(endDate.value).getTime() + 86400000 // 包含结束日期全天
     result = result.filter((row) => {
-      const t = row.createTime ? new Date(row.createTime.replace(/-/g, '/')).getTime() : 0
+      const t = row.createTime ? parseBeijingDateTime(row.createTime).getTime() : 0
       return t >= start && t <= end
     })
   }

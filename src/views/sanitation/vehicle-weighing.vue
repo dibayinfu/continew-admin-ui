@@ -337,7 +337,7 @@ function saveRecord(done: (closed: boolean) => void) {
     return
   }
 
-  const now = new Date().toLocaleString('zh-CN', { hour12: false })
+  const now = new Date().toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' })
   if (isEdit.value && editingId.value) {
     const index = records.value.findIndex((record) => record.id === editingId.value)
     if (index >= 0) records.value[index] = { ...records.value[index], ...form, updateTime: now }

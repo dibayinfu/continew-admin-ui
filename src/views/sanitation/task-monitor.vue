@@ -344,6 +344,7 @@
 <script setup lang="ts">
 import { Message as ArcoMessage } from '@arco-design/web-vue'
 import { computed, reactive, ref, watch } from 'vue'
+import { parseBeijingDateTime } from '@/utils/beijing-time'
 import { useRoute, useRouter } from 'vue-router'
 import ModuleHeader from './components/ModuleHeader.vue'
 import MetricGrid from './components/MetricGrid.vue'
@@ -566,7 +567,7 @@ const selectedBoxAlarm = computed(() => {
   const cutoff = Date.now() - 12 * 3600 * 1000
   const candidates = sanitationAlarms
     .filter((a) => a.boxName === box.name && !a.linkedTaskId)
-    .map((a) => ({ alarm: a, time: new Date(a.triggerTime.replace(' ', 'T')).getTime() }))
+    .map((a) => ({ alarm: a, time: parseBeijingDateTime(a.triggerTime).getTime() }))
     .filter((x) => Number.isFinite(x.time) && x.time >= cutoff)
     .sort((x, y) => y.time - x.time)
   return candidates[0]?.alarm ?? null
@@ -682,7 +683,7 @@ function submitTask() {
     town: extractTownFromBox(box),
     address: selectedCollectionPoint.value || box.currentLocation || '',
     ruleName: '手动创建',
-    triggerTime: new Date().toLocaleString('zh-CN', { hour12: false }),
+    triggerTime: new Date().toLocaleString('zh-CN', { hour12: false, timeZone: 'Asia/Shanghai' }),
     readStatus: '已读',
     handleStatus: '不需处理',
     starred: false,

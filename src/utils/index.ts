@@ -3,6 +3,7 @@ import { camelCase, upperFirst } from 'lodash-es'
 import { Message } from '@arco-design/web-vue'
 import CronParser from 'cron-parser'
 import { isExternal } from '@/utils/validate'
+import { beijingDateTime, beijingTime } from '@/utils/beijing-time'
 
 export function getProperty<T, K extends keyof T>(obj: T, key: K): T[K] {
   return obj[key]
@@ -245,8 +246,7 @@ export const isMobile = () => {
 
 /** @desc 问候 */
 export function goodTimeText() {
-  const time = new Date()
-  const hour = time.getHours()
+  const hour = Number(beijingTime().slice(0, 2))
   return hour < 9 ? '早上好' : hour <= 11 ? '上午好' : hour <= 13 ? '中午好' : hour <= 18 ? '下午好' : '晚上好'
 }
 
@@ -301,13 +301,15 @@ export function dateFormat(date = new Date(), pattern = YMD_HMS) {
     return ''
   }
 
+  const beijing = beijingDateTime(date)
+  const month = Number(beijing.slice(5, 7))
   const o = {
-    'M+': date.getMonth() + 1,
-    'd+': date.getDate(),
-    'H+': date.getHours(),
-    'm+': date.getMinutes(),
-    's+': date.getSeconds(),
-    'q+': Math.floor((date.getMonth() + 3) / 3),
+    'M+': month,
+    'd+': Number(beijing.slice(8, 10)),
+    'H+': Number(beijing.slice(11, 13)),
+    'm+': Number(beijing.slice(14, 16)),
+    's+': Number(beijing.slice(17, 19)),
+    'q+': Math.floor((month + 2) / 3),
     'S+': date.getMilliseconds(),
   }
 
@@ -316,7 +318,7 @@ export function dateFormat(date = new Date(), pattern = YMD_HMS) {
   // Year Handling
   const yearMatch = formattedDate.match(/(y+)/)
   if (yearMatch) {
-    formattedDate = formattedDate.replace(yearMatch[0], (`${date.getFullYear()}`).substring(4 - yearMatch[0].length))
+    formattedDate = formattedDate.replace(yearMatch[0], beijing.slice(0, 4).substring(4 - yearMatch[0].length))
   }
 
   // Other Formatters

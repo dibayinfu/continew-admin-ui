@@ -47,16 +47,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Message } from '@arco-design/web-vue'
+import { parseBeijingDateTime } from '@/utils/beijing-time'
 import router from '@/router'
 import { sanitationAlarms } from '@/views/sanitation/data/alert-task'
 import { vehicleAlarms } from '@/views/sanitation/data/vehicle-alert'
 
 const collectionMessages = computed(() => [...sanitationAlarms]
-  .sort((a, b) => new Date(b.triggerTime).getTime() - new Date(a.triggerTime).getTime())
+  .sort((a, b) => parseBeijingDateTime(b.triggerTime).getTime() - parseBeijingDateTime(a.triggerTime).getTime())
   .slice(0, 3))
 
 const vehicleMessages = computed(() => [...vehicleAlarms]
-  .sort((a, b) => new Date(b.triggerTime).getTime() - new Date(a.triggerTime).getTime())
+  .sort((a, b) => parseBeijingDateTime(b.triggerTime).getTime() - parseBeijingDateTime(a.triggerTime).getTime())
   .slice(0, 3))
 
 const openCollectionAlarm = (alarmId: string) => {

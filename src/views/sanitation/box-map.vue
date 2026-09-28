@@ -163,13 +163,13 @@
 
     <a-card class="filter-card" :bordered="false">
       <div class="filter-block">
-        <a-input v-model="keyword" allow-clear placeholder="输入箱体编号或名称" style="width: 240px" @press-enter="focusMatchedBox">
+        <a-input v-model="keyword" allow-clear placeholder="输入箱号或勾臂车车牌号" style="width: 240px" @press-enter="focusMatchedTarget">
           <template #prefix><icon-search /></template>
         </a-input>
         <span class="filter-label">筛选条件</span>
         <a-checkbox v-model="overflowOnly" class="status-filter-checkbox danger" :class="{ selected: overflowOnly }">只看满溢</a-checkbox>
         <a-checkbox v-model="transportingOnly" class="status-filter-checkbox" :class="{ selected: transportingOnly }">只看运输中</a-checkbox>
-        <span class="filter-result">{{ keyword.trim() ? `匹配到 ${matchedCount} 个箱体` : `当前显示 ${visibleBoxes.length} 个箱体` }}</span>
+        <span class="filter-result">{{ keyword.trim() ? `匹配到 ${matchedBoxes?.size || 0} 个箱体、${matchedVehicles.length} 辆车` : `当前显示 ${visibleBoxes.length} 个箱体` }}</span>
       </div>
       <div class="filter-block">
         <span class="filter-label">乡镇</span>
@@ -1014,7 +1014,16 @@ const matchedBoxes = computed<Set<Box> | null>(() => {
   if (!query) return null
   return new Set(boxes.value.filter((box) => box.containerNo.toLowerCase().includes(query) || box.containerName.toLowerCase().includes(query)))
 })
-const matchedCount = computed(() => matchedBoxes.value?.size ?? 0)
+const matchedVehicles = computed(() => {
+  const query = keyword.value.trim().toUpperCase()
+  if (!query) return []
+  return vehicles.value.filter((vehicle) => {
+    const type = vehicleTypeById.value.get(vehicle.id)
+    return (type === '小勾臂车' || type === '大勾臂车')
+      && vehicle.plateNumber?.trim().toUpperCase().includes(query)
+      && Number.isFinite(Number(vehicle.longitude)) && Number.isFinite(Number(vehicle.latitude))
+  })
+})
 const selectedGcj = computed(() => selectedBox.value ? getGcjPoint(selectedBox.value) : undefined)
 const selectedArea = computed(() => selectedBox.value ? (boxAreas.get(selectedBox.value.id) || { township: '', village: '', pointName: '' }) : { township: '', village: '', pointName: '' })
 const currentResidenceDuration = computed(() => {
@@ -1303,7 +1312,9 @@ function vehicleInfoContent(vehicle: VehicleRuntime, location: string, info?: Ve
     const boxNo = transportTaskValue(task, 'boxNo', 'containerNo')
     const origin = transportTaskValue(task, 'originCollectionPointName', 'originTransferStationName', 'originPointName', 'startPointName', 'startAddress', 'originName', 'sourceName')
     const destination = transportTaskValue(task, 'destinationPlantName', 'destinationTransferStationName', 'destinationPointName', 'destinationName', 'endPointName', 'destination', 'targetName')
-    return `<div class="vehicle-task"><div class="vehicle-task-head"><time title="${escapeHtml(createdAt)}">${escapeHtml(time)}</time><span>箱 ${escapeHtml(boxNo)}</span><strong>${escapeHtml(transportTaskStatusText(task))}</strong></div><div class="vehicle-task-route"><p><em>始发</em><span>${escapeHtml(origin)}</span></p><p><em>目的</em><span>${escapeHtml(destination)}</span></p></div></div>`
+    const taskStatusText = transportTaskStatusText(task)
+    const statusTone = taskStatusText === '已完成' ? 'done' : taskStatusText === '已取消' ? 'muted' : 'active'
+    return `<div class="vehicle-task"><div class="vehicle-task-head"><time title="${escapeHtml(createdAt)}">${escapeHtml(time)}</time><span>箱 ${escapeHtml(boxNo)}</span><span class="vehicle-task-status ${statusTone}">${escapeHtml(taskStatusText)}</span></div><p class="vehicle-task-route" title="${escapeHtml(origin)} → ${escapeHtml(destination)}"><span>${escapeHtml(origin)}</span><i>→</i><span>${escapeHtml(destination)}</span></p></div>`
   }).join('') : '<span>今日暂无运单</span>'
   const driverRow = driver ? `<div class="vehicle-location"><em>驾驶员</em><span>${escapeHtml(driver)}</span></div>` : ''
   const tasksSection = type === '小勾臂车' ? `<details class="vehicle-tasks"${tasksExpanded ? ' open' : ''}><summary>今日运单（${tasks.length}）</summary><div class="vehicle-task-list">${taskRows}</div></details>` : ''
@@ -1485,11 +1496,38 @@ function syncSelectedBox(nextBoxes: Box[]) {
   if (!replacement) currentOverflow.value = undefined
   if (!replacement && historyVisible.value) closeHistoryTrack()
 }
-function focusMatchedBox() {
-  const matched = matchedBoxes.value
-  if (!matched || matched.size === 0) return
-  if (matched.size > 1) { Message.info(`匹配到 ${matched.size} 个箱体，请输入更精确的编号`); return }
-  selectBox([...matched][0])
+async function focusMatchedTarget() {
+  const boxes = [...(matchedBoxes.value || [])]
+  const vehicles = matchedVehicles.value
+  const query = keyword.value.trim().toUpperCase()
+  if (!query) return
+  const exactBoxes = boxes.filter((box) => box.containerNo.trim().toUpperCase() === query)
+  const exactVehicles = vehicles.filter((vehicle) => vehicle.plateNumber.trim().toUpperCase() === query)
+  const exactCount = exactBoxes.length + exactVehicles.length
+  const targetBox = exactCount === 1 ? exactBoxes[0] : boxes.length + vehicles.length === 1 ? boxes[0] : undefined
+  const targetVehicle = exactCount === 1 ? exactVehicles[0] : boxes.length + vehicles.length === 1 ? vehicles[0] : undefined
+  if (targetBox) { selectBox(targetBox); return }
+  if (!targetVehicle) {
+    Message.info(boxes.length + vehicles.length ? '匹配到多个目标，请输入更完整的箱号或车牌号' : '未找到匹配的箱体或勾臂车')
+    return
+  }
+  const type = vehicleTypeOf(targetVehicle)
+  if (type && !enabledVehicleTypes.value.includes(type)) {
+    enabledVehicleTypes.value = [...enabledVehicleTypes.value, type]
+    await nextTick()
+  }
+  selectedBox.value = undefined
+  drawMarkers(false)
+  const point = vehiclePoint(targetVehicle)
+  map?.setZoomAndCenter(Math.max(map.getZoom(), 16), [point.lng, point.lat])
+  const index = visibleVehicles.value.filter((vehicle) => vehicleTypeOf(vehicle) !== '小三轮')
+    .findIndex((vehicle) => vehicle.id === targetVehicle.id)
+  const marker = vehicleMarkers[index]
+  if (marker) {
+    const content = vehicleMarkerContent(targetVehicle)
+    focusVehicleMarker(marker, content, content, 300 + index)
+  }
+  openVehicleInfo(targetVehicle)
 }
 function statusText(box: Box) { return box.overflowStatus === 1 ? '满溢' : box.fillLevel >= 70 ? '接近满溢' : '正常' }
 function statusColor(box: Box) { return box.overflowStatus === 1 ? 'red' : box.fillLevel >= 70 ? 'orange' : 'green' }
@@ -1784,7 +1822,7 @@ onBeforeUnmount(() => { document.removeEventListener('wheel', stopVehicleTaskMap
 .box-map-page :global(.vehicle-task em) { color: #86909c; font-style: normal; }
 .box-map-page :global(.vehicle-task span) { overflow-wrap: anywhere; }
 .box-map-page :global(.vehicle-map-info) { min-width: 280px; max-width: 360px; gap: 4px; }
-.box-map-page :global(.vehicle-info-heading) { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.box-map-page :global(.vehicle-info-heading) { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-right: 20px; }
 .box-map-page :global(.vehicle-info-heading b) { white-space: nowrap; }
 .box-map-page :global(.vehicle-type) { color: #4e5969; font-size: 11px; line-height: 16px; }
 .box-map-page :global(.vehicle-location) { grid-template-columns: 44px minmax(0, 1fr); }
@@ -1803,9 +1841,16 @@ onBeforeUnmount(() => { document.removeEventListener('wheel', stopVehicleTaskMap
 .box-map-page :global(.vehicle-map-marker.offline i) { background: #86909c; }
 .box-map-page :global(.vehicle-map-marker.compact) { position: relative; }
 .box-map-page :global(.vehicle-map-marker.compact i) { position: absolute; top: -4px; right: -4px; }
-.box-map-page :global(.vehicle-task > .vehicle-task-head) { display: flex; grid-template-columns: none; align-items: center; }
+.box-map-page :global(.vehicle-task > .vehicle-task-head) { display: flex; grid-template-columns: none; align-items: center; padding-right: 24px; }
 .box-map-page :global(.vehicle-task > .vehicle-task-route) { display: grid; grid-template-columns: 1fr; gap: 2px; }
 .box-map-page :global(.vehicle-task-route p) { display: flex; align-items: flex-start; gap: 6px; min-width: 0; margin: 0; line-height: 17px; }
 .box-map-page :global(.vehicle-task-route p em) { flex: none; min-width: 24px; color: #86909c; font-style: normal; }
 .box-map-page :global(.vehicle-task-route p span) { flex: 1; min-width: 0; overflow: visible; overflow-wrap: anywhere; text-overflow: clip; white-space: normal; }
+.box-map-page :global(.vehicle-task-status) { flex: none; margin-left: auto; padding: 1px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; line-height: 18px; }
+.box-map-page :global(.vehicle-task-status.done) { background: #e8ffea; color: #00a870; }
+.box-map-page :global(.vehicle-task-status.active) { background: #e8f3ff; color: #165dff; }
+.box-map-page :global(.vehicle-task-status.muted) { background: #f2f3f5; color: #86909c; }
+.box-map-page :global(.vehicle-task > p.vehicle-task-route) { display: flex; align-items: center; gap: 5px; margin: 3px 0 0; overflow-x: auto; overflow-y: hidden; white-space: nowrap; line-height: 18px; scrollbar-width: thin; }
+.box-map-page :global(.vehicle-task > p.vehicle-task-route span) { flex: none; min-width: auto; overflow: visible; text-overflow: clip; white-space: nowrap; }
+.box-map-page :global(.vehicle-task > p.vehicle-task-route i) { flex: none; font-style: normal; }
 </style>

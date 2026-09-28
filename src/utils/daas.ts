@@ -184,6 +184,13 @@ export async function collectorVehicleRuntimeRequest<T>(): Promise<T> {
   return await response.json() as T
 }
 
+export async function collectorVehicleBasicInfoRequest<T>(plateNum: string): Promise<T> {
+  const response = await collectorDaasFetch(`/api/collector/vehicles/basic-info?plateNum=${encodeURIComponent(plateNum)}`)
+  const result = await response.json() as T & { code?: number, message?: string }
+  if (result.code !== undefined && result.code !== 200) throw new Error(result.message || `车辆档案接口返回 ${result.code}`)
+  return result
+}
+
 export async function collectorVehicleTypesRequest<T>(): Promise<T> {
   const response = await collectorDaasFetch('/api/collector/vehicles/types')
   return await response.json() as T

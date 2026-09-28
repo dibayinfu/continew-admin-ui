@@ -677,6 +677,7 @@ let selectedMassMarker: AMapMarker | undefined
 let markerMode: 'mass' | 'label' | undefined
 let amap: Awaited<ReturnType<typeof loadAmapJsApi>> | undefined
 let vehicleInfoWindow: AMapInfoWindow | undefined
+let activeVehicleInfoToggle: ((expanded: boolean) => void) | undefined
 let vehicleTypesLoadedAt = 0
 let activeVehicleInfoKey = ''
 let selectedVehicleMarker: AMapMarker | undefined
@@ -1256,6 +1257,7 @@ async function reverseGeocode(lng: number, lat: number): Promise<string | undefi
 }
 function clearVehicleOverlays() {
   vehicleInfoWindow?.close(); vehicleInfoWindow = undefined; activeVehicleInfoKey = ''
+  activeVehicleInfoToggle = undefined
   selectedVehicleMarker = undefined; resetSelectedVehicleMarker = undefined
   vehicleMarkers.forEach((marker) => marker.setMap(null)); vehicleMarkers = []
   tricycleCluster?.setMap(null); tricycleCluster = undefined
@@ -1330,12 +1332,21 @@ function openVehicleInfo(vehicle: VehicleRuntime) {
   vehicleInfoWindow?.close()
   let currentLocation = location
   let basicInfo: VehicleBasicInfo | undefined
-  const render = () => {
+  let tasksExpanded = false
+  const render = (expanded?: boolean) => {
     if (!map || !amap || activeVehicleInfoKey !== infoKey) return
-    const tasksExpanded = document.querySelector<HTMLDetailsElement>('.vehicle-map-info .vehicle-tasks')?.open ?? false
+    if (expanded !== undefined) {
+      if (expanded === tasksExpanded) return
+      tasksExpanded = expanded
+    }
     vehicleInfoWindow?.setContent(vehicleInfoContent(vehicle, currentLocation, basicInfo, tasksExpanded))
+    if (expanded !== undefined) {
+      vehicleInfoWindow?.close()
+      vehicleInfoWindow?.open(map, [point.lng, point.lat])
+    }
   }
-  vehicleInfoWindow = new amap.InfoWindow({ content: vehicleInfoContent(vehicle, location), offset: new amap.Pixel(0, -26) })
+  activeVehicleInfoToggle = render
+  vehicleInfoWindow = new amap.InfoWindow({ content: vehicleInfoContent(vehicle, location), offset: new amap.Pixel(0, -26), autoMove: true })
   vehicleInfoWindow.open(map, [point.lng, point.lat])
   void collectorVehicleBasicInfoRequest<VehicleBasicInfo>(vehicle.plateNumber).then((response) => {
     basicInfo = response
@@ -1347,6 +1358,11 @@ function openVehicleInfo(vehicle: VehicleRuntime) {
     vehicleAddressCache.set(vehicle.id, { coordinate: vehicleCoordinateKey(vehicle), address: currentLocation })
     render()
   })
+}
+function repositionVehicleInfoOnTaskToggle(event: Event) {
+  const details = event.target
+  if (details instanceof HTMLDetailsElement && document.contains(details)
+    && details.matches('.vehicle-map-info .vehicle-tasks')) activeVehicleInfoToggle?.(details.open)
 }
 function stopVehicleTaskMapWheel(event: WheelEvent) {
   if (event.target instanceof Element && event.target.closest('.vehicle-task-list')) event.stopPropagation()
@@ -1656,6 +1672,7 @@ function setupVehicleRefreshTimer() {
   vehicleRefreshTimer = window.setInterval(() => { void loadVehicles(true) }, vehicleRefreshMinutes.value * 60_000)
 }
 onMounted(async () => {
+  document.addEventListener('toggle', repositionVehicleInfoOnTaskToggle, true)
   document.addEventListener('wheel', stopVehicleTaskMapWheel, { capture: true, passive: true })
   // 先读共享缓存（其它页面已更新的数据），再静默刷新云端
   const cachedBoxes = getCachedBoxes<Box>()
@@ -1689,7 +1706,7 @@ onMounted(async () => {
   // 仅更新已加载驻留时间的显示，不会请求后端。
   residenceClockTimer = window.setInterval(() => { residenceNow.value = Date.now() }, 60 * 1000)
 })
-onBeforeUnmount(() => { document.removeEventListener('wheel', stopVehicleTaskMapWheel, true); stopAiResize(); offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window.clearInterval(boxRefreshTimer); if (vehicleRefreshTimer) window.clearInterval(vehicleRefreshTimer); if (residenceClockTimer) window.clearInterval(residenceClockTimer); clearBoxOverlays(); clearVehicleOverlays(); map?.destroy(); destroyHistoryMap() })
+onBeforeUnmount(() => { document.removeEventListener('toggle', repositionVehicleInfoOnTaskToggle, true); document.removeEventListener('wheel', stopVehicleTaskMapWheel, true); stopAiResize(); offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window.clearInterval(boxRefreshTimer); if (vehicleRefreshTimer) window.clearInterval(vehicleRefreshTimer); if (residenceClockTimer) window.clearInterval(residenceClockTimer); clearBoxOverlays(); clearVehicleOverlays(); map?.destroy(); destroyHistoryMap() })
 </script>
 
 <style scoped lang="scss">

@@ -376,7 +376,7 @@
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
 import { useFullscreen } from '@vueuse/core'
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, toRaw, watch } from 'vue'
 import { useDevice } from '@/hooks'
 import { beijingDate, beijingDateTime, parseBeijingDateTime } from '@/utils/beijing-time'
 import { useAppStore, useUserStore } from '@/stores'
@@ -1598,7 +1598,6 @@ async function loadFromCloud(silent = false) {
     syncSelectedBox(boxList)
     saveCachedBoxes(boxList)
     saveCachedPoints(pointList)
-    drawMarkers(false)
     // 地图主数据完成后再异步加载角标；此请求不参与刷新成功/失败判断。
     void loadNewBoxIds()
     if (!silent) Message.success(`已从云端更新 ${boxList.length} 个箱体`)
@@ -1683,10 +1682,21 @@ onMounted(async () => {
   }
   // 其它页面更新数据时，本页同步刷新
   offBoxes = subscribeBoxesUpdated((list) => {
-    if (Array.isArray(list) && list.length) { boxes.value = list as Box[]; gcjPoints = new WeakMap<Box, GcjPoint>(); if (points.value.length) assignBoxAreas(boxes.value, points.value); syncSelectedBox(boxes.value); drawMarkers(false) }
+    // 写入共享缓存时也会收到自身广播；同一批数据交给 boxes watcher 统一重绘。
+    if (list === toRaw(boxes.value)) return
+    if (Array.isArray(list) && list.length) {
+      boxes.value = list as Box[]
+      gcjPoints = new WeakMap<Box, GcjPoint>()
+      if (points.value.length) assignBoxAreas(boxes.value, points.value)
+      syncSelectedBox(boxes.value)
+    }
   })
   offPoints = subscribePointsUpdated((list) => {
-    if (Array.isArray(list) && list.length) { points.value = list as CollectionPoint[]; assignBoxAreas(boxes.value, points.value) }
+    if (list === toRaw(points.value)) return
+    if (Array.isArray(list) && list.length) {
+      points.value = list as CollectionPoint[]
+      assignBoxAreas(boxes.value, points.value)
+    }
   })
   if (!mapRef.value) return
   try {

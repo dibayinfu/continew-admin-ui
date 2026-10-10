@@ -79,7 +79,7 @@ function applyDataVisibility(config: Partial<DataVisibilityConfig>) {
 
 /** 从后台加载全局名单；失败时使用浏览器缓存，保证地图仍可工作。 */
 export async function loadDataVisibility(): Promise<DataVisibilityConfig> {
-  const response = await collectorDaasFetch('/api/collector/data-visibility')
+  const response = await collectorDaasFetch('/api/collector/data-visibility', { timeoutMs: 4000, maxAttempts: 1 })
   const config = await response.json() as DataVisibilityConfig
   const normalized = { hiddenBoxIds: normalizeIds(config.hiddenBoxIds), hiddenPointIds: normalizeIds(config.hiddenPointIds) }
   applyDataVisibility(normalized)
@@ -128,17 +128,35 @@ export async function syncCollectorToken(token: string) {
   if (!response.ok) throw new Error(`采集服务返回 HTTP ${response.status}`)
 }
 
-async function fetchCollectorEndpoint(url: string): Promise<Response> {
+interface CollectorFetchOptions { timeoutMs?: number, maxAttempts?: number }
+
+async function fetchCollectorEndpoint(url: string, options: CollectorFetchOptions = {}): Promise<Response> {
   // 车辆上游偶发断连时，浏览器会直接抛出 Failed to fetch，拿不到 HTTP 响应。
   // GET 请求无副作用，短暂退避后重试可避免将瞬时网络抖动直接暴露给地图页面。
   let lastError: unknown
-  for (let attempt = 0; attempt < 3; attempt++) {
+  const maxAttempts = options.maxAttempts ?? 3
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const controller = new AbortController()
+    const timeout = window.setTimeout(() => controller.abort(), options.timeoutMs ?? 25000)
     try {
-      const response = await fetch(url)
-      if (response.status < 500 || attempt === 2) return response
+      const response = await fetch(url, { signal: controller.signal })
+      // 503 在采集服务中表示缺少 Token，直接交给登录流程，避免无效重试。
+      if (response.status < 500 || response.status === 503 || attempt === maxAttempts - 1) {
+        // fetch 在响应头到达时即完成；读取响应体也必须处于超时范围内。
+        const body = await response.arrayBuffer()
+        return new Response(response.status === 204 || response.status === 205 || response.status === 304 ? null : body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        })
+      }
+      await response.body?.cancel()
     } catch (error) {
+      if (controller.signal.aborted) throw new Error('云端请求超时，请稍后刷新')
       lastError = error
-      if (attempt === 2) throw error
+      if (attempt === maxAttempts - 1) throw error
+    } finally {
+      window.clearTimeout(timeout)
     }
     await new Promise((resolve) => window.setTimeout(resolve, 400 * (attempt + 1)))
   }
@@ -146,9 +164,9 @@ async function fetchCollectorEndpoint(url: string): Promise<Response> {
 }
 
 /** 地图统一由采集服务读取 Redis Token；登录保存成功后重试一次。 */
-export async function collectorDaasFetch(path: string): Promise<Response> {
+export async function collectorDaasFetch(path: string, options: CollectorFetchOptions = {}): Promise<Response> {
   for (let attempt = 0; attempt < 2; attempt++) {
-    const response = await fetchCollectorEndpoint(`${COLLECTOR_API_BASE_URL}${path}`)
+    const response = await fetchCollectorEndpoint(`${COLLECTOR_API_BASE_URL}${path}`, options)
     if (response.ok) {
       daasAuth.expired = false
       return response
@@ -171,10 +189,14 @@ export async function collectorDaasFetch(path: string): Promise<Response> {
 }
 
 export async function collectorMapRequest<T>(includeTransportTasks = true): Promise<T> {
-  const response = await collectorDaasFetch(`/api/collector/box-map/data?includeTransportTasks=${includeTransportTasks}`)
+  // 名单和地图数据并行读取；名单先应用再交给页面绘制，失败沿用已有名单。
+  const visibility = loadDataVisibility().catch(() => undefined)
+  const response = await collectorDaasFetch(`/api/collector/box-map/data?includeTransportTasks=${includeTransportTasks}`, {
+    timeoutMs: 28000,
+    maxAttempts: 1,
+  })
   const data = await response.json() as T
-  // 所有箱体展示页均从此入口取数，顺带刷新全局隐藏名单；名单接口异常不影响主数据。
-  await loadDataVisibility().catch(() => undefined)
+  await visibility
   return data
 }
 

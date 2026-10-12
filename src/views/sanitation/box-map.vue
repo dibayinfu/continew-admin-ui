@@ -58,7 +58,7 @@
         <span v-for="item in aiContextLabels" :key="item">{{ item }}</span>
       </div>
       <div class="ai-shortcuts">
-        <button v-for="item in aiShortcuts" :key="item.label" type="button" @click="askAi(item.question)">{{ item.label }}</button>
+        <button v-for="item in aiShortcuts" :key="item.label" type="button" @click="askAi(item.question, item.intent)">{{ item.label }}</button>
       </div>
       <div ref="aiMessagesRef" class="ai-messages">
         <template v-for="message in aiMessages" :key="message.id">
@@ -69,6 +69,13 @@
               <template v-else>
                 <p v-if="message.progress" class="ai-progress">{{ message.progress }}</p>
                 <p v-if="message.reply?.answer || message.content">{{ displayAiAnswer(message) }}</p>
+                <WeatherCard v-if="message.reply?.weather" :weather="message.reply.weather" />
+                <BoxMetricCard v-if="message.reply?.boxAnalysis?.metric" :analysis="message.reply.boxAnalysis" />
+                <BoxAnalysisCard v-else-if="message.reply?.boxAnalysis" :analysis="message.reply.boxAnalysis" />
+                <details v-if="message.reply?.boxAnalysis && aiAnalysisText(message)" class="ai-text-analysis">
+                  <summary>查看文字分析</summary>
+                  <p>{{ aiAnalysisText(message) }}</p>
+                </details>
                 <section v-if="message.reply?.dispatchGuide" class="ai-dispatch-guide">
                   <header><div><b>{{ message.reply.dispatchGuide.title }}</b><span>仅供人工决策参考，不会创建或修改业务单据</span></div><a-tag color="orange">需人工执行</a-tag></header>
                   <div v-if="message.reply.dispatchGuide.targetBoxes.length" class="ai-guide-row"><span>处理对象</span><div><button v-for="boxNo in message.reply.dispatchGuide.targetBoxes" :key="boxNo" type="button" @click="focusAiBox(boxNo)">{{ boxNo }} 号箱</button></div></div>
@@ -127,21 +134,33 @@
                     <div v-for="item in message.reply.transportMetrics.rows" :key="item.dimension" class="ai-transport-bar-row"><span>{{ item.dimension }}</span><i><b :style="{ width: `${transportBarWidth(item, message.reply.transportMetrics.rows, message.reply.visualization?.valueField)}%` }"></b></i><em>{{ formatTransportValue(transportMetricValue(item, message.reply.visualization?.valueField), message.reply.visualization?.valueField) }}</em></div>
                   </div>
                 </section>
+                <section v-if="message.reply?.residenceDuration" class="ai-transport-visualization">
+                  <header><b>停留较久的箱体</b><span>按停留时长降序<span v-if="message.reply.residenceDuration.minDurationHours"> · 至少 {{ message.reply.residenceDuration.minDurationHours }} 小时</span></span></header>
+                  <div v-if="message.reply.residenceDuration.items?.length" class="ai-transport-table-wrap">
+                    <table class="ai-transport-table ai-residence-table"><thead><tr><th>箱号</th><th>收集点</th><th>停留时长</th><th>垃圾占比</th></tr></thead><tbody>
+                      <tr v-for="item in message.reply.residenceDuration.items" :key="item.boxId" class="ai-focus-row" @click="focusAiBox(item.boxNo)"><td><b>{{ item.boxNo }}号</b></td><td :title="[item.townshipName, item.villageName, item.pointName].filter(Boolean).join(' · ')">{{ item.pointName || '未匹配' }}</td><td>{{ formatResidenceDuration(item.durationMinutes) }}</td><td>{{ item.fillLevel == null ? '未知' : `${Number(item.fillLevel.toFixed(2))}%` }}</td></tr>
+                    </tbody></table>
+                  </div>
+                  <p v-else class="ai-progress">{{ message.reply.residenceDuration.message || '当前区域没有符合条件且停留起点已知的箱体。' }}</p>
+                  <div v-if="message.reply.residenceDuration.unknownCount" class="ai-data-unavailable"><span>{{ message.reply.residenceDuration.unknownCount }} 个箱体的停留起点缺失，未参与排序。</span></div>
+                  <span class="ai-progress" v-if="message.reply.residenceDuration.truncated">展示前 {{ message.reply.residenceDuration.returnedCount }} / {{ message.reply.residenceDuration.totalCount }} 个箱体。</span>
+                  <span class="ai-progress">停留时间长不直接代表异常或需要清运。</span>
+                </section>
                 <section v-if="message.reply?.boxStatistics" class="ai-transport-visualization">
                   <header><b>{{ message.reply.visualization?.title || '箱体数量统计' }}</b><span>{{ message.reply.boxStatistics.scope || 'all' }}</span></header>
                   <div class="ai-transport-metrics"><span><small>精确数量</small><b>{{ message.reply.boxStatistics.totalCount ?? 0 }}<em>个</em></b></span></div>
                   <div v-if="message.reply.boxStatistics.groups?.length" class="ai-transport-bars"><div v-for="item in message.reply.boxStatistics.groups" :key="item.dimension" class="ai-transport-bar-row"><span>{{ item.dimension }}</span><i><b :style="{ width: `${statisticsBarWidth(item.count, message.reply.boxStatistics.groups)}%` }"></b></i><em>{{ item.count }}</em></div></div>
                 </section>
-                <section v-if="message.reply?.overflowDuration?.items?.length" class="ai-transport-visualization">
-                  <header><b>持续满溢箱体</b><span>{{ hasOverflowDurationData(message.reply) ? '按最早满溢时间排序' : '持续时长待补齐' }}</span></header>
-                  <div v-if="hasOverflowDurationData(message.reply)" class="ai-overflow-list">
-                    <article v-for="item in overflowDurationRows(message.reply)" :key="item.boxNo" class="ai-overflow-item ai-focus-row" @click="focusAiBox(item.boxNo)">
-                      <b>{{ item.boxNo }} 号箱</b><span :title="overflowLocation(item)">{{ overflowLocation(item) }}</span><em>满溢率 {{ Math.round(item.fillLevel) }}% · {{ formatMinutes(item.durationMinutes) }}</em>
-                    </article>
+                <section v-if="message.reply?.overflowDuration" class="ai-transport-visualization">
+                  <header><b>持续满溢箱体</b><span>按满溢时长降序</span></header>
+                  <div v-if="hasOverflowDurationData(message.reply)" class="ai-transport-table-wrap">
+                    <table class="ai-transport-table ai-residence-table"><thead><tr><th>箱号</th><th>收集点</th><th>满溢时长</th><th>垃圾占比</th></tr></thead><tbody>
+                      <tr v-for="item in overflowDurationRows(message.reply)" :key="item.boxNo" class="ai-focus-row" @click="focusAiBox(item.boxNo)"><td><b>{{ item.boxNo }}号</b></td><td :title="overflowLocation(item)">{{ item.pointName || '未匹配' }}</td><td>{{ formatResidenceDuration(item.durationMinutes!) }}</td><td>{{ item.fillLevel == null ? '未知' : `${Number(item.fillLevel.toFixed(2))}%` }}</td></tr>
+                    </tbody></table>
                   </div>
-                  <div v-else class="ai-data-unavailable"><b>暂无法判定哪些箱体已满溢超过指定时长</b><span>本次返回的 {{ message.reply.overflowDuration.items.length }} 个候选箱体均缺少满溢开始时间；采集到状态变更后会自动补齐。</span></div>
+                  <p v-else class="ai-progress">{{ message.reply.overflowDuration.message || '当前区域没有满溢起点已知且符合条件的箱体。' }}</p>
                 </section>
-                <ul v-if="message.reply?.evidence?.length" class="ai-evidence"><li v-for="item in message.reply.evidence" :key="item">{{ item }}</li></ul>
+                <ul v-if="message.reply?.evidence?.length && !message.reply.boxAnalysis" class="ai-evidence"><li v-for="item in message.reply.evidence" :key="item">{{ item }}</li></ul>
                 <ul v-if="message.reply?.sources?.length" class="ai-sources">
                   <li v-for="item in message.reply.sources" :key="item.url"><a :href="item.url" target="_blank" rel="noopener noreferrer">{{ item.title || item.url }}</a></li>
                 </ul>
@@ -383,7 +402,11 @@ import { useAppStore, useUserStore } from '@/stores'
 import { type AMapInfoWindow, type AMapInstance, type AMapMarker, type AMapMarkerCluster, type AMapMassMarks, loadAmapJsApi, loadAmapMarkerClusterer } from '@/utils/amap'
 import { daasAuth, collectorMapRequest, collectorVehicleRuntimeRequest, collectorVehicleBasicInfoRequest, collectorVehicleTypesRequest, getHiddenBoxIds, saveSharedDaasToken } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
-import { createAiConversationId, type AiMapAction, type AiOverflowDurationItem, type AiQueryContext, type AiReply, type AiTransportMetricRow, queryBoxMapAssistantStream } from './box-map-ai'
+import { createAiConversationId, formatBoxAnalysisSummary, type AiMapAction, type AiShortcutIntent, type AiOverflowDurationItem, type AiQueryContext, type AiReply, type AiTransportMetricRow, queryBoxMapAssistantStream } from './box-map-ai'
+
+import BoxAnalysisCard from './components/BoxAnalysisCard.vue'
+import BoxMetricCard from './components/BoxMetricCard.vue'
+import WeatherCard from './components/WeatherCard.vue'
 
 defineOptions({ name: 'SanitationBoxMap' })
 
@@ -581,17 +604,17 @@ const aiLoading = ref(false)
 let aiConversationId = createAiConversationId()
 let activeAiRequest: AbortController | undefined
 const aiMessagesRef = ref<HTMLElement>()
-const aiShortcuts = computed(() => selectedBox.value
+const aiShortcuts = computed<Array<{ label: string, question: string, intent?: AiShortcutIntent }>>(() => selectedBox.value
   ? [
-      { label: `解释 ${selectedBox.value.containerNo} 号箱异常`, question: `解释 ${selectedBox.value.containerNo} 号箱当前异常，并给出人工处理建议。` },
-      { label: '分析停留与满溢风险', question: `分析 ${selectedBox.value.containerNo} 号箱的停留与满溢风险。` },
-      { label: '推荐处理顺序', question: `针对 ${selectedBox.value.containerNo} 号箱，给出只读的人工调度建议，不要创建运单。` },
+      { label: `分析 ${selectedBox.value.containerNo} 号箱`, question: `分析 ${selectedBox.value.containerNo} 号箱当前状态、垃圾占比变化、停留时长和运输任务。`, intent: 'analyze_box' },
+      { label: '温度', question: `分析 ${selectedBox.value.containerNo} 号箱温度及近3天变化，展示温度曲线。`, intent: 'box_temperature' },
+      { label: '电量', question: `分析 ${selectedBox.value.containerNo} 号箱电量及近3天变化，展示电量曲线。`, intent: 'box_battery' },
     ]
   : [
-      { label: '分析满溢风险', question: '哪些箱体需要优先清运？' },
-      { label: '分析滞留箱体', question: '当前有哪些箱体停留时间较长，需要重点关注？' },
-      { label: '生成清运建议', question: '根据当前地图范围生成只读的人工清运建议，不要创建运单或派单。' },
-      { label: '解释当前异常', question: '解释当前地图范围内最需要关注的异常。' },
+      { label: '满溢箱体', question: '当前区域有哪些已满溢箱体？', intent: 'overflow_boxes' },
+      { label: '停留超长', question: '列出当前区域的箱体，按停留时长由大到小排序，不使用综合评分。', intent: 'long_residence' },
+      { label: '满溢超长', question: '列出当前区域已满溢的箱体，按连续满溢时长由大到小排序，不使用综合评分。', intent: 'long_overflow' },
+      { label: '优先清运', question: '当前区域哪些箱体需要优先清运？按综合评分排序。', intent: 'priority_cleanup' },
     ])
 const aiContextLabels = computed(() => {
   const labels = [townshipFilter.value === UNMATCHED ? '未匹配乡镇' : townshipFilter.value || '全部区域']
@@ -608,7 +631,16 @@ function initialAiMessages(): AiMessage[] {
 }
 const aiMessages = ref<AiMessage[]>(initialAiMessages())
 function displayAiAnswer(message: AiMessage) {
+  if (message.reply?.boxAnalysis) return formatBoxAnalysisSummary(message.reply.boxAnalysis)
   return message.reply?.structured?.conclusion || message.reply?.answer || message.content
+}
+function formatResidenceDuration(minutes: number) {
+  if (minutes >= 1440) return `${Math.floor(minutes / 1440)}天${Math.floor(minutes % 1440 / 60)}小时`
+  if (minutes >= 60) return `${Math.floor(minutes / 60)}小时${minutes % 60}分钟`
+  return `${minutes}分钟`
+}
+function aiAnalysisText(message: AiMessage) {
+  return message.reply?.answer || message.reply?.structured?.conclusion || ''
 }
 function aiResultText(message: AiMessage) {
   const reply = message.reply
@@ -618,11 +650,15 @@ function aiResultText(message: AiMessage) {
     lines.push(`箱体明细（共 ${reply.boxList.totalCount ?? reply.boxList.items.length} 个）：`)
     reply.boxList.items.forEach(item => lines.push(`${item.townshipName || '未归属'}｜${item.villageName || '未归属'}｜${item.boxNo}号｜${item.pointName || '未匹配收集点'}｜满溢率 ${Math.round(item.fillLevel)}%`))
   }
+  if (reply.residenceDuration?.items?.length) {
+    lines.push(`停留时长降序${reply.residenceDuration.minDurationHours ? `（至少 ${reply.residenceDuration.minDurationHours} 小时）` : ''}（共 ${reply.residenceDuration.totalCount} 个）：`)
+    reply.residenceDuration.items.forEach(item => lines.push(`${item.boxNo}号｜${item.pointName || '未匹配'}｜${formatResidenceDuration(item.durationMinutes)}`))
+  }
   if (reply.priorityRanking?.length) {
     lines.push('综合评分排名：')
     reply.priorityRanking.forEach((item, index) => lines.push(`${index + 1}. ${item.boxNo}号｜${[item.townshipName, item.villageName, item.pointName].filter(Boolean).join('｜')}｜${formatPriorityScore(item.priorityScore)}分`))
   }
-  if (reply.evidence?.length) lines.push('数据说明：', ...reply.evidence.map(item => `- ${item}`))
+  if (reply.evidence?.length && !reply.boxAnalysis) lines.push('数据说明：', ...reply.evidence.map(item => `- ${item}`))
   return lines.filter(Boolean).join('\n')
 }
 async function copyAiResult(message: AiMessage) {
@@ -795,8 +831,8 @@ function selectTownship(val: string) {
   villageFilter.value = ''
 }
 
-async function aiContext(): Promise<AiRequestContext> {
-  const snapshots = visibleBoxes.value.map((box) => {
+function aiContext(singleBox = false): AiRequestContext {
+  const snapshots = (singleBox ? [] : visibleBoxes.value).map((box) => {
     const area = boxAreas.get(box.id)
     return { id: box.id, containerNo: box.containerNo, containerName: box.containerName, fillLevel: box.fillLevel, overflowStatus: box.overflowStatus, onlineStatus: box.onlineStatus, township: area?.township || '', village: area?.village || '', reportTime: box.reportTime }
   })
@@ -912,9 +948,12 @@ function clearAiConversation() {
   // 新会话使用新 ID，旧会话的短期筛选条件不会串入。
   aiConversationId = createAiConversationId()
 }
-async function askAi(question: string) {
+async function askAi(question: string, intent?: AiShortcutIntent) {
   const text = question.trim()
   if (!text || aiLoading.value) return
+  // 点击时固定目标，后续地图选中态变化不会改变本轮分析对象。
+  const context = aiContext(Boolean(intent))
+  if (intent) { context.intent = intent; if (['analyze_box', 'box_temperature', 'box_battery'].includes(intent)) context.targetBoxNo = context.selectedBoxNo }
   aiQuestion.value = ''
   aiMessages.value.push({ id: Date.now(), role: 'user', content: text })
   // 必须是 reactive：流式事件到来时才能立即刷新同一个气泡，而非停留在 loading 状态。
@@ -927,7 +966,7 @@ async function askAi(question: string) {
   aiMessagesRef.value?.scrollTo({ top: aiMessagesRef.value.scrollHeight, behavior: 'smooth' })
   try {
     Object.assign(pending, { loading: false, progress: '正在理解问题并选择数据工具…' })
-    const reply = await queryBoxMapAssistantStream(text, await aiContext(), aiConversationId, {
+    const reply = await queryBoxMapAssistantStream(text, context, aiConversationId, {
         onProgress: (progress) => { pending.progress = progress },
         onAnswerDelta: (delta) => { pending.progress = '正在流式生成回答…'; pending.content += delta },
       }, request.signal)
@@ -1765,6 +1804,11 @@ onBeforeUnmount(() => { document.removeEventListener('toggle', repositionVehicle
 .location-summary { display: grid; gap: 5px; padding: 16px 0 12px; }.location-summary b { color: #1d2129; font-size: 14px; }.matched-point { color: #4e5969; font-size: 13px; }.vehicle-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 0 16px; }.vehicle-summary .section-label { flex-basis: 100%; }.transport-task-summary { margin-bottom: 16px; padding: 10px; border: 1px solid #bedaff; border-radius: 6px; background: #f2f7ff; }.transport-task-title { display: flex; align-items: center; gap: 6px; margin-bottom: 9px; color: #165dff; font-size: 13px; font-weight: 600; }.transport-task-icon { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: #165dff; color: #fff; font-size: 11px; }.transport-task-grid { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 6px 8px; font-size: 12px; }.transport-task-grid span { color: #86909c; }.transport-task-grid b { overflow: hidden; color: #4e5969; font-weight: 500; white-space: nowrap; text-overflow: ellipsis; }.more-details { border-top: 1px solid #f2f3f5; }.more-details summary { padding: 12px 0; color: #4e5969; font-size: 13px; cursor: pointer; }.detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }.detail-grid-item { display: grid; gap: 3px; min-width: 0; }.detail-grid-item.full { grid-column: 1 / -1; }.detail-grid-item span { color: #86909c; font-size: 12px; white-space: nowrap; }.detail-grid-item b { overflow: hidden; color: #4e5969; font-size: 13px; font-weight: 500; white-space: nowrap; text-overflow: ellipsis; }.coordinate-block { display: grid; gap: 5px; margin: 12px 0; }.coordinate-block span { color: #86909c; font-size: 12px; }.coordinate-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }.coordinate-title :deep(.arco-btn) { flex-shrink: 0; }.coordinate-block code { margin-bottom: 4px; padding: 6px; overflow-wrap: anywhere; border-radius: 3px; background: #f7f8fa; color: #4e5969; font-size: 11px; }.matched-block { display: grid; gap: 6px; padding-top: 4px; }.matched-item { display: grid; gap: 2px; padding: 8px 0; border-bottom: 1px solid #f2f3f5; }.matched-item b { color: #4e5969; font-size: 13px; }.matched-item span { color: #86909c; font-size: 11px; }
 .modal-tip { margin-top: 0; color: #4e5969; }.modal-tip code { padding: 1px 4px; background: #f2f3f5; }
 .residence-summary { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 4px; padding: 8px 10px; border-radius: 4px; background: #f2f7ff; }.residence-summary span { color: #4e5969; font-size: 12px; }.location-summary .residence-summary b { color: #165dff; font-size: 13px; }
+.ai-text-analysis { margin-top: 10px; border-top: 1px solid #e5e6eb; }
+.ai-text-analysis summary { padding: 8px 0; color: #86909c; font-size: 12px; cursor: pointer; }
+.ai-text-analysis p { padding-top: 4px; font-size: 12px; line-height: 1.7; }
+.ai-residence-table th:nth-child(2), .ai-residence-table td:nth-child(2) { text-align: left; }
+.ai-residence-table th:nth-child(4), .ai-residence-table td:nth-child(4) { text-align: right; }
 .ai-progress { color: #86909c; font-size: 12px; }
 .ai-log-filters { margin-bottom: 14px; }.ai-query-log-table :deep(.arco-table-th) { padding: 9px 10px; color: #4e5969; font-size: 12px; white-space: nowrap; }.ai-query-log-table :deep(.arco-table-td) { padding: 9px 10px; vertical-align: middle; font-size: 12px; }.ai-log-ellipsis { overflow: hidden; text-overflow: ellipsis; }.ai-log-two-lines { display: -webkit-box; color: #4e5969; line-height: 18px; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }.ai-log-time, .ai-log-duration { color: #4e5969; white-space: nowrap; }.ai-query-log-table :deep(.arco-tag) { margin: 0; font-size: 11px; line-height: 20px; }
 .token-expired-banner { display: flex; align-items: center; gap: 6px; padding: 9px 14px; border: 1px solid #fbaca3; border-radius: 4px; background: #ffece8; color: #f53f3f; font-size: 13px; }

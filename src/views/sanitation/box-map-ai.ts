@@ -133,8 +133,84 @@ export interface AiPriorityRankingItem {
   priorityScore: number
 }
 
+export interface AiBoxAnalysis {
+  status: string
+  boxNo: string
+  message?: string
+  dataUpdatedAt?: string
+  metric?: 'temperature' | 'battery'
+  metricLabel?: string
+  unit?: string
+  currentValue?: number | null
+  metricHistory?: {
+    status: string
+    message?: string
+    truncated?: boolean
+    points?: Array<{ time: string, value: number | null }>
+    summary?: { validCount: number, sampleCount: number, firstValue?: number, lastValue?: number, minValue?: number, maxValue?: number, change?: number }
+  }
+  basic?: { boxId: number, boxNo: string, boxName?: string, fillLevel?: number | null, overflowStatus?: number | null, reportTime?: string }
+  residence?: { status: string, message?: string, pointName?: string, townshipName?: string, villageName?: string, durationMinutes?: number }
+  overflow?: { status: string, message?: string, overflowing?: boolean, durationMinutes?: number }
+  transport?: { status: string, message?: string, truncated?: boolean, items?: Array<{ taskNo?: string, statusName?: string, taskStatus?: string, vehicleNo?: string, dataUpdatedAt?: string }> }
+  fillHistory?: {
+    status: string
+    message?: string
+    from?: string
+    to?: string
+    truncated?: boolean
+    points?: Array<{ time: string, fillLevel: number | null }>
+    summary?: { validCount: number, sampleCount: number, firstFillLevel?: number, lastFillLevel?: number, minFillLevel?: number, maxFillLevel?: number, changePercentagePoints?: number }
+  }
+}
+
+/** 默认摘要只使用后端事实，避免模型长文影响卡片和曲线的阅读。 */
+export function formatBoxAnalysisSummary(analysis: AiBoxAnalysis): string {
+  if (analysis.metric) {
+    const label = analysis.metric === 'temperature' ? '温度' : '电量'
+    const value = (number?: number | null) => number != null && Number.isFinite(number) ? `${Number(number.toFixed(2))}${analysis.metric === 'temperature' ? '℃' : '%'}` : '未知'
+    const summary = analysis.metricHistory?.summary
+    return `${analysis.boxNo} 号箱 · ${label}：${value(analysis.currentValue)}。\n` +
+      (summary && summary.validCount > 1 ? `${analysis.metricHistory?.truncated ? '已展示时段' : '近 3 天'}：${value(summary.firstValue)} → ${value(summary.lastValue)}。` : `${label}历史${summary?.validCount === 1 ? '仅一个有效点' : '数据不足'}，趋势未知。`)
+  }
+  if (!analysis.basic) return `${analysis.boxNo} 号箱：${analysis.message || '暂无可用数据'}。`
+  const percent = (value?: number | null) => value != null && Number.isFinite(value) && value >= 0 && value <= 100 ? `${Number(value.toFixed(2))}%` : '未知'
+  const minutes = analysis.residence?.durationMinutes
+  let residence = '未知'
+  if (analysis.residence?.status === 'SUPPORTED' && minutes != null && Number.isFinite(minutes) && minutes >= 0) {
+    residence = minutes >= 1440 ? `约 ${Math.floor(minutes / 1440)} 天 ${Math.floor(minutes % 1440 / 60)} 小时`
+      : minutes >= 60 ? `约 ${Math.floor(minutes / 60)} 小时 ${Math.floor(minutes % 60)} 分钟` : `${Math.floor(minutes)} 分钟`
+  }
+  const status = analysis.basic.overflowStatus == null ? '满溢状态未知' : analysis.basic.overflowStatus === 1 ? '已满溢' : '未满溢'
+  const lines = [`${analysis.boxNo} 号箱：${status}，垃圾占比 ${percent(analysis.basic.fillLevel)}。`, `停留：${residence}。`]
+  const history = analysis.fillHistory
+  const summary = history?.summary
+  if (history?.status === 'SUPPORTED' && summary && summary.validCount > 1 && summary.firstFillLevel != null && summary.lastFillLevel != null) {
+    lines.push(`${history.truncated ? '已展示时段' : '近 3 天'}：${percent(summary.firstFillLevel)} → ${percent(summary.lastFillLevel)}。`)
+  } else lines.push(`变化：${summary?.validCount === 1 ? '仅一个有效点，趋势未知' : '历史数据不足，趋势未知'}。`)
+  const transport = analysis.transport
+  const task = transport?.status === 'SUPPORTED' ? transport.items?.[0] : undefined
+  lines.push(task ? `运输记录：${task.statusName || '进度未知'}。`
+    : transport?.status === 'NO_DATA' ? '运输：暂无本地任务记录，进度未知。' : '运输：数据暂不可用，进度未知。')
+  return lines.join('\n')
+}
+
+export interface AiWeather {
+  status: string
+  city: string
+  timezone?: string
+  dataUpdatedAt?: string
+  dataKind?: string
+  message?: string
+  candidates?: string[]
+  current?: { time: string, temperature: number | null, humidity: number | null, windSpeed: number | null, condition: string }
+  forecast?: Array<{ date: string, condition: string, minTemperature: number | null, maxTemperature: number | null, rainProbability: number | null }>
+}
+
 export interface AiReply {
+  weather?: AiWeather
   answer: string
+  boxAnalysis?: AiBoxAnalysis
   evidence: string[]
   structured?: AiStructuredAnswer
   dispatchGuide?: AiDispatchGuide
@@ -148,6 +224,17 @@ export interface AiReply {
   webSearched?: boolean
   priorityRanking?: AiPriorityRankingItem[]
   transportMetrics?: AiTransportMetrics
+  residenceDuration?: {
+    status: string
+    message?: string
+    minDurationHours: number
+    totalCount: number
+    returnedCount: number
+    unknownCount: number
+    truncated: boolean
+    dataUpdatedAt?: string
+    items: Array<{ boxId: number, boxNo: string, pointName: string, townshipName: string, villageName: string, fillLevel: number | null, overflowed: boolean | null, arrivedAt: string, durationMinutes: number }>
+  }
   boxStatistics?: AiBoxStatistics
   boxList?: AiBoxList
   overflowDuration?: { status: string, items: AiOverflowDurationItem[] }
@@ -160,9 +247,13 @@ export interface AiReply {
   source: 'ai' | 'local'
 }
 
+export type AiShortcutIntent = 'analyze_box' | 'box_temperature' | 'box_battery' | 'overflow_boxes' | 'long_residence' | 'long_overflow' | 'priority_cleanup'
+
 export interface AiQueryContext {
   boxes: AiBoxSnapshot[]
   selectedBoxNo?: string
+  intent?: AiShortcutIntent
+  targetBoxNo?: string
   scope?: { township?: string, village?: string, overflowOnly?: boolean, transportingOnly?: boolean, visibleBoxCount?: number }
   /** 仅用于 AI 使用记录中的展示，不会传给模型。 */
   operatorName?: string

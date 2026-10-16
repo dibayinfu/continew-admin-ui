@@ -6,7 +6,7 @@
       <span>历史范围<b>{{ valueLabel(history?.summary?.minValue) }}～{{ valueLabel(history?.summary?.maxValue) }}</b></span>
     </div>
     <small v-if="analysis.dataUpdatedAt">当前值采集 {{ analysis.dataUpdatedAt.replace('T', ' ') }}</small>
-    <VChart v-if="hasSamples" class="curve" :option="option" autoresize />
+    <VChart v-if="hasSamples" class="curve" :option="option" :theme="appStore.theme === 'dark' ? 'dark' : undefined" autoresize />
     <p v-else>{{ history?.message || `该时段暂无有效${label}数据` }}</p>
     <small v-if="hasSamples">横轴：采集时间 · 纵轴：{{ label }}（{{ unit }}）。悬停查看，拖动底部缩放。缺测及超过 1 小时的采集间隔断线显示。</small>
     <small v-if="hasSamples">有效采集 {{ history?.summary?.validCount }} 个点</small>
@@ -18,6 +18,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useAppStore } from '@/stores'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
 import { LineChart } from 'echarts/charts'
@@ -28,6 +29,7 @@ import type { AiBoxAnalysis } from '../box-map-ai'
 
 use([LineChart, GridComponent, TooltipComponent, DataZoomComponent, CanvasRenderer])
 const props = defineProps<{ analysis: AiBoxAnalysis }>()
+const appStore = useAppStore()
 const label = computed(() => props.analysis.metric === 'temperature' ? '温度' : '电量')
 const unit = computed(() => props.analysis.metric === 'temperature' ? '℃' : '%')
 const history = computed(() => props.analysis.metricHistory)
@@ -46,6 +48,7 @@ const option = computed(() => {
   })
   const battery = props.analysis.metric === 'battery'
   return {
+    backgroundColor: 'transparent',
     animation: false,
     grid: { left: 50, right: 14, top: 28, bottom: 66 },
     tooltip: { trigger: 'axis', renderMode: 'richText', formatter: (params: Array<{ value: [number, number | null] }>) => {
@@ -61,12 +64,12 @@ const option = computed(() => {
 </script>
 
 <style scoped>
-.metric-card { display: grid; gap: 8px; margin-top: 10px; padding: 10px; border: 1px solid #e5e6eb; border-radius: 6px; background: #fff; }
+.metric-card { display: grid; gap: 8px; margin-top: 10px; padding: 10px; border: 1px solid var(--color-border-2); border-radius: 6px; background: var(--color-bg-2); }
 header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px; }
-b { color: #1d2129; font-size: 12px; }
-small, p { color: #86909c; font-size: 10px; line-height: 1.6; margin: 0; }
+b { color: var(--color-text-1); font-size: 12px; }
+small, p { color: var(--color-text-3); font-size: 10px; line-height: 1.6; margin: 0; }
 .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.facts span { display: grid; gap: 4px; padding: 8px; background: #f7f8fa; color: #86909c; font-size: 11px; }
+.facts span { display: grid; gap: 4px; padding: 8px; background: var(--color-fill-1); color: var(--color-text-3); font-size: 11px; }
 .facts b { font-size: 14px; }
 .curve { width: 100%; height: 230px; min-width: 0; }
 </style>

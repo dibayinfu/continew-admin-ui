@@ -12,7 +12,7 @@
       </div>
       <p class="location">{{ [analysis.residence?.townshipName, analysis.residence?.villageName, analysis.residence?.pointName].filter(Boolean).join(' · ') || '未匹配收集点' }}</p>
       <div class="curve-title"><b>垃圾占比变化</b><small>近 3 天 · 北京时间</small></div>
-      <VChart v-if="hasSamples" class="curve" :option="option" autoresize />
+      <VChart v-if="hasSamples" class="curve" :option="option" :theme="appStore.theme === 'dark' ? 'dark' : undefined" autoresize />
       <p v-else class="missing">{{ analysis.fillHistory?.message || '该时段暂无有效垃圾占比数据' }}</p>
       <small class="curve-note" v-if="hasSamples">横轴：采集时间 · 纵轴：垃圾占比（0–100%）。悬停查看，拖动底部缩放。缺测及超过 1 小时的采集间隔断线显示。</small>
       <p v-if="hasSamples && analysis.fillHistory?.summary" class="location">有效采集 {{ analysis.fillHistory.summary.validCount }} 个点 · 占比范围 {{ percent(analysis.fillHistory.summary.minFillLevel) }}～{{ percent(analysis.fillHistory.summary.maxFillLevel) }}</p>
@@ -33,6 +33,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useAppStore } from '@/stores'
 import VChart from 'vue-echarts'
 import { use } from 'echarts/core'
 import { LineChart } from 'echarts/charts'
@@ -43,6 +44,7 @@ import type { AiBoxAnalysis } from '../box-map-ai'
 
 use([LineChart, GridComponent, TooltipComponent, DataZoomComponent, CanvasRenderer])
 const props = defineProps<{ analysis: AiBoxAnalysis }>()
+const appStore = useAppStore()
 function timeLabel(value: string) { return value.replace('T', ' ').slice(5, 16) }
 function percent(value?: number | null) { return value != null && Number.isFinite(value) && value >= 0 && value <= 100 ? `${value.toFixed(1)}%` : '未知' }
 function duration(minutes?: number) {
@@ -63,6 +65,7 @@ const option = computed(() => {
     data.push(point)
   })
   return {
+    backgroundColor: 'transparent',
     animation: false,
     grid: { left: 44, right: 14, top: 22, bottom: 66 },
     tooltip: {
@@ -85,16 +88,16 @@ const option = computed(() => {
 </script>
 
 <style scoped>
-.box-analysis { display: grid; gap: 8px; margin-top: 10px; padding: 10px; border: 1px solid #e5e6eb; border-radius: 6px; background: #fff; }
+.box-analysis { display: grid; gap: 8px; margin-top: 10px; padding: 10px; border: 1px solid var(--color-border-2); border-radius: 6px; background: var(--color-bg-2); }
 header, .curve-title { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px; }
-b { color: #1d2129; font-size: 12px; }
-small { color: #86909c; font-size: 10px; }
+b { color: var(--color-text-1); font-size: 12px; }
+small { color: var(--color-text-3); font-size: 10px; }
 .facts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.facts span { display: grid; gap: 4px; padding: 8px; background: #f7f8fa; color: #86909c; font-size: 11px; }
+.facts span { display: grid; gap: 4px; padding: 8px; background: var(--color-fill-1); color: var(--color-text-3); font-size: 11px; }
 .facts b { font-size: 14px; }
 .curve { width: 100%; height: 230px; min-width: 0; }
 .curve-note { line-height: 1.6; }
-.location, .missing { margin: 0; font-size: 11px; line-height: 1.6; color: #86909c; }
-.task { display: grid; gap: 4px; padding: 8px 0; border-top: 1px solid #f2f3f5; }
-.task span { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; color: #4e5969; }
+.location, .missing { margin: 0; font-size: 11px; line-height: 1.6; color: var(--color-text-3); }
+.task { display: grid; gap: 4px; padding: 8px 0; border-top: 1px solid var(--color-fill-2); }
+.task span { display: flex; justify-content: space-between; gap: 6px; font-size: 11px; color: var(--color-text-2); }
 </style>

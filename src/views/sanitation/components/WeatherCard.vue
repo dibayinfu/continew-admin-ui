@@ -24,13 +24,13 @@ function number(value?: number | null) { return value != null && Number.isFinite
 </script>
 
 <style scoped>
-.weather-card { display: grid; gap: 8px; margin-top: 10px; padding: 10px; border: 1px solid #e5e6eb; border-radius: 6px; background: #fff; }
+.weather-card { display: grid; gap: 8px; margin-top: 10px; padding: 10px; border: 1px solid var(--color-border-2); border-radius: 6px; background: var(--color-bg-2); }
 header { display: flex; justify-content: space-between; gap: 4px; }
-b { color: #1d2129; font-size: 12px; }
-small, p { color: #86909c; font-size: 10px; line-height: 1.6; margin: 0; }
-.current { display: flex; align-items: baseline; gap: 12px; color: #4e5969; }
-strong { color: #165dff; font-size: 26px; }
-table { width: 100%; border-collapse: collapse; font-size: 11px; color: #4e5969; }
-th, td { padding: 6px 3px; text-align: left; border-bottom: 1px solid #f2f3f5; }
-th { color: #86909c; font-weight: normal; }
+b { color: var(--color-text-1); font-size: 12px; }
+small, p { color: var(--color-text-3); font-size: 10px; line-height: 1.6; margin: 0; }
+.current { display: flex; align-items: baseline; gap: 12px; color: var(--color-text-2); }
+strong { color: rgb(var(--primary-6)); font-size: 26px; }
+table { width: 100%; border-collapse: collapse; font-size: 11px; color: var(--color-text-2); }
+th, td { padding: 6px 3px; text-align: left; border-bottom: 1px solid var(--color-fill-2); }
+th { color: var(--color-text-3); font-weight: normal; }
 </style>

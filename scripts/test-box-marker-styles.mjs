@@ -24,6 +24,20 @@ for (const [name, page, normalColor] of [
   })
   assert.deepEqual(result.errors, [])
   const root = postcss.parse(result.code)
+  if (name === 'box-map') {
+    const locateRules = []
+    root.walkRules(rule => {
+      if (rule.selector.includes('.locate-input')) locateRules.push(rule)
+    })
+    assert.ok(locateRules.length > 0)
+    for (const rule of locateRules) {
+      // AutoComplete 内部输入节点没有页面 scope 属性，必须通过父容器约束。
+      assert.match(rule.selector, /\.locate-block\[data-v-box-map\] \.locate-input/)
+      assert.ok(!rule.selector.includes('.locate-input[data-v-'))
+      rule.walkDecls('width', declaration => assert.equal(declaration.value, '240px'))
+      rule.walkDecls('flex', declaration => assert.equal(declaration.value, '0 1 240px'))
+    }
+  }
   const prefix = `.${page}[data-v-${name}] `
   const backgrounds = new Map()
   let markerRuleCount = 0

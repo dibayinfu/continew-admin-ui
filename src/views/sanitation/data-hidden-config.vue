@@ -6,7 +6,7 @@
         <div class="page-subtitle">统一维护展示范围与公司收集点排除规则；两类配置的业务影响不同。</div>
       </div>
       <a-space>
-        <a-button type="primary" :loading="loading || excludedPointsLoading" @click="refreshAll">
+        <a-button type="primary" :loading="loading || excludedPointsLoading" :disabled="saving" @click="refreshAll">
           <template #icon><icon-sync /></template>
           更新
         </a-button>
@@ -35,8 +35,8 @@
             <a-input v-model="boxKeyword" allow-clear placeholder="搜索箱号/名称" style="width: 260px">
               <template #prefix><icon-search /></template>
             </a-input>
-            <a-button size="small" @click="showAllBoxes">全部显示</a-button>
-            <a-button size="small" status="danger" @click="hideAllBoxes">全部隐藏</a-button>
+            <a-button size="small" :disabled="loading || saving" @click="showAllBoxes">全部显示</a-button>
+            <a-button size="small" status="danger" :disabled="loading || saving" @click="hideAllBoxes">全部隐藏</a-button>
             <span class="toolbar-info">共 {{ boxes.length }} 个，已隐藏 {{ hiddenBoxIds.size }} 个</span>
           </div>
           <a-table :data="visibleBoxRows" :pagination="{ pageSize: 50, showTotal: true }" :scroll="{ y: 520 }" row-key="id" size="small">
@@ -48,7 +48,7 @@
               </a-table-column>
               <a-table-column title="是否显示" :width="110" align="center">
                 <template #cell="{ record }">
-                  <a-switch :model-value="!hiddenBoxIds.has(record.id)" @change="(v) => toggleBox(record.id, v)" />
+                  <a-switch :disabled="loading || saving" :loading="saving" :model-value="!hiddenBoxIds.has(record.id)" @change="(v) => toggleBox(record.id, v)" />
                 </template>
               </a-table-column>
             </template>
@@ -61,8 +61,8 @@
             <a-input v-model="pointKeyword" allow-clear placeholder="搜索名称/乡镇/村庄" style="width: 260px">
               <template #prefix><icon-search /></template>
             </a-input>
-            <a-button size="small" @click="showAllPoints">全部显示</a-button>
-            <a-button size="small" status="danger" @click="hideAllPoints">全部隐藏</a-button>
+            <a-button size="small" :disabled="loading || saving" @click="showAllPoints">全部显示</a-button>
+            <a-button size="small" status="danger" :disabled="loading || saving" @click="hideAllPoints">全部隐藏</a-button>
             <span class="toolbar-info">共 {{ points.length }} 个，已隐藏 {{ hiddenPointIds.size }} 个</span>
           </div>
           <a-table :data="visiblePointRows" :pagination="{ pageSize: 50, showTotal: true }" :scroll="{ y: 520 }" row-key="id" size="small">
@@ -73,7 +73,7 @@
               <a-table-column title="箱数" data-index="containerCount" :width="70" align="center" />
               <a-table-column title="是否显示" :width="110" align="center">
                 <template #cell="{ record }">
-                  <a-switch :model-value="!hiddenPointIds.has(record.id)" @change="(v) => togglePoint(record.id, v)" />
+                  <a-switch :disabled="loading || saving" :loading="saving" :model-value="!hiddenPointIds.has(record.id)" @change="(v) => togglePoint(record.id, v)" />
                 </template>
               </a-table-column>
             </template>
@@ -146,6 +146,7 @@ interface ExcludedPoint { pointId: number, pointName: string, townshipName: stri
 
 const activeTab = ref('boxes')
 const loading = ref(false)
+const saving = ref(false)
 const boxes = ref<Box[]>([])
 const points = ref<Point[]>([])
 const hiddenBoxIds = ref<Set<number>>(new Set(getHiddenBoxIds()))
@@ -204,33 +205,40 @@ const visibleExcludedPointRows = computed(() => {
     .sort((a, b) => Number(excludedPointIds.value.has(b.pointId)) - Number(excludedPointIds.value.has(a.pointId)))
 })
 
-let persistChain = Promise.resolve()
-function persist() {
-  // 开关连续点击时按触发顺序串行写入，避免较早请求晚返回而覆盖最新名单。
-  const config = { hiddenBoxIds: Array.from(hiddenBoxIds.value), hiddenPointIds: Array.from(hiddenPointIds.value) }
-  persistChain = persistChain.catch(() => undefined).then(() => saveDataVisibility(config)).catch((error) => {
+async function persist(config: { hiddenBoxIds: number[], hiddenPointIds: number[] }) {
+  if (loading.value || saving.value) return
+  const previousBoxes = hiddenBoxIds.value
+  const previousPoints = hiddenPointIds.value
+  saving.value = true
+  hiddenBoxIds.value = new Set(config.hiddenBoxIds)
+  hiddenPointIds.value = new Set(config.hiddenPointIds)
+  try {
+    await saveDataVisibility(config)
+    Message.success('展示配置已保存')
+  } catch (error) {
+    hiddenBoxIds.value = previousBoxes
+    hiddenPointIds.value = previousPoints
     Message.error(error instanceof Error ? error.message : '保存全局隐藏配置失败')
-  })
-  return persistChain
+  } finally {
+    saving.value = false
+  }
 }
 function toggleBox(id: number, visible: boolean) {
   const next = new Set(hiddenBoxIds.value)
   if (visible) next.delete(id)
   else next.add(id)
-  hiddenBoxIds.value = next
-  void persist()
+  void persist({ hiddenBoxIds: Array.from(next), hiddenPointIds: Array.from(hiddenPointIds.value) })
 }
 function togglePoint(id: number, visible: boolean) {
   const next = new Set(hiddenPointIds.value)
   if (visible) next.delete(id)
   else next.add(id)
-  hiddenPointIds.value = next
-  void persist()
+  void persist({ hiddenBoxIds: Array.from(hiddenBoxIds.value), hiddenPointIds: Array.from(next) })
 }
-function showAllBoxes() { hiddenBoxIds.value = new Set(); void persist(); Message.success('箱体已全部显示') }
-function hideAllBoxes() { hiddenBoxIds.value = new Set(boxes.value.map((b) => b.id)); void persist(); Message.success('箱体已全部隐藏') }
-function showAllPoints() { hiddenPointIds.value = new Set(); void persist(); Message.success('收集点已全部显示') }
-function hideAllPoints() { hiddenPointIds.value = new Set(points.value.map((p) => p.id)); void persist(); Message.success('收集点已全部隐藏') }
+function showAllBoxes() { void persist({ hiddenBoxIds: [], hiddenPointIds: Array.from(hiddenPointIds.value) }) }
+function hideAllBoxes() { void persist({ hiddenBoxIds: boxes.value.map((b) => b.id), hiddenPointIds: Array.from(hiddenPointIds.value) }) }
+function showAllPoints() { void persist({ hiddenBoxIds: Array.from(hiddenBoxIds.value), hiddenPointIds: [] }) }
+function hideAllPoints() { void persist({ hiddenBoxIds: Array.from(hiddenBoxIds.value), hiddenPointIds: points.value.map((p) => p.id) }) }
 
 let excludedPersistChain = Promise.resolve()
 async function loadExcludedPoints() {
@@ -264,7 +272,7 @@ function toggleExcludedPoint(pointId: number, excluded: boolean) {
 }
 
 async function loadAll(silent = false) {
-  if (loading.value) return
+  if (loading.value || saving.value) return
   loading.value = true
   let ok = false
   try {

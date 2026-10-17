@@ -4,6 +4,7 @@ export interface AMapOverlay {
 
 export interface AMapMarker {
   setMap: (map: AMapInstance | null) => void
+  getPosition: () => { getLng: () => number, getLat: () => number }
   setPosition: (position: [number, number]) => void
   on: (event: string, handler: () => void) => void
   setContent: (content: string) => void
@@ -37,7 +38,10 @@ export interface AMapInfoWindow {
 export interface AMapInstance {
   destroy: () => void
   getZoom: () => number
-  on: (event: string, handler: () => void) => void
+  on: {
+    (event: 'click', handler: (event: { lnglat: { getLng: () => number, getLat: () => number } }) => void): void
+    (event: string, handler: () => void): void
+  }
   /** 容器尺寸变化后通知地图重算（全屏切换时使用） */
   resize: () => void
   setMapStyle: (style: string) => void

@@ -2,6 +2,13 @@
   "version": "0.2.0",
   "configurations": [
     {
+      "name": "打包服务器版前端（手动上传）",
+      "type": "node-terminal",
+      "request": "launch",
+      "command": "bash scripts/build-server.sh",
+      "cwd": "${workspaceFolder}"
+    },
+    {
       "name": "continew-ui: pnpm dev",
       "type": "node-terminal",
       "request": "launch",

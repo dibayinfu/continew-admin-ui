@@ -13,3 +13,16 @@ export function toGcj(lng: number, lat: number): { lng: number, lat: number } {
   const sqrtMagic = Math.sqrt(magic)
   return { lng: lng + dLng * 180 / (a / sqrtMagic * Math.cos(radLat) * pi), lat: lat + dLat * 180 / (a * (1 - ee) / (magic * sqrtMagic) * pi) }
 }
+
+/** 高德选点结果转换回接口保存的 WGS84；迭代消除正向转换误差。 */
+export function fromGcj(lng: number, lat: number): { lng: number, lat: number } {
+  let result = { lng, lat }
+  for (let i = 0; i < 8; i++) {
+    const converted = toGcj(result.lng, result.lat)
+    const deltaLng = converted.lng - lng
+    const deltaLat = converted.lat - lat
+    result = { lng: result.lng - deltaLng, lat: result.lat - deltaLat }
+    if (Math.max(Math.abs(deltaLng), Math.abs(deltaLat)) < 1e-8) break
+  }
+  return result
+}

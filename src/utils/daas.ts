@@ -62,8 +62,13 @@ function readIdSet(key: string): Set<number> {
 function writeIdSet(key: string, ids: Set<number> | number[]) {
   try { localStorage.setItem(key, JSON.stringify(Array.from(ids))) } catch { /* 忽略 */ }
 }
-export function getHiddenBoxIds(): Set<number> { return readIdSet(HIDDEN_BOXES_KEY) }
-export function getHiddenPointIds(): Set<number> { return readIdSet(HIDDEN_POINTS_KEY) }
+const dataVisibility = reactive({
+  hiddenBoxIds: readIdSet(HIDDEN_BOXES_KEY),
+  hiddenPointIds: readIdSet(HIDDEN_POINTS_KEY),
+})
+// computed 地图筛选会追踪这两个集合，保存成功后立即重新绘制。
+export function getHiddenBoxIds(): Set<number> { return new Set(dataVisibility.hiddenBoxIds) }
+export function getHiddenPointIds(): Set<number> { return new Set(dataVisibility.hiddenPointIds) }
 function cacheHiddenBoxIds(ids: Set<number> | number[]) { writeIdSet(HIDDEN_BOXES_KEY, ids) }
 function cacheHiddenPointIds(ids: Set<number> | number[]) { writeIdSet(HIDDEN_POINTS_KEY, ids) }
 
@@ -73,27 +78,67 @@ function normalizeIds(value: unknown): number[] {
   return Array.from(new Set(Array.isArray(value) ? value.map(Number).filter((id) => Number.isSafeInteger(id) && id > 0) : []))
 }
 function applyDataVisibility(config: Partial<DataVisibilityConfig>) {
-  if (config.hiddenBoxIds) cacheHiddenBoxIds(normalizeIds(config.hiddenBoxIds))
-  if (config.hiddenPointIds) cacheHiddenPointIds(normalizeIds(config.hiddenPointIds))
+  if (config.hiddenBoxIds) {
+    dataVisibility.hiddenBoxIds = new Set(normalizeIds(config.hiddenBoxIds))
+    cacheHiddenBoxIds(dataVisibility.hiddenBoxIds)
+  }
+  if (config.hiddenPointIds) {
+    dataVisibility.hiddenPointIds = new Set(normalizeIds(config.hiddenPointIds))
+    cacheHiddenPointIds(dataVisibility.hiddenPointIds)
+  }
 }
 
-/** 从后台加载全局名单；失败时使用浏览器缓存，保证地图仍可工作。 */
+if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+  window.addEventListener('storage', (event) => {
+    if (event.key === HIDDEN_BOXES_KEY || event.key === null) dataVisibility.hiddenBoxIds = readIdSet(HIDDEN_BOXES_KEY)
+    if (event.key === HIDDEN_POINTS_KEY || event.key === null) dataVisibility.hiddenPointIds = readIdSet(HIDDEN_POINTS_KEY)
+  })
+}
+
+let visibilityRevision = 0
+let visibilitySaves = 0
+
+/** 从后台加载全局名单；调用方在失败时沿用上次缓存。 */
 export async function loadDataVisibility(): Promise<DataVisibilityConfig> {
+  const revision = visibilityRevision
   const response = await collectorDaasFetch('/api/collector/data-visibility', { timeoutMs: 4000, maxAttempts: 1 })
   const config = await response.json() as DataVisibilityConfig
   const normalized = { hiddenBoxIds: normalizeIds(config.hiddenBoxIds), hiddenPointIds: normalizeIds(config.hiddenPointIds) }
-  applyDataVisibility(normalized)
+  // 保存前发出的 GET 可能晚返回，不能用旧名单覆盖已保存的开关。
+  if (revision === visibilityRevision && visibilitySaves === 0) applyDataVisibility(normalized)
   return normalized
 }
 
 /** 保存完整全局名单，成功后才更新本地兜底缓存。 */
 export async function saveDataVisibility(config: DataVisibilityConfig): Promise<void> {
   const normalized = { hiddenBoxIds: normalizeIds(config.hiddenBoxIds), hiddenPointIds: normalizeIds(config.hiddenPointIds) }
-  const response = await fetch(`${COLLECTOR_API_BASE_URL}/api/collector/data-visibility`, {
-    method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(normalized),
-  })
-  if (!response.ok) throw new Error(`保存全局隐藏配置失败：HTTP ${response.status}`)
-  applyDataVisibility(normalized)
+  const controller = new AbortController()
+  const timeout = window.setTimeout(() => controller.abort(), 15000)
+  visibilityRevision++
+  visibilitySaves++
+  try {
+    const response = await fetch(`${COLLECTOR_API_BASE_URL}/api/collector/data-visibility`, {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(normalized), signal: controller.signal,
+    })
+    // 读完响应体后再清除超时，避免响应体挂起阻塞后续保存。
+    const text = await response.text()
+    if (!response.ok) {
+      let detail = ''
+      try {
+        const body = JSON.parse(text)
+        detail = typeof body.message === 'string' ? body.message : typeof body.detail === 'string' ? body.detail : ''
+      } catch { /* 代理可能返回 HTML 错误页 */ }
+      throw new Error(`保存全局隐藏配置失败：${detail || `HTTP ${response.status}`}`)
+    }
+    applyDataVisibility(normalized)
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error('保存全局隐藏配置超时，请刷新配置确认结果后重试')
+    throw error
+  } finally {
+    visibilityRevision++
+    visibilitySaves--
+    window.clearTimeout(timeout)
+  }
 }
 
 interface LoginWaiter {

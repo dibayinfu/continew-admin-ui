@@ -28,14 +28,14 @@
     </div>
 
     <a-card class="filter-card" :bordered="false">
-      <div class="filter-block">
-        <a-input v-model="keyword" allow-clear placeholder="输入箱体编号或名称" style="width: 240px">
+      <div class="filter-block locate-block">
+        <span class="filter-label">快速定位</span>
+        <a-auto-complete v-model="keyword" class="locate-input" :data="locateSuggestions.slice(0, 8)" :filter-option="false" allow-clear aria-label="箱号" placeholder="输入箱号">
           <template #prefix><icon-search /></template>
-        </a-input>
-        <a-button :type="overflowOnly ? 'primary' : 'outline'" :status="overflowOnly ? 'danger' : 'normal'" @click="overflowOnly = !overflowOnly">
-          {{ overflowOnly ? '已筛选满溢' : '只看满溢' }}
-        </a-button>
-        <span class="filter-result">{{ keyword.trim() ? `匹配到 ${rows.length} 个箱体` : `当前显示 ${rows.length} 个箱体` }}</span>
+          <template v-if="locateSuggestions.length > 8" #footer>
+            <div class="locate-suggestions-footer">请输入更完整的箱号</div>
+          </template>
+        </a-auto-complete>
       </div>
       <div class="filter-block">
         <span class="filter-label">乡镇</span>
@@ -51,6 +51,13 @@
           {{ villageCollapsed ? `更多 ${villageOptions.length - VILLAGE_COLLAPSED}` : '收起' }}
         </button>
         <button type="button" class="chip unmatched" :class="{ active: villageFilter === UNMATCHED }" @click="villageFilter = UNMATCHED">未匹配 {{ unmatchedVillageCount }}</button>
+      </div>
+      <div class="filter-block status-block">
+        <span class="filter-label">状态</span>
+        <a-checkbox v-model="overflowOnly" class="status-filter-checkbox danger" :class="{ selected: overflowOnly }">满溢</a-checkbox>
+        <a-checkbox v-model="highTemperatureOnly" class="status-filter-checkbox danger" :class="{ selected: highTemperatureOnly }">高温</a-checkbox>
+        <a-checkbox v-model="offlineOnly" class="status-filter-checkbox" :class="{ selected: offlineOnly }">离线</a-checkbox>
+        <a-checkbox v-model="lowBatteryOnly" class="status-filter-checkbox" :class="{ selected: lowBatteryOnly }">低电量</a-checkbox>
       </div>
     </a-card>
 
@@ -213,6 +220,19 @@ const boxes = ref<Box[]>([])
 const points = ref<CollectionPoint[]>([])
 const keyword = ref('')
 const overflowOnly = ref(false)
+const highTemperatureOnly = ref(false)
+const offlineOnly = ref(false)
+const lowBatteryOnly = ref(false)
+const locateSuggestions = computed(() => {
+  const query = keyword.value.trim().toLowerCase()
+  if (!query) return []
+  const hidden = getHiddenBoxIds()
+  return [...new Set(boxes.value
+    .filter(box => !hidden.has(box.id) && box.containerNo.toLowerCase().includes(query))
+    .map(box => box.containerNo))]
+    .sort((a, b) => Number(b.toLowerCase() === query) - Number(a.toLowerCase() === query)
+      || a.localeCompare(b, 'zh-CN', { numeric: true }))
+})
 const townshipFilter = ref('')
 const villageFilter = ref('')
 /** 「未匹配」筛选值：无收集点归属（无乡镇/村庄）的箱体专用 sentinel，不会与真实乡镇/村庄名冲突 */
@@ -282,7 +302,7 @@ const villageOptions = computed(() => {
   return Array.from(s).sort()
 })
 /** 村庄 chips 折叠：默认只显示前 N 个（约两行），点击「更多」展开 */
-const VILLAGE_COLLAPSED = 24
+const VILLAGE_COLLAPSED = 10
 const villageCollapsed = ref(true)
 const visibleVillageOptions = computed(() => {
   const list = villageCollapsed.value ? villageOptions.value.slice(0, VILLAGE_COLLAPSED) : villageOptions.value
@@ -323,8 +343,11 @@ const rows = computed<Row[]>(() => {
   const hidden = getHiddenBoxIds() // 遵循「数据隐藏配置」：隐藏的箱体不显示
   return boxes.value
     .filter((b) => !hidden.has(b.id)
-      && (!q || b.containerNo.toLowerCase().includes(q) || b.containerName.toLowerCase().includes(q))
+      && (!q || b.containerNo.toLowerCase().includes(q))
       && (!overflowOnly.value || b.overflowStatus === 1)
+      && (!highTemperatureOnly.value || b.temperature >= 60)
+      && (!offlineOnly.value || b.onlineStatus === 1)
+      && (!lowBatteryOnly.value || (b.voltage > 0 && b.voltage < 20))
       && matchTownship(b)
       && matchVillage(b))
     .map((b) => {
@@ -354,6 +377,10 @@ const pagination = reactive({
   pageSizeOptions: [20, 50, 100, 1000] as number[],
   onChange: (page: number) => { pagination.current = page },
   onPageSizeChange: (size: number) => { pagination.pageSize = size; pagination.current = 1 },
+})
+// 筛选后回到第一页，避免原页码超出筛选结果范围。
+watch([keyword, overflowOnly, highTemperatureOnly, offlineOnly, lowBatteryOnly, townshipFilter, villageFilter], () => {
+  pagination.current = 1
 })
 const columns: TableColumnData[] = [
   { title: '序号', dataIndex: 'index', width: 70, align: 'center', fixed: 'left', render: ({ rowIndex }: any) => rowIndex + 1 + (pagination.current - 1) * pagination.pageSize },
@@ -588,7 +615,13 @@ onBeforeUnmount(() => {
 .filter-block { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
 .filter-block:last-child { margin-bottom: 0; }
 .filter-label { font-size: 13px; color: var(--color-text-2); white-space: nowrap; }
-.filter-result { color: var(--color-text-3); font-size: 13px; }
+.locate-block { padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid var(--color-border-2); }
+.locate-block :deep(.locate-input) { flex: 0 1 240px; width: 240px; max-width: 100%; min-width: 0; }
+.locate-suggestions-footer { padding: 8px 12px; border-top: 1px solid var(--color-border-2); color: var(--color-text-3); font-size: 12px; }
+.status-filter-checkbox { margin: 0; padding: 4px 8px; border: 1px solid var(--color-border-2); border-radius: 4px; background: var(--color-bg-2); color: var(--color-text-2); line-height: 22px; transition: all .15s; }
+.status-filter-checkbox:hover { border-color: #165dff; color: rgb(var(--primary-6)); }
+.status-filter-checkbox.selected { border-color: #165dff; background: var(--color-primary-light-1); color: rgb(var(--primary-6)); }
+.status-filter-checkbox.danger.selected { border-color: #f53f3f; background: var(--color-danger-light-1); color: rgb(var(--danger-6)); }
 .chip { padding: 2px 13px; border: 1px solid var(--color-border-2); border-radius: 14px; background: var(--color-bg-2); color: var(--color-text-2); font-size: 13px; line-height: 22px; cursor: pointer; transition: all .15s; }
 .chip:hover { border-color: rgb(var(--arcoblue-6)); color: rgb(var(--arcoblue-6)); }
 .chip.active { background: rgb(var(--arcoblue-6)); border-color: rgb(var(--arcoblue-6)); color: #fff; }

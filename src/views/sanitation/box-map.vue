@@ -32,7 +32,7 @@
       </a-space>
     </div>
 
-    <a-tooltip v-if="!aiVisible" content="打开 AI助手" position="right">
+    <a-tooltip v-if="!aiVisible && !metricHistoryTarget && !historyVisible" content="打开 AI助手" position="right">
       <a-button class="ai-floating-trigger" type="primary" shape="circle" aria-label="打开 AI助手" @click="openAiAssistant">
         <template #icon><icon-robot /></template>
       </a-button>
@@ -183,7 +183,7 @@
     <a-card class="filter-card" :bordered="false">
       <div class="filter-block locate-block">
         <span class="filter-label">快速定位</span>
-        <a-auto-complete v-model="keyword" class="locate-input" :data="locateSuggestions.slice(0, 8)" :filter-option="false" allow-clear aria-label="箱号或勾臂车车牌号" placeholder="输入箱号或车牌尾号" @select="onLocateSelect" @press-enter="onLocateEnter">
+        <a-auto-complete v-model="keyword" class="locate-input" :data="locateSuggestions.slice(0, 8)" :filter-option="false" allow-clear aria-label="箱号或勾臂车车牌号" placeholder="输入箱号车牌号" @select="onLocateSelect" @press-enter="onLocateEnter">
           <template #prefix><icon-search /></template>
           <template v-if="locateSuggestions.length > 8" #footer>
             <div class="locate-suggestions-footer">请输入更完整的箱号或车牌</div>
@@ -207,8 +207,11 @@
       </div>
       <div class="filter-block status-block">
         <span class="filter-label">状态</span>
-        <a-checkbox v-model="overflowOnly" class="status-filter-checkbox danger" :class="{ selected: overflowOnly }">只看满溢</a-checkbox>
-        <a-checkbox v-model="transportingOnly" class="status-filter-checkbox" :class="{ selected: transportingOnly }">只看运输中</a-checkbox>
+        <a-checkbox v-model="overflowOnly" class="status-filter-checkbox danger" :class="{ selected: overflowOnly }">满溢</a-checkbox>
+        <a-checkbox v-model="highTemperatureOnly" class="status-filter-checkbox danger" :class="{ selected: highTemperatureOnly }">高温</a-checkbox>
+        <a-checkbox v-model="offlineOnly" class="status-filter-checkbox" :class="{ selected: offlineOnly }">离线</a-checkbox>
+        <a-checkbox v-model="lowBatteryOnly" class="status-filter-checkbox" :class="{ selected: lowBatteryOnly }">低电量</a-checkbox>
+        <a-checkbox v-model="transportingOnly" class="status-filter-checkbox" :class="{ selected: transportingOnly }">收运中</a-checkbox>
       </div>
     </a-card>
 
@@ -270,7 +273,13 @@
           <div class="detail-heading">
             <a-tag :color="statusColor(selectedBox)">{{ statusText(selectedBox) }}</a-tag>
             <a-tag v-if="selectedBox.onlineStatus === 1" color="red">设备离线</a-tag>
-            <a-button class="history-track-btn" type="primary" size="mini" @click="openHistoryTrack">历史轨迹</a-button>
+            <div class="box-detail-actions">
+              <a-tooltip content="创建运单"><a-button class="create-task-action" type="primary" status="warning" size="mini" aria-label="创建运单" @click="openCreateTask"><template #icon><icon-plus-circle /></template></a-button></a-tooltip>
+              <a-tooltip content="垃圾占比曲线"><a-button type="primary" size="mini" aria-label="垃圾占比曲线" @click="openMetricHistory('fillLevel')"><template #icon><BoxHistoryIcon type="fillLevel" /></template></a-button></a-tooltip>
+              <a-tooltip content="温度曲线"><a-button type="primary" size="mini" aria-label="温度曲线" @click="openMetricHistory('temperature')"><template #icon><BoxHistoryIcon type="temperature" /></template></a-button></a-tooltip>
+              <a-tooltip content="电量曲线"><a-button type="primary" size="mini" aria-label="电量曲线" @click="openMetricHistory('battery')"><template #icon><BoxHistoryIcon type="battery" /></template></a-button></a-tooltip>
+              <a-tooltip content="历史轨迹"><a-button type="primary" size="mini" aria-label="历史轨迹" @click="openHistoryTrack()"><template #icon><BoxHistoryIcon type="track" /></template></a-button></a-tooltip>
+            </div>
             <span class="report-time">上报时间：{{ selectedBox.reportTime }}</span>
           </div>
           <div class="fill-summary" :class="markerTone(selectedBox)">
@@ -327,31 +336,77 @@
           </div>
         </a-card>
 
-        <section v-if="historyVisible" class="history-overlay">
-          <header class="history-overlay-header">
-            <div class="history-title"><span>箱体编号</span><h2>{{ selectedBox?.containerNo }}</h2></div>
-            <a-button type="text" size="large" class="history-close-btn" aria-label="关闭历史轨迹" @click="closeHistoryTrack"><template #icon><icon-close /></template></a-button>
-          </header>
-          <div class="history-toolbar">
-            <a-radio-group v-model="historyRange" type="button" size="small" @change="loadHistoryTrack">
-              <a-radio value="1">近 24 小时</a-radio><a-radio value="3">近 3 天</a-radio><a-radio value="7">近 7 天</a-radio>
-            </a-radio-group>
-            <span v-if="historyData" class="history-summary">{{ historyData.summary.uniquePointCount }} 个收集点 · {{ historyData.summary.visitCount }} 次停靠</span>
+        <a-card v-if="selectedVehicle" class="detail-card vehicle-detail-card" :bordered="false">
+          <div class="detail-panel-header">
+            <div class="detail-title"><span class="box-no">车牌号</span><h2>{{ selectedVehicle.plateNumber || selectedVehicle.id }}</h2></div>
+            <a-button type="text" size="mini" class="detail-close-btn" aria-label="关闭车辆详情" @click="closeVehicleInfo">
+              <template #icon><icon-close /></template>
+            </a-button>
           </div>
-          <div class="history-layout">
-            <div class="history-map-wrap"><div ref="historyMapRef" class="history-map"></div><a-spin v-if="historyLoading" class="history-loading" /></div>
+          <div class="detail-scroll">
+            <div class="detail-heading">
+              <a-tag :color="vehicleStatus(selectedVehicle) === 'charging' ? 'arcoblue' : vehicleStatus(selectedVehicle) === 'online' ? 'green' : 'gray'">{{ vehicleStatusText(selectedVehicle) }}</a-tag>
+              <a-tag>{{ vehicleTypeOf(selectedVehicle) || '未分类' }}</a-tag>
+            </div>
+            <div class="location-summary vehicle-location-summary">
+              <span class="section-label">当前位置</span>
+              <b>{{ selectedVehicleLocation }}</b>
+            </div>
+            <div class="detail-grid vehicle-detail-grid">
+              <div class="detail-grid-item full"><span>驾驶员</span><b>{{ selectedVehicleDriver || (vehicleDriverState === 'loading' ? '加载中…' : vehicleDriverState === 'error' ? '获取失败，请重新点击车辆重试' : '未绑定驾驶员') }}</b></div>
+            </div>
+            <details v-if="vehicleTypeOf(selectedVehicle) === '小勾臂车'" :key="selectedVehicle.id" class="more-details vehicle-orders" :open="vehicleTasksExpanded" @toggle="vehicleTasksExpanded = ($event.target as HTMLDetailsElement).open">
+              <summary>今日运单（{{ selectedVehicleTasks.length }}）</summary>
+              <div v-if="selectedVehicleTasks.length" class="vehicle-order-list">
+                <div v-for="(task, index) in selectedVehicleTasks" :key="String(task.id ?? index)" class="vehicle-order">
+                  <div class="vehicle-order-heading">
+                    <b>箱 {{ transportTaskValue(task, 'boxNo', 'containerNo') }}</b>
+                    <a-tag size="small" :color="transportTaskStatusText(task) === '已完成' ? 'green' : transportTaskStatusText(task) === '已取消' ? 'gray' : 'arcoblue'">{{ transportTaskStatusText(task) }}</a-tag>
+                  </div>
+                  <span class="report-time">创建时间：{{ transportTaskValue(task, 'createTime') }}</span>
+                  <div class="vehicle-order-route"><span>起点</span><b>{{ vehicleTaskOrigin(task) }}</b><span>终点</span><b>{{ vehicleTaskDestination(task) }}</b></div>
+                </div>
+              </div>
+              <a-empty v-else description="今日暂无运单" :image-style="{ height: '40px' }" />
+            </details>
+            <details class="more-details">
+              <summary>更多车辆信息</summary>
+              <div class="detail-grid">
+                <div class="detail-grid-item full"><span>车辆 ID</span><b>{{ selectedVehicle.id }}</b></div>
+              </div>
+              <div class="coordinate-block">
+                <span>原始坐标（WGS84）</span><code>{{ selectedVehicle.longitude }}, {{ selectedVehicle.latitude }}</code>
+                <span>地图坐标（GCJ-02）</span><code>{{ vehiclePoint(selectedVehicle).lng.toFixed(6) }}, {{ vehiclePoint(selectedVehicle).lat.toFixed(6) }}</code>
+              </div>
+            </details>
+          </div>
+        </a-card>
+
+        <BoxHistoryCurves v-if="metricHistoryTarget" :key="metricHistoryTarget.boxId" class="history-overlay" :box-id="metricHistoryTarget.boxId" :box-no="metricHistoryTarget.boxNo" :initial-metric="metricHistoryTarget.metric" :initial-days="metricHistoryTarget.days" @track="openHistoryTrack" @close="metricHistoryTarget = undefined" />
+
+        <section v-if="historyVisible" class="history-overlay">
+          <BoxHistoryToolbar v-model:days="historyRange" :box-no="selectedBox?.containerNo || ''" view="track" :loading="historyLoading" @range-change="loadHistoryTrack" @refresh="loadHistoryTrack" @view-change="switchHistoryView" @close="closeHistoryTrack" />
+          <div v-if="historyLoading" class="history-state"><a-spin tip="正在加载历史数据" /></div>
+          <div v-else-if="historyError" class="history-state"><a-result status="error" title="轨迹加载失败" :subtitle="historyError"><template #extra><a-button @click="loadHistoryTrack">重试</a-button></template></a-result></div>
+          <template v-else>
+          <div v-if="historyData" class="history-facts"><span>有效位置采集 <b>{{ historyData.summary.snapshotCount }}</b> 个点</span><span><b>{{ historyData.summary.uniquePointCount }}</b> 个收集点 · <b>{{ historyData.summary.visitCount }}</b> 次停靠</span><span v-if="historyData.from && historyData.to">{{ formatTrackTime(historyData.from) }} ～ {{ formatTrackTime(historyData.to) }}</span></div>
+          <a-empty v-if="historyData && !historyData.track.length" class="history-state" :description="`近${historyRange}天暂无有效位置数据`" />
+          <div v-else class="history-layout">
+            <div class="history-map-wrap"><div ref="historyMapRef" class="history-map"></div></div>
             <aside class="history-visits">
               <div class="history-visits-title">经过收集点</div>
-              <a-empty v-if="!historyLoading && !historyData?.pointVisits.length" description="该时段未识别到收集点停留" />
+              <a-empty v-if="!historyData?.pointVisits.length" description="该时段未识别到收集点停留" />
               <button v-for="(visit, index) in historyData?.pointVisits || []" :key="`${visit.pointId}-${visit.arrivalTime}`" type="button" class="history-visit" @click="focusHistoryVisit(visit)">
                 <b>{{ index + 1 }}</b><span><strong>{{ visit.pointName }}</strong><em>{{ visit.townshipName || '未匹配乡镇' }} · {{ visit.villageName || '未匹配村庄' }}</em><em>{{ formatTrackTime(visit.arrivalTime) }} ～ {{ formatTrackTime(visit.departureTime) }}</em><small>停留 {{ formatStayDuration(visit.stayMinutes) }}</small></span>
               </button>
             </aside>
           </div>
-          <div v-if="!historyLoading && historyData && !historyData.track.length" class="history-empty">该时段没有有效位置数据</div>
+          </template>
         </section>
       </div>
     </div>
+
+    <BoxCreateTaskDialog v-if="createTaskTarget" :box="createTaskTarget" @close="createTaskTarget = undefined" />
 
     <a-modal v-model:visible="importVisible" title="导入最新箱体数据" :width="680" @before-ok="importBoxes">
       <p class="modal-tip">粘贴接口完整 JSON，格式需包含 <code>data.list</code> 数组（云端格式为 <code>data.points</code>）。导入后仅更新当前页面数据。</p>
@@ -400,17 +455,22 @@
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
 import { useFullscreen } from '@vueuse/core'
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, toRaw, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, toRaw, watch } from 'vue'
 import { useDevice } from '@/hooks'
 import { beijingDate, beijingDateTime, parseBeijingDateTime } from '@/utils/beijing-time'
 import { useAppStore, useUserStore } from '@/stores'
-import { type AMapInfoWindow, type AMapInstance, type AMapMarker, type AMapMarkerCluster, type AMapMassMarks, loadAmapJsApi, loadAmapMarkerClusterer } from '@/utils/amap'
+import { type AMapInstance, type AMapMarker, type AMapMarkerCluster, type AMapMassMarks, loadAmapJsApi, loadAmapMarkerClusterer } from '@/utils/amap'
 import { daasAuth, collectorMapRequest, collectorVehicleRuntimeRequest, collectorVehicleBasicInfoRequest, collectorVehicleTypesRequest, getHiddenBoxIds, saveSharedDaasToken } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
 import { createAiConversationId, formatBoxAnalysisSummary, type AiMapAction, type AiShortcutIntent, type AiOverflowDurationItem, type AiQueryContext, type AiReply, type AiTransportMetricRow, queryBoxMapAssistantStream } from './box-map-ai'
 
 import BoxAnalysisCard from './components/BoxAnalysisCard.vue'
 import BoxMetricCard from './components/BoxMetricCard.vue'
+import BoxHistoryCurves from './components/BoxHistoryCurves.vue'
+import BoxHistoryToolbar from './components/BoxHistoryToolbar.vue'
+import BoxHistoryIcon from './components/BoxHistoryIcon.vue'
+import BoxCreateTaskDialog from './components/BoxCreateTaskDialog.vue'
+import type { BoxHistoryMetric, BoxHistoryDays, BoxHistoryView } from './box-history-metrics'
 import WeatherCard from './components/WeatherCard.vue'
 
 defineOptions({ name: 'SanitationBoxMap' })
@@ -465,7 +525,7 @@ interface TransportTask extends Record<string, unknown> {
 }
 interface HistoryTrackPoint { time: string, longitude: number, latitude: number, pointId?: number, pointName?: string }
 interface HistoryPointVisit { pointId: number, pointName: string, townshipName: string, villageName: string, arrivalTime: string, departureTime: string, stayMinutes: number, snapshotCount: number }
-interface HistoryTrackResponse { track: HistoryTrackPoint[], pointVisits: HistoryPointVisit[], summary: { snapshotCount: number, uniquePointCount: number, visitCount: number } }
+interface HistoryTrackResponse { from?: string, to?: string, track: HistoryTrackPoint[], pointVisits: HistoryPointVisit[], summary: { snapshotCount: number, uniquePointCount: number, visitCount: number } }
 interface CurrentResidence { boxId: number, pointId: number, pointName: string, townshipName: string, villageName: string, arrivalTime: string, lastSeenTime: string }
 interface CurrentOverflow { boxId: number, overflowing: boolean, overflowStartedAt: string | null, lastSeenTime: string }
 interface AiRequestContext extends AiQueryContext {}
@@ -488,9 +548,10 @@ interface VehicleAddressCacheItem { coordinate: string, address: string }
 interface TricycleClusterPoint extends Record<string, unknown> { lnglat: [number, number], vehicle: VehicleRuntime }
 
 const VEHICLE_TYPES: VehicleType[] = ['小勾臂车', '大勾臂车', '小三轮']
-const REFRESH_SETTINGS_KEY = 'sbg-monitor:box-map-refresh-settings'
+// 箱体每两分钟、车辆每一分钟刷新，旧版设置不覆盖新的默认周期。
+const REFRESH_SETTINGS_KEY = 'sbg-monitor:box-map-refresh-settings:v3'
 const AI_LAYOUT_SETTINGS_KEY = 'sbg-monitor:box-map-ai-layout'
-const DEFAULT_BOX_REFRESH_MINUTES = 5
+const DEFAULT_BOX_REFRESH_MINUTES = 2
 const DEFAULT_VEHICLE_REFRESH_MINUTES = 1
 
 function readRefreshMinutes(key: 'boxMinutes' | 'vehicleMinutes', fallback: number) {
@@ -576,6 +637,9 @@ const aiOverlayStyle = computed(() => ({
 }))
 const keyword = ref('')
 const overflowOnly = ref(false)
+const highTemperatureOnly = ref(false)
+const offlineOnly = ref(false)
+const lowBatteryOnly = ref(false)
 const transportingOnly = ref(false)
 const mapTheme = ref<MapTheme>('light')
 const boxes = ref<Box[]>(initialBoxes)
@@ -625,7 +689,10 @@ const aiContextLabels = computed(() => {
   const labels = [townshipFilter.value === UNMATCHED ? '未匹配乡镇' : townshipFilter.value || '全部区域']
   if (villageFilter.value) labels.push(villageFilter.value === UNMATCHED ? '未匹配村庄' : villageFilter.value)
   if (overflowOnly.value) labels.push('仅满溢')
-  if (transportingOnly.value) labels.push('仅运输中')
+  if (highTemperatureOnly.value) labels.push('仅高温')
+  if (offlineOnly.value) labels.push('仅离线')
+  if (lowBatteryOnly.value) labels.push('仅低电量')
+  if (transportingOnly.value) labels.push('仅收运中')
   if (selectedBox.value) labels.push(`已选 ${selectedBox.value.containerNo} 号箱`)
   labels.push(`${visibleBoxes.value.length} 个箱体`)
   return labels
@@ -700,10 +767,26 @@ const residenceNow = ref(Date.now())
 const residenceCache = new Map<string, CurrentResidence>()
 let residenceRequestVersion = 0
 const historyVisible = ref(false)
-const historyRange = ref('3')
+const historyRange = ref<BoxHistoryDays>(2)
+const historyError = ref('')
+let historyRequestVersion = 0
+let historyAbort: AbortController | undefined
 const historyLoading = ref(false)
 const historyMapRef = ref<HTMLDivElement>()
 const historyData = ref<HistoryTrackResponse>()
+const metricHistoryTarget = shallowRef<{ boxId: number, boxNo: string, metric: BoxHistoryMetric, days: BoxHistoryDays }>()
+function openMetricHistory(metric: BoxHistoryMetric, days: BoxHistoryDays = 2) {
+  if (!selectedBox.value) return
+  if (historyVisible.value) closeHistoryTrack()
+  metricHistoryTarget.value = { boxId: selectedBox.value.id, boxNo: selectedBox.value.containerNo, metric, days }
+}
+function switchHistoryView(view: BoxHistoryView) {
+  if (view !== 'track') openMetricHistory(view, historyRange.value)
+}
+watch(() => selectedBox.value?.id, (id, previousId) => {
+  if (metricHistoryTarget.value && metricHistoryTarget.value.boxId !== id) metricHistoryTarget.value = undefined
+  if (historyVisible.value && id !== previousId) closeHistoryTrack()
+})
 /** boxNo -> 最近一条临时视为“正在运输”的任务单 */
 const transportTasksByBoxNo = ref<Map<string, TransportTask>>(new Map())
 const todayTransportTasks = ref<TransportTask[]>([])
@@ -717,8 +800,6 @@ let massMarks: AMapMassMarks | undefined
 let selectedMassMarker: AMapMarker | undefined
 let markerMode: 'mass' | 'label' | undefined
 let amap: Awaited<ReturnType<typeof loadAmapJsApi>> | undefined
-let vehicleInfoWindow: AMapInfoWindow | undefined
-let activeVehicleInfoToggle: ((expanded: boolean) => void) | undefined
 let vehicleTypesLoadedAt = 0
 let activeVehicleInfoKey = ''
 let selectedVehicleMarker: AMapMarker | undefined
@@ -775,7 +856,7 @@ function saveRefreshSettings() {
 }
 
 /** 箱体 -> 所属乡镇/村庄（仅以收集点名称关联，不能使用车辆/箱体编号） */
-const boxAreas = new Map<number, { township: string, village: string, pointName: string }>()
+const boxAreas = new Map<number, { township: string, village: string, pointName: string, pointId?: number }>()
 function isCollectionPointNameKey(key: string) {
   return !/^\d+$/.test(key) && !/^[\u4E00-\u9FFF][A-Z][A-Z0-9]{5,6}$/.test(key)
 }
@@ -798,7 +879,7 @@ function assignBoxAreas(boxList: Box[], pointList: CollectionPoint[]) {
         const nearestDistance = (nearest.longitude - box.longitude) ** 2 + (nearest.latitude - box.latitude) ** 2
         return distance < nearestDistance ? point : nearest
       }, undefined)
-      if (hit) boxAreas.set(box.id, { township: hit.townshipName, village: hit.villageName || '', pointName: hit.pointName })
+      if (hit) boxAreas.set(box.id, { township: hit.townshipName, village: hit.villageName || '', pointName: hit.pointName, pointId: hit.id })
     } catch { /* 忽略 */ }
   }
 }
@@ -822,7 +903,7 @@ const villageOptions = computed(() => {
   return Array.from(s).sort()
 })
 /** 村庄 chips 折叠：默认只显示前 N 个（约两行），点击「更多」展开 */
-const VILLAGE_COLLAPSED = 12
+const VILLAGE_COLLAPSED = 10
 const villageCollapsed = ref(true)
 const visibleVillageOptions = computed(() => {
   const list = villageCollapsed.value ? villageOptions.value.slice(0, VILLAGE_COLLAPSED) : villageOptions.value
@@ -1029,11 +1110,18 @@ function matchVillage(box: Box) {
   return village === villageFilter.value
 }
 
+// 与临时指挥中心保持相同的温度、电量判定口径。
+function isHighTemperature(box: Box) { return box.temperature >= 60 }
+function isLowBattery(box: Box) { return box.voltage > 0 && box.voltage < 20 }
+
 const visibleBoxes = computed(() => {
   const hidden = getHiddenBoxIds()
   return boxes.value.filter((box) => Number.isFinite(box.longitude) && Number.isFinite(box.latitude)
     && !hidden.has(box.id)
     && (!overflowOnly.value || box.overflowStatus === 1)
+    && (!highTemperatureOnly.value || isHighTemperature(box))
+    && (!offlineOnly.value || box.onlineStatus === 1)
+    && (!lowBatteryOnly.value || isLowBattery(box))
     && (!transportingOnly.value || hasTransportTask(box))
     && matchTownship(box)
     && matchVillage(box))
@@ -1084,6 +1172,14 @@ function getLocateSuggestions() {
 }
 const locateSuggestions = computed(getLocateSuggestions)
 const selectedGcj = computed(() => selectedBox.value ? getGcjPoint(selectedBox.value) : undefined)
+const createTaskTarget = ref<{ boxNo: string, pointId?: number, pointName: string, townshipName: string, villageName: string }>()
+function openCreateTask() {
+  const box = selectedBox.value
+  if (!box) return
+  const area = boxAreas.get(box.id)
+  // 冻结打开弹窗时的箱体和始发地，后台刷新不改变正在配置的任务。
+  createTaskTarget.value = { boxNo: box.containerNo, pointId: area?.pointId, pointName: area?.pointName || '', townshipName: area?.township || '', villageName: area?.village || '' }
+}
 const selectedArea = computed(() => selectedBox.value ? (boxAreas.get(selectedBox.value.id) || { township: '', village: '', pointName: '' }) : { township: '', village: '', pointName: '' })
 const currentResidenceDuration = computed(() => {
   if (!currentResidence.value) return ''
@@ -1186,37 +1282,62 @@ function formatStayDuration(totalMinutes: number) {
 function historyContent(label: string, tone: string) { return `<div class="history-track-pin ${tone}">${escapeHtml(label)}</div>` }
 function clearHistoryOverlays() { historyOverlays.forEach((overlay) => overlay.setMap(null)); historyOverlays = [] }
 function destroyHistoryMap() { clearHistoryOverlays(); historyMap?.destroy(); historyMap = undefined }
-async function openHistoryTrack() {
+async function openHistoryTrack(days: BoxHistoryDays = 2) {
   if (!selectedBox.value) return
+  metricHistoryTarget.value = undefined
+  historyRange.value = days
   historyVisible.value = true
   await nextTick()
   await loadHistoryTrack()
 }
 function closeHistoryTrack() {
+  historyRequestVersion++
+  historyAbort?.abort()
+  historyAbort = undefined
   historyVisible.value = false
+  historyLoading.value = false
+  historyData.value = undefined
+  historyError.value = ''
   destroyHistoryMap()
 }
 async function loadHistoryTrack() {
   const box = selectedBox.value
-  if (!box) return
+  if (!box || !historyVisible.value) return
+  const version = ++historyRequestVersion
+  historyAbort?.abort()
+  const abort = new AbortController()
+  historyAbort = abort
+  const timeout = window.setTimeout(() => abort.abort(), 25000)
+  destroyHistoryMap()
   historyLoading.value = true
+  historyError.value = ''
+  historyData.value = undefined
   try {
     const end = new Date()
-    const start = new Date(end.getTime() - Number(historyRange.value) * 24 * 60 * 60 * 1000)
+    const start = new Date(end.getTime() - historyRange.value * 24 * 60 * 60 * 1000)
     const query = new URLSearchParams({ from: beijingDateTime(start), to: beijingDateTime(end) })
-    const response = await fetch(`${COLLECTOR_API_BASE_URL}/api/collector/boxes/${box.id}/history-track?${query}`)
-    if (!response.ok) throw new Error((await response.text()) || `HTTP ${response.status}`)
-    historyData.value = await response.json() as HistoryTrackResponse
+    const response = await fetch(`${COLLECTOR_API_BASE_URL}/api/collector/boxes/${box.id}/history-track?${query}`, { signal: abort.signal })
+    if (!response.ok) throw new Error(`请求失败（${response.status}）`)
+    const result = await response.json() as HistoryTrackResponse
+    if (!Array.isArray(result.track) || !Array.isArray(result.pointVisits) || !result.summary) throw new Error('历史数据格式不正确')
+    if (version !== historyRequestVersion || !historyVisible.value) return
+    historyData.value = result
+    historyLoading.value = false
     await nextTick()
-    await renderHistoryTrack()
+    if (version === historyRequestVersion && historyVisible.value) await renderHistoryTrack()
   } catch (error) {
+    if (version !== historyRequestVersion) return
     historyData.value = undefined
-    Message.error(`历史轨迹加载失败：${error instanceof Error ? error.message : '网络异常'}`)
-  } finally { historyLoading.value = false }
+    historyError.value = abort.signal.aborted ? '请求超时，请重试' : error instanceof Error ? error.message : '网络异常，请重试'
+  } finally {
+    window.clearTimeout(timeout)
+    if (version === historyRequestVersion) historyLoading.value = false
+  }
 }
 async function renderHistoryTrack() {
   if (!historyMapRef.value || !historyData.value) return
   const historyAmap = amap || await loadAmapJsApi()
+  if (!historyVisible.value || !historyMapRef.value || !historyData.value) return
   if (!historyMap) historyMap = new historyAmap.Map(historyMapRef.value, { zoom: 13, center: [114.1, 36.04], viewMode: '2D', mapStyle: `amap://styles/${mapTheme.value}`, resizeEnable: true })
   clearHistoryOverlays()
   const points = historyData.value.track.filter((point) => Number.isFinite(Number(point.longitude)) && Number.isFinite(Number(point.latitude)))
@@ -1314,15 +1435,13 @@ async function reverseGeocode(lng: number, lat: number): Promise<string | undefi
   } catch { return undefined }
 }
 function clearVehicleOverlays() {
-  vehicleInfoWindow?.close(); vehicleInfoWindow = undefined; activeVehicleInfoKey = ''
-  activeVehicleInfoToggle = undefined
   selectedVehicleMarker = undefined; resetSelectedVehicleMarker = undefined
   vehicleMarkers.forEach((marker) => marker.setMap(null)); vehicleMarkers = []
   tricycleCluster?.setMap(null); tricycleCluster = undefined
 }
-function vehicleMarkerContent(vehicle: VehicleRuntime) {
+function vehicleMarkerContent(vehicle: VehicleRuntime, selected = false) {
   const type = vehicleTypeOf(vehicle)
-  return `<div class="vehicle-map-marker ${vehicleTypeClass(type || '小三轮')} ${vehicleStatus(vehicle)}"><i></i><span>${escapeHtml(vehicle.plateNumber || String(vehicle.id))}</span></div>`
+  return `<div class="vehicle-map-marker ${vehicleTypeClass(type || '小三轮')} ${vehicleStatus(vehicle)}${selected ? ' selected' : ''}"><i></i><span>${escapeHtml(vehicle.plateNumber || String(vehicle.id))}</span></div>`
 }
 function tricycleMarkerContent(vehicle: VehicleRuntime, selected = false) {
   return `<div class="vehicle-map-marker tricycle compact ${vehicleStatus(vehicle)}${selected ? ' selected' : ''}"><i></i><svg width="22" height="22" viewBox="0 0 40 32" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="25" r="2.7"/><circle cx="26" cy="25" r="2.7"/><circle cx="33" cy="25" r="2.7"/><path d="M7 22h27M4 22l2-11q.5-3 4-3h7l2 14M9 9l5 13M17 10h18l-2 12H18zM18 8h17l1 2H17zM20 14h12M4 15h5"/></svg></div>`
@@ -1356,75 +1475,82 @@ function vehicleTasks(vehicle: VehicleRuntime) {
   }).sort((a, b) => taskTimestamp(b) - taskTimestamp(a))
 }
 function vehicleDriverName(vehicle: VehicleRuntime, info?: VehicleBasicInfo) {
-  const data = info?.data as { content?: Array<{ plateNum?: string, driverName?: string }> } | undefined
+  const data = info?.data as { content?: Array<{ vehicleId?: number, plateNum?: string, driverName?: string }> } | undefined
   const plate = vehicle.plateNumber.trim().toUpperCase()
-  const record = data?.content?.find((item) => item.plateNum?.trim().toUpperCase() === plate)
-  return record?.driverName?.trim() || ''
-}
-function vehicleInfoContent(vehicle: VehicleRuntime, location: string, info?: VehicleBasicInfo, tasksExpanded = false) {
-  const type = vehicleTypeOf(vehicle) || '未分类'
-  const status = vehicleStatus(vehicle)
-  const tasks = type === '小勾臂车' ? vehicleTasks(vehicle) : []
-  const driver = vehicleDriverName(vehicle, info)
-  const taskRows = tasks.length ? tasks.map((task) => {
-    const createdAt = transportTaskValue(task, 'createTime')
-    const time = createdAt === '-' ? '-' : beijingDateTime(parseBeijingDateTime(createdAt)).slice(11, 16)
-    const boxNo = transportTaskValue(task, 'boxNo', 'containerNo')
-    const origin = transportTaskValue(task, 'originCollectionPointName', 'originTransferStationName', 'originPointName', 'startPointName', 'startAddress', 'originName', 'sourceName')
-    const destination = transportTaskValue(task, 'destinationPlantName', 'destinationTransferStationName', 'destinationPointName', 'destinationName', 'endPointName', 'destination', 'targetName')
-    const taskStatusText = transportTaskStatusText(task)
-    const statusTone = taskStatusText === '已完成' ? 'done' : taskStatusText === '已取消' ? 'muted' : 'active'
-    return `<div class="vehicle-task"><div class="vehicle-task-head"><time title="${escapeHtml(createdAt)}">${escapeHtml(time)}</time><span>箱 ${escapeHtml(boxNo)}</span><span class="vehicle-task-status ${statusTone}">${escapeHtml(taskStatusText)}</span></div><p class="vehicle-task-route" title="${escapeHtml(origin)} → ${escapeHtml(destination)}"><span>${escapeHtml(origin)}</span><i>→</i><span>${escapeHtml(destination)}</span></p></div>`
-  }).join('') : '<span>今日暂无运单</span>'
-  const driverRow = driver ? `<div class="vehicle-location"><em>驾驶员</em><span>${escapeHtml(driver)}</span></div>` : ''
-  const tasksSection = type === '小勾臂车' ? `<details class="vehicle-tasks"${tasksExpanded ? ' open' : ''}><summary>今日运单（${tasks.length}）</summary><div class="vehicle-task-list">${taskRows}</div></details>` : ''
-  return `<div class="vehicle-map-info"><div class="vehicle-info-heading"><b>${escapeHtml(vehicle.plateNumber || String(vehicle.id))}</b><span class="vehicle-status ${status}">${vehicleStatusText(vehicle)}</span></div><span class="vehicle-type">${escapeHtml(type)}</span><div class="vehicle-location"><em>位置</em><span>${escapeHtml(location)}</span></div>${driverRow}${tasksSection}</div>`
-}
-function openVehicleInfo(vehicle: VehicleRuntime) {
-  if (!map || !amap) return
-  const point = vehiclePoint(vehicle)
-  const infoKey = vehicleInfoKey(vehicle)
-  const cached = vehicleAddressCache.get(vehicle.id)
-  const location = cached?.coordinate === vehicleCoordinateKey(vehicle) ? cached.address : '位置解析中…'
-  activeVehicleInfoKey = infoKey
-  vehicleInfoWindow?.close()
-  let currentLocation = location
-  let basicInfo: VehicleBasicInfo | undefined
-  let tasksExpanded = false
-  const render = (expanded?: boolean) => {
-    if (!map || !amap || activeVehicleInfoKey !== infoKey) return
-    if (expanded !== undefined) {
-      if (expanded === tasksExpanded) return
-      tasksExpanded = expanded
-    }
-    vehicleInfoWindow?.setContent(vehicleInfoContent(vehicle, currentLocation, basicInfo, tasksExpanded))
-    if (expanded !== undefined) {
-      vehicleInfoWindow?.close()
-      vehicleInfoWindow?.open(map, [point.lng, point.lat])
-    }
+  const record = data?.content?.find((item) => item.plateNum?.trim().toUpperCase() === plate || item.vehicleId === vehicle.id)
+  if (record?.driverName?.trim()) return record.driverName.trim()
+  // 今日运单按时间倒序排列，档案缺失时使用最近一单的驾驶员。
+  for (const task of vehicleTasks(vehicle)) {
+    const name = transportTaskValue(task, 'driverName', 'driverRealName', 'driver').trim()
+    if (name && name !== '-') return name
   }
-  activeVehicleInfoToggle = render
-  vehicleInfoWindow = new amap.InfoWindow({ content: vehicleInfoContent(vehicle, location), offset: new amap.Pixel(0, -26), autoMove: true })
-  vehicleInfoWindow.open(map, [point.lng, point.lat])
+  return ''
+}
+const selectedVehicleId = ref<number>()
+const selectedVehicle = computed(() => visibleVehicles.value.find(vehicle => vehicle.id === selectedVehicleId.value))
+const selectedVehicleLocation = ref('')
+const selectedVehicleBasicInfo = shallowRef<VehicleBasicInfo>()
+const vehicleDriverState = ref<'loading' | 'ready' | 'error'>('ready')
+const selectedVehicleDriver = computed(() => selectedVehicle.value ? vehicleDriverName(selectedVehicle.value, selectedVehicleBasicInfo.value) : '')
+const selectedVehicleTasks = computed(() => selectedVehicle.value ? vehicleTasks(selectedVehicle.value) : [])
+const vehicleTasksExpanded = ref(false)
+function vehicleTaskOrigin(task: TransportTask) {
+  return transportTaskValue(task, 'originCollectionPointName', 'originTransferStationName', 'originPointName', 'startPointName', 'startAddress', 'originName', 'sourceName')
+}
+function vehicleTaskDestination(task: TransportTask) {
+  return transportTaskValue(task, 'destinationPlantName', 'destinationTransferStationName', 'destinationPointName', 'destinationName', 'endPointName', 'destination', 'targetName')
+}
+function closeVehicleInfo() {
+  selectedVehicleId.value = undefined
+  activeVehicleInfoKey = ''
+  selectedVehicleBasicInfo.value = undefined
+  vehicleDriverState.value = 'ready'
+  resetSelectedVehicleMarker?.()
+  selectedVehicleMarker = undefined
+  resetSelectedVehicleMarker = undefined
+}
+function loadSelectedVehicleDetails(vehicle: VehicleRuntime) {
+  const infoKey = vehicleInfoKey(vehicle)
+  activeVehicleInfoKey = infoKey
+  const cached = vehicleAddressCache.get(vehicle.id)
+  selectedVehicleLocation.value = cached?.coordinate === vehicleCoordinateKey(vehicle) ? cached.address : '位置解析中…'
+  vehicleDriverState.value = 'loading'
   void collectorVehicleBasicInfoRequest<VehicleBasicInfo>(vehicle.plateNumber).then((response) => {
-    basicInfo = response
-    render()
-  }).catch(() => { /* 未获取到驾驶员时不显示该字段。 */ })
-  if (location !== '位置解析中…') return
+    if (activeVehicleInfoKey !== infoKey) return
+    selectedVehicleBasicInfo.value = response
+    vehicleDriverState.value = 'ready'
+  }).catch(() => {
+    if (activeVehicleInfoKey === infoKey) vehicleDriverState.value = 'error'
+  })
+  if (selectedVehicleLocation.value !== '位置解析中…') return
+  const point = vehiclePoint(vehicle)
   void reverseGeocode(point.lng, point.lat).then((address) => {
-    currentLocation = address || '位置暂未获取'
-    vehicleAddressCache.set(vehicle.id, { coordinate: vehicleCoordinateKey(vehicle), address: currentLocation })
-    render()
+    const location = address || '位置暂未获取'
+    vehicleAddressCache.set(vehicle.id, { coordinate: vehicleCoordinateKey(vehicle), address: location })
+    if (activeVehicleInfoKey === infoKey) selectedVehicleLocation.value = location
   })
 }
-function repositionVehicleInfoOnTaskToggle(event: Event) {
-  const details = event.target
-  if (details instanceof HTMLDetailsElement && document.contains(details)
-    && details.matches('.vehicle-map-info .vehicle-tasks')) activeVehicleInfoToggle?.(details.open)
+function openVehicleInfo(vehicle: VehicleRuntime) {
+  if (historyVisible.value) closeHistoryTrack()
+  if (selectedBox.value) {
+    selectedBox.value = undefined
+    drawMarkers(false)
+  }
+  const changed = selectedVehicleId.value !== vehicle.id
+  selectedVehicleId.value = vehicle.id
+  if (changed) {
+    selectedVehicleBasicInfo.value = undefined
+    vehicleTasksExpanded.value = false
+  }
+  if (changed || activeVehicleInfoKey !== vehicleInfoKey(vehicle) || vehicleDriverState.value === 'error') loadSelectedVehicleDetails(vehicle)
+  // 与箱体详情一致，将当前车辆放到地图中心，避免右侧面板遮挡。
+  const point = vehiclePoint(vehicle)
+  map?.setZoomAndCenter(Math.max(map.getZoom(), 16), [point.lng, point.lat])
 }
-function stopVehicleTaskMapWheel(event: WheelEvent) {
-  if (event.target instanceof Element && event.target.closest('.vehicle-task-list')) event.stopPropagation()
-}
+watch(selectedVehicle, (vehicle) => {
+  if (!vehicle) { closeVehicleInfo(); return }
+  if (activeVehicleInfoKey !== vehicleInfoKey(vehicle)) loadSelectedVehicleDetails(vehicle)
+})
 function drawVehicleMarkers() {
   if (!map || !amap || !amap.MarkerCluster) return
   clearVehicleOverlays()
@@ -1441,11 +1567,11 @@ function drawVehicleMarkers() {
       zIndex: 300 + index,
     })
     marker.on('click', () => {
-      const content = vehicleMarkerContent(vehicle)
-      focusVehicleMarker(marker, content, content, 300 + index)
+      focusVehicleMarker(marker, vehicleMarkerContent(vehicle), vehicleMarkerContent(vehicle, true), 300 + index)
       openVehicleInfo(vehicle)
     })
     marker.setMap(map!)
+    if (selectedVehicleId.value === vehicle.id) focusVehicleMarker(marker, vehicleMarkerContent(vehicle), vehicleMarkerContent(vehicle, true), 300 + index)
     return marker
   })
   const tricyclePoints: TricycleClusterPoint[] = tricycles.map((vehicle) => {
@@ -1456,30 +1582,52 @@ function drawVehicleMarkers() {
     // 聚合插件会复用 Marker；每个 Marker 只绑定一次，并始终读取本轮车辆。
     const markerVehicles = new WeakMap<AMapMarker, VehicleRuntime | undefined>()
     const boundMarkers = new WeakSet<AMapMarker>()
+    const bindMarkerClick = (marker: AMapMarker) => {
+      if (boundMarkers.has(marker)) return
+      boundMarkers.add(marker)
+      marker.on('click', () => {
+        const vehicle = markerVehicles.get(marker)
+        if (vehicle) {
+          focusVehicleMarker(marker, tricycleMarkerContent(vehicle), tricycleMarkerContent(vehicle, true))
+          openVehicleInfo(vehicle)
+          return
+        }
+        // 数字聚合点：以当前标记的位置为中心，放大至停止聚合的级别。
+        const position = marker.getPosition()
+        map?.setZoomAndCenter(Math.max(map.getZoom(), 17), [position.getLng(), position.getLat()])
+      })
+    }
     tricycleCluster = new amap.MarkerCluster(map, tricyclePoints, {
       gridSize: 80,
       maxZoom: 16,
       averageCenter: true,
       renderClusterMarker: (context: { count: number, marker: AMapMarker }) => {
         markerVehicles.delete(context.marker)
+        if (selectedVehicleMarker === context.marker) {
+          selectedVehicleMarker = undefined
+          resetSelectedVehicleMarker = undefined
+        }
         context.marker.setOffset(new amap!.Pixel(-22, -22))
+        context.marker.setzIndex(300)
         context.marker.setContent(clusterMarkerContent(context.count))
+        bindMarkerClick(context.marker)
       },
       renderMarker: (context: { marker: AMapMarker, data?: TricycleClusterPoint | TricycleClusterPoint[] }) => {
+        // 聚合插件复用标记时，不能用旧车辆的回调恢复新标记内容。
+        if (selectedVehicleMarker === context.marker) {
+          selectedVehicleMarker = undefined
+          resetSelectedVehicleMarker = undefined
+        }
         const point = Array.isArray(context.data) ? context.data[0] : context.data
         markerVehicles.set(context.marker, point?.vehicle)
         context.marker.setOffset(new amap!.Pixel(-18, -18))
-        if (point?.vehicle) context.marker.setContent(tricycleMarkerContent(point.vehicle))
-        if (!boundMarkers.has(context.marker)) {
-          boundMarkers.add(context.marker)
-          context.marker.on('click', () => {
-            const vehicle = markerVehicles.get(context.marker)
-            if (vehicle) {
-              focusVehicleMarker(context.marker, tricycleMarkerContent(vehicle), tricycleMarkerContent(vehicle, true))
-              openVehicleInfo(vehicle)
-            }
-          })
+        if (point?.vehicle) {
+          const vehicle = point.vehicle
+          context.marker.setContent(tricycleMarkerContent(vehicle))
+          context.marker.setzIndex(300)
+          if (selectedVehicleId.value === vehicle.id) focusVehicleMarker(context.marker, tricycleMarkerContent(vehicle), tricycleMarkerContent(vehicle, true))
         }
+        bindMarkerClick(context.marker)
       },
     })
   }
@@ -1523,6 +1671,7 @@ function syncMarkerMode() {
 }
 
 function selectBox(box: Box) {
+  closeVehicleInfo()
   const requestVersion = ++residenceRequestVersion
   selectedBox.value = box
   currentResidence.value = undefined
@@ -1616,9 +1765,21 @@ async function focusMatchedTarget(event?: KeyboardEvent) {
       overflowOnly.value = false
       changed.push('满溢')
     }
+    if (highTemperatureOnly.value && !isHighTemperature(targetBox)) {
+      highTemperatureOnly.value = false
+      changed.push('高温')
+    }
+    if (offlineOnly.value && targetBox.onlineStatus !== 1) {
+      offlineOnly.value = false
+      changed.push('离线')
+    }
+    if (lowBatteryOnly.value && !isLowBattery(targetBox)) {
+      lowBatteryOnly.value = false
+      changed.push('低电量')
+    }
     if (transportingOnly.value && !hasTransportTask(targetBox)) {
       transportingOnly.value = false
-      changed.push('运输中')
+      changed.push('收运中')
     }
     // 等筛选 watcher 重绘完成后再定位，避免 fitView 覆盖目标的中心和缩放。
     await nextTick()
@@ -1639,14 +1800,8 @@ async function focusMatchedTarget(event?: KeyboardEvent) {
   drawMarkers(false)
   const point = vehiclePoint(targetVehicle)
   map?.setZoomAndCenter(Math.max(map.getZoom(), 16), [point.lng, point.lat])
-  const index = visibleVehicles.value.filter((vehicle) => vehicleTypeOf(vehicle) !== '小三轮')
-    .findIndex((vehicle) => vehicle.id === targetVehicle.id)
-  const marker = vehicleMarkers[index]
-  if (marker) {
-    const content = vehicleMarkerContent(targetVehicle)
-    focusVehicleMarker(marker, content, content, 300 + index)
-  }
   openVehicleInfo(targetVehicle)
+  drawVehicleMarkers()
 }
 function statusText(box: Box) { return box.overflowStatus === 1 ? '满溢' : box.fillLevel >= 70 ? '接近满溢' : '正常' }
 function statusColor(box: Box) { return box.overflowStatus === 1 ? 'red' : box.fillLevel >= 70 ? 'orange' : 'green' }
@@ -1675,7 +1830,7 @@ function importBoxes() {
 }
 
 watch(keyword, () => drawMarkers(false))
-watch([overflowOnly, transportingOnly, townshipFilter, villageFilter], drawMarkers)
+watch([overflowOnly, highTemperatureOnly, offlineOnly, lowBatteryOnly, transportingOnly, townshipFilter, villageFilter], drawMarkers)
 // 刷新箱体列表时仅重绘标记，保留用户当前的中心点和缩放比例。
 watch(boxes, () => drawMarkers(false))
 watch([vehicles, enabledVehicleTypes, vehicleTypeById], () => drawVehicleMarkers(), { deep: true })
@@ -1774,8 +1929,6 @@ function setupVehicleRefreshTimer() {
   vehicleRefreshTimer = window.setInterval(() => { void loadVehicles(true) }, vehicleRefreshMinutes.value * 60_000)
 }
 onMounted(async () => {
-  document.addEventListener('toggle', repositionVehicleInfoOnTaskToggle, true)
-  document.addEventListener('wheel', stopVehicleTaskMapWheel, { capture: true, passive: true })
   // 先读共享缓存（其它页面已更新的数据），再静默刷新云端
   const cachedBoxes = getCachedBoxes<Box>()
   const cachedPoints = getCachedPoints<CollectionPoint>()
@@ -1819,7 +1972,7 @@ onMounted(async () => {
   // 仅更新已加载驻留时间的显示，不会请求后端。
   residenceClockTimer = window.setInterval(() => { residenceNow.value = Date.now() }, 60 * 1000)
 })
-onBeforeUnmount(() => { document.removeEventListener('toggle', repositionVehicleInfoOnTaskToggle, true); document.removeEventListener('wheel', stopVehicleTaskMapWheel, true); stopAiResize(); offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window.clearInterval(boxRefreshTimer); if (vehicleRefreshTimer) window.clearInterval(vehicleRefreshTimer); if (residenceClockTimer) window.clearInterval(residenceClockTimer); clearBoxOverlays(); clearVehicleOverlays(); map?.destroy(); destroyHistoryMap() })
+onBeforeUnmount(() => { stopAiResize(); offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window.clearInterval(boxRefreshTimer); if (vehicleRefreshTimer) window.clearInterval(vehicleRefreshTimer); if (residenceClockTimer) window.clearInterval(residenceClockTimer); closeVehicleInfo(); clearBoxOverlays(); clearVehicleOverlays(); map?.destroy(); closeHistoryTrack() })
 </script>
 
 <style scoped lang="scss">
@@ -1869,7 +2022,7 @@ onBeforeUnmount(() => { document.removeEventListener('toggle', repositionVehicle
 .map-stat b { display: block; color: rgb(var(--primary-6)); font-size: 20px; line-height: 25px; }.map-stat.danger b { color: rgb(var(--danger-6)); }.map-stat.warning b { color: rgb(var(--warning-6)); }
 .vehicle-legend { position: absolute; z-index: 1; bottom: 16px; left: 50%; display: flex; align-items: center; max-width: calc(100% - 48px); padding: 8px 12px; overflow-x: auto; border-radius: 6px; background: var(--color-bg-2); box-shadow: 0 3px 10px rgb(0 0 0 / 10%); transform: translateX(-50%); }.vehicle-legend :deep(.arco-checkbox-group) { display: flex; flex: 0 0 auto; gap: 12px; }.vehicle-legend :deep(.arco-checkbox) { margin: 0; color: var(--color-text-2); font-size: 12px; white-space: nowrap; }.vehicle-legend-dot { width: 8px; height: 8px; display: inline-block; margin-right: 5px; border-radius: 50%; background: #165dff; }.vehicle-legend-dot.large { background: #722ed1; }.vehicle-legend-dot.tricycle { background: #00b42a; }
 .map-error { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; gap: 8px; color: rgb(var(--danger-6)); background: var(--color-bg-1); }
-.detail-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }.box-no, .section-label { color: var(--color-text-3); font-size: 12px; }.history-track-btn { margin-left: auto; }.report-time { flex-basis: 100%; overflow: hidden; color: var(--color-text-3); font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }
+.detail-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 14px; }.box-no, .section-label { color: var(--color-text-3); font-size: 12px; }.box-detail-actions { display: flex; gap: 4px; margin-left: auto; }.create-task-action { min-width: 30px; box-shadow: 0 2px 6px rgba(255, 125, 0, .28); } .create-task-action :deep(svg) { font-size: 18px; } .report-time { flex-basis: 100%; overflow: hidden; color: var(--color-text-3); font-size: 12px; white-space: nowrap; text-overflow: ellipsis; }
 .detail-card :deep(.arco-card-header) { align-items: center; }.detail-close-btn { color: var(--color-text-3); }.detail-close-btn:hover { color: var(--color-text-1); }
 .fill-summary { padding: 12px; border-radius: 6px; background: var(--color-fill-2); }.fill-summary > span { color: var(--color-text-2); font-size: 13px; }.fill-summary strong { display: block; margin: 2px 0 9px; color: rgb(var(--primary-6)); font-size: 28px; line-height: 34px; }.fill-summary.warning strong { color: rgb(var(--warning-6)); }.fill-summary.overflow strong { color: rgb(var(--danger-6)); }.fill-track { height: 6px; overflow: hidden; border-radius: 3px; background: var(--color-border-2); }.fill-track i { display: block; height: 100%; border-radius: inherit; background: #165dff; }.fill-summary.warning .fill-track i { background: #ff7d00; }.fill-summary.overflow .fill-track i { background: #f53f3f; }.overflow-duration-summary { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-top: 10px; padding-top: 9px; border-top: 1px solid rgb(245 63 63 / 20%); }.overflow-duration-summary span { color: var(--color-text-2); font-size: 13px; }.overflow-duration-summary b { color: rgb(var(--danger-6)); font-size: 13px; line-height: 20px; }
 .location-summary { display: grid; gap: 5px; padding: 16px 0 12px; }.location-summary b { color: var(--color-text-1); font-size: 14px; }.matched-point { color: var(--color-text-2); font-size: 13px; }.vehicle-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 0 0 16px; }.vehicle-summary .section-label { flex-basis: 100%; }.transport-task-summary { margin-bottom: 16px; padding: 10px; border: 1px solid var(--color-primary-light-3); border-radius: 6px; background: var(--color-primary-light-1); }.transport-task-title { display: flex; align-items: center; gap: 6px; margin-bottom: 9px; color: rgb(var(--primary-6)); font-size: 13px; font-weight: 600; }.transport-task-icon { width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; border-radius: 50%; background: #165dff; color: #fff; font-size: 11px; }.transport-task-grid { display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 6px 8px; font-size: 12px; }.transport-task-grid span { color: var(--color-text-3); }.transport-task-grid b { overflow: hidden; color: var(--color-text-2); font-weight: 500; white-space: nowrap; text-overflow: ellipsis; }.more-details { border-top: 1px solid var(--color-fill-2); }.more-details summary { padding: 12px 0; color: var(--color-text-2); font-size: 13px; cursor: pointer; }.detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 12px; }.detail-grid-item { display: grid; gap: 3px; min-width: 0; }.detail-grid-item.full { grid-column: 1 / -1; }.detail-grid-item span { color: var(--color-text-3); font-size: 12px; white-space: nowrap; }.detail-grid-item b { overflow: hidden; color: var(--color-text-2); font-size: 13px; font-weight: 500; white-space: nowrap; text-overflow: ellipsis; }.coordinate-block { display: grid; gap: 5px; margin: 12px 0; }.coordinate-block span { color: var(--color-text-3); font-size: 12px; }.coordinate-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }.coordinate-title :deep(.arco-btn) { flex-shrink: 0; }.coordinate-block code { margin-bottom: 4px; padding: 6px; overflow-wrap: anywhere; border-radius: 3px; background: var(--color-fill-1); color: var(--color-text-2); font-size: 11px; }.matched-block { display: grid; gap: 6px; padding-top: 4px; }.matched-item { display: grid; gap: 2px; padding: 8px 0; border-bottom: 1px solid var(--color-fill-2); }.matched-item b { color: var(--color-text-2); font-size: 13px; }.matched-item span { color: var(--color-text-3); font-size: 11px; }
@@ -1900,11 +2053,9 @@ onBeforeUnmount(() => { document.removeEventListener('toggle', repositionVehicle
 .box-map-page :deep(.box-map-marker) { position: relative; min-width: 36px; height: 26px; padding: 0 8px; display: flex; align-items: center; justify-content: center; border: 1px solid #fff; border-radius: 4px; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 12px; font-weight: 600; }
 .box-map-page :deep(.box-marker-new-badge) { position: absolute; top: -9px; right: -9px; z-index: 3; min-width: 18px; height: 18px; padding: 0 3px; display: flex; align-items: center; justify-content: center; box-sizing: border-box; border: 2px solid #fff; border-radius: 9px; background: #b7eb8f; box-shadow: 0 1px 4px rgb(29 33 41 / 20%); color: #237804; font-size: 10px; font-weight: 700; line-height: 1; }
 .box-map-page :deep(.box-map-marker::after) { content: ''; position: absolute; bottom: -6px; left: 50%; width: 10px; height: 10px; border-right: 1px solid #fff; border-bottom: 1px solid #fff; background: inherit; transform: translateX(-50%) rotate(45deg); }.box-map-page :deep(.box-map-marker.transporting::before) { content: '运'; position: absolute; top: -9px; left: -9px; width: 18px; height: 18px; display: flex; align-items: center; justify-content: center; border: 2px solid #fff; border-radius: 50%; background: #165dff; box-shadow: 0 1px 4px rgb(29 33 41 / 25%); color: #fff; font-size: 10px; font-weight: 700; }.box-map-page :deep(.box-map-marker.warning) { background: #ff7d00; }.box-map-page :deep(.box-map-marker.overflow) { background: #f53f3f; }.box-map-page :deep(.box-map-marker.matched) { box-shadow: 0 0 0 3px #00b42a, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.1); z-index: 1; }.box-map-page :deep(.box-map-marker.selected) { border: 2px solid #fff; box-shadow: 0 0 0 3px #165dff, 0 2px 6px rgb(29 33 41 / 28%); transform: scale(1.15); opacity: 1; z-index: 2; }
-:global(.vehicle-map-marker) { display: flex; align-items: center; gap: 4px; min-height: 22px; padding: 2px 6px; border: 1px solid #fff; border-radius: 11px; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; }.box-map-page :global(.vehicle-map-marker i) { width: 8px; height: 8px; display: block; border: 1px solid rgb(255 255 255 / 80%); border-radius: 2px; background: currentcolor; transform: skewX(-20deg); }.box-map-page :global(.vehicle-map-marker.large) { background: #722ed1; }.box-map-page :global(.vehicle-map-marker.tricycle) { background: #00b42a; }.box-map-page :global(.vehicle-map-marker.compact) { box-sizing: border-box; width: 28px; height: 28px; min-height: 28px; justify-content: center; padding: 2px; border: 2px solid #fff; border-radius: 50%; cursor: pointer; transition: width .15s ease, height .15s ease, box-shadow .15s ease; }.box-map-page :global(.vehicle-map-marker.compact.selected) { width: 36px; height: 36px; min-height: 36px; box-shadow: 0 0 0 3px rgb(0 180 42 / 28%), 0 3px 8px rgb(0 180 42 / 42%); }.box-map-page :global(.vehicle-map-marker.compact svg) { flex: none; }.box-map-page :global(.vehicle-map-marker.compact.selected svg) { width: 28px; height: 28px; }.box-map-page :global(.vehicle-cluster-marker) { display: flex; align-items: center; justify-content: center; min-width: 32px; height: 32px; padding: 0 6px; border: 2px solid #fff; border-radius: 50%; background: #00b42a; box-shadow: 0 2px 8px rgb(0 180 42 / 36%); color: #fff; font-size: 12px; font-weight: 700; }.box-map-page :global(.vehicle-map-info) { display: grid; gap: 5px; min-width: 220px; padding: 2px; color: var(--color-text-2); font-size: 12px; }.box-map-page :global(.vehicle-map-info b) { color: var(--color-text-1); font-size: 14px; }.box-map-page :global(.vehicle-status) { width: fit-content; padding: 1px 6px; border-radius: 3px; font-size: 11px; line-height: 18px; }.box-map-page :global(.vehicle-status.online) { background: var(--color-success-light-1); color: rgb(var(--success-6)); }.box-map-page :global(.vehicle-status.offline) { background: var(--color-fill-2); color: var(--color-text-3); }.box-map-page :global(.vehicle-status.charging) { background: var(--color-warning-light-1); color: rgb(var(--warning-6)); }.box-map-page :global(.vehicle-location) { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 4px; color: var(--color-text-3); font-size: 11px; line-height: 17px; }.box-map-page :global(.vehicle-location em) { color: var(--color-text-2); font-style: normal; }.box-map-page :global(.vehicle-location span) { overflow-wrap: anywhere; }.box-map-page :global(.vehicle-tasks) { display: grid; gap: 5px; max-height: 220px; overflow-y: auto; border-top: 1px solid var(--color-border-2); padding-top: 7px; }.box-map-page :global(.vehicle-task) { display: grid; grid-template-columns: 1fr auto; gap: 2px 8px; padding: 5px 0; border-top: 1px solid var(--color-fill-2); }.box-map-page :global(.vehicle-task b) { font-size: 11px; }.box-map-page :global(.vehicle-task small) { grid-column: 1 / -1; color: var(--color-text-3); }
-.history-overlay { position: absolute; inset: 16px; z-index: 10; display: flex; min-height: 0; flex-direction: column; padding: 16px; overflow: hidden; background: var(--color-bg-1); box-shadow: 0 12px 36px rgb(29 33 41 / 28%); }.history-overlay-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; padding-bottom: 12px; }.history-title { display: flex; align-items: baseline; gap: 8px; }.history-title h2 { margin: 0; color: var(--color-text-1); font-size: 24px; line-height: 32px; }.history-title span { color: var(--color-text-3); font-size: 12px; }.history-close-btn { color: var(--color-text-3); }.history-close-btn:hover { color: var(--color-text-1); background: var(--color-border-2); }
-.history-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-shrink: 0; padding: 0 0 12px; }.history-summary { color: var(--color-text-2); font-size: 13px; }
-.history-layout { display: grid; flex: 1; min-height: 0; grid-template-columns: minmax(0, 1fr) 290px; border: 1px solid var(--color-border-2); }.history-map-wrap { position: relative; min-width: 0; }.history-map { width: 100%; height: 100%; }.history-loading { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 50; }
-.history-visits { overflow-y: auto; border-left: 1px solid var(--color-border-2); background: var(--color-bg-2); }.history-visits-title { padding: 14px; color: var(--color-text-1); font-weight: 600; border-bottom: 1px solid var(--color-fill-2); }.history-visit { display: flex; width: 100%; gap: 10px; padding: 12px 14px; text-align: left; cursor: pointer; background: transparent; border: 0; border-bottom: 1px solid var(--color-fill-2); }.history-visit:hover { background: var(--color-primary-light-1); }.history-visit > b { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 22px; height: 22px; color: #fff; font-size: 12px; border-radius: 50%; background: #165dff; }.history-visit span { display: grid; min-width: 0; gap: 3px; }.history-visit strong { overflow: hidden; color: var(--color-text-1); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }.history-visit em, .history-visit small { color: var(--color-text-3); font-size: 11px; font-style: normal; }.history-empty { padding: 12px 0 0; color: var(--color-text-3); text-align: center; font-size: 13px; }
+:global(.vehicle-map-marker) { display: flex; align-items: center; gap: 4px; min-height: 22px; padding: 2px 6px; border: 1px solid #fff; border-radius: 11px; background: #165dff; box-shadow: 0 2px 6px rgb(29 33 41 / 28%); color: #fff; font-size: 11px; font-weight: 600; white-space: nowrap; }.box-map-page :global(.vehicle-map-marker i) { width: 8px; height: 8px; display: block; border: 1px solid rgb(255 255 255 / 80%); border-radius: 2px; background: currentcolor; transform: skewX(-20deg); }.box-map-page :global(.vehicle-map-marker.large) { background: #722ed1; }.box-map-page :global(.vehicle-map-marker.tricycle) { background: #00b42a; }.box-map-page :global(.vehicle-map-marker.compact) { box-sizing: border-box; width: 28px; height: 28px; min-height: 28px; justify-content: center; padding: 2px; border: 2px solid #fff; border-radius: 50%; cursor: pointer; transition: width .15s ease, height .15s ease, box-shadow .15s ease; }.box-map-page :global(.vehicle-map-marker.compact.selected) { width: 36px; height: 36px; min-height: 36px; box-shadow: 0 0 0 3px rgb(0 180 42 / 28%), 0 3px 8px rgb(0 180 42 / 42%); }.box-map-page :global(.vehicle-map-marker.compact svg) { flex: none; }.box-map-page :global(.vehicle-map-marker.compact.selected svg) { width: 28px; height: 28px; }.box-map-page :global(.vehicle-cluster-marker) { display: flex; align-items: center; justify-content: center; min-width: 32px; height: 32px; padding: 0 6px; border: 2px solid #fff; border-radius: 50%; background: #00b42a; box-shadow: 0 2px 8px rgb(0 180 42 / 36%); color: #fff; font-size: 12px; font-weight: 700; }
+.history-overlay { position: absolute; inset: 16px; z-index: 10; display: flex; min-height: 0; flex-direction: column; padding: 16px; overflow: hidden; background: var(--color-bg-1); box-shadow: 0 12px 36px rgb(29 33 41 / 28%); }.history-layout { display: grid; flex: 1; min-height: 0; grid-template-columns: minmax(0, 1fr) 290px; border: 1px solid var(--color-border-2); }.history-map-wrap { position: relative; min-width: 0; }.history-map { width: 100%; height: 100%; }
+.history-visits { overflow-y: auto; border-left: 1px solid var(--color-border-2); background: var(--color-bg-2); }.history-visits-title { padding: 14px; color: var(--color-text-1); font-weight: 600; border-bottom: 1px solid var(--color-fill-2); }.history-visit { display: flex; width: 100%; gap: 10px; padding: 12px 14px; text-align: left; cursor: pointer; background: transparent; border: 0; border-bottom: 1px solid var(--color-fill-2); }.history-visit:hover { background: var(--color-primary-light-1); }.history-visit > b { display: inline-flex; flex: 0 0 auto; align-items: center; justify-content: center; width: 22px; height: 22px; color: #fff; font-size: 12px; border-radius: 50%; background: #165dff; }.history-visit span { display: grid; min-width: 0; gap: 3px; }.history-visit strong { overflow: hidden; color: var(--color-text-1); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }.history-visit em, .history-visit small { color: var(--color-text-3); font-size: 11px; font-style: normal; }
 :global(.history-track-pin) { display: flex; align-items: center; justify-content: center; width: 30px; height: 30px; color: #fff; font-size: 13px; font-weight: 700; border: 3px solid #fff; border-radius: 50%; box-shadow: 0 2px 8px rgb(0 0 0 / 36%), 0 0 0 1px rgb(22 93 255 / 35%); }.history-track-pin.start { background: #00b42a; }.history-track-pin.end { background: #f53f3f; }.history-track-pin.visit { background: #165dff; }
 :global(.history-track-pin.start) { background: #00b42a; }:global(.history-track-pin.end) { background: #f53f3f; }:global(.history-track-pin.visit) { background: #165dff; }
 @media (max-width: 960px) { .detail-card { top: auto; right: 10px; bottom: 10px; left: 10px; width: auto; max-height: 58%; }.page-header { align-items: flex-start; gap: 12px; flex-direction: column; } }
@@ -1953,45 +2104,34 @@ onBeforeUnmount(() => { document.removeEventListener('toggle', repositionVehicle
   .ai-assistant { bottom: max(6px, env(safe-area-inset-bottom)); width: calc(100vw - 20px); max-width: calc(100vw - 20px); height: min(78dvh, 600px); border-radius: 10px; }
 }
 @media (max-width: 480px) { .ai-shortcuts { padding-right: 10px; padding-left: 10px; } }
-@media (max-width: 720px) { .history-overlay { inset: 10px; padding: 12px; }.history-layout { grid-template-columns: 1fr; grid-template-rows: minmax(300px, 1fr) 190px; }.history-visits { border-top: 1px solid var(--color-border-2); border-left: 0; }.history-toolbar { align-items: flex-start; flex-direction: column; } }
+@media (max-width: 720px) { .history-overlay { inset: 10px; padding: 12px; }.history-layout { grid-template-columns: 1fr; grid-template-rows: minmax(300px, 1fr) 190px; }.history-visits { border-top: 1px solid var(--color-border-2); border-left: 0; } }
 .ai-message-footer { display: flex; align-items: flex-start; flex-direction: column; gap: 3px; }.ai-message-actions { display: flex; align-items: center; gap: 4px; }
-.box-map-page :global(.vehicle-tasks) { display: block; max-height: none; overflow: visible; }
-.box-map-page :global(.vehicle-tasks summary) { cursor: pointer; color: var(--color-text-1); font-weight: 600; }
-.box-map-page :global(.vehicle-task-list) { max-height: 280px; overflow-y: auto; padding-top: 5px; }
-.box-map-page :global(.vehicle-task) { display: grid; grid-template-columns: 1fr; gap: 3px; min-width: 260px; padding: 7px 0; }
-.box-map-page :global(.vehicle-task div) { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 5px; }
-.box-map-page :global(.vehicle-task em) { color: var(--color-text-3); font-style: normal; }
-.box-map-page :global(.vehicle-task span) { overflow-wrap: anywhere; }
-.box-map-page :global(.vehicle-map-info) { min-width: 280px; max-width: 360px; gap: 4px; }
-.box-map-page :global(.vehicle-info-heading) { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-right: 20px; }
-.box-map-page :global(.vehicle-info-heading b) { white-space: nowrap; }
-.box-map-page :global(.vehicle-type) { color: var(--color-text-2); font-size: 11px; line-height: 16px; }
-.box-map-page :global(.vehicle-location) { grid-template-columns: 44px minmax(0, 1fr); }
-.box-map-page :global(.vehicle-location em) { white-space: nowrap; }
-.box-map-page :global(.vehicle-task-list) { overscroll-behavior: contain; touch-action: pan-y; }
-.box-map-page :global(.vehicle-task) { display: block; min-width: 0; padding: 7px 0; }
-.box-map-page :global(.vehicle-task-head) { display: flex; align-items: center; gap: 8px; white-space: nowrap; }
-.box-map-page :global(.vehicle-task-head time) { color: var(--color-text-2); font-weight: 600; }
-.box-map-page :global(.vehicle-task-head strong) { margin-left: auto; color: rgb(var(--primary-6)); font-weight: 600; }
-.box-map-page :global(.vehicle-task-route) { display: flex; align-items: center; gap: 5px; min-width: 0; margin-top: 3px; color: var(--color-text-3); }
-.box-map-page :global(.vehicle-task-route span) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.box-map-page :global(.vehicle-task-route em) { flex: none; }
+
 .box-map-page :global(.vehicle-map-marker i) { width: 9px; height: 9px; flex: none; border: 2px solid #fff; border-radius: 2px; box-shadow: 0 0 0 1px rgb(29 33 41 / 30%); transform: rotate(45deg); }
 .box-map-page :global(.vehicle-map-marker.online i) { background: #00b42a; }
 .box-map-page :global(.vehicle-map-marker.charging i) { background: #165dff; }
 .box-map-page :global(.vehicle-map-marker.offline i) { background: #86909c; }
 .box-map-page :global(.vehicle-map-marker.compact) { position: relative; }
 .box-map-page :global(.vehicle-map-marker.compact i) { position: absolute; top: -4px; right: -4px; }
-.box-map-page :global(.vehicle-task > .vehicle-task-head) { display: flex; grid-template-columns: none; align-items: center; padding-right: 24px; }
-.box-map-page :global(.vehicle-task > .vehicle-task-route) { display: grid; grid-template-columns: 1fr; gap: 2px; }
-.box-map-page :global(.vehicle-task-route p) { display: flex; align-items: flex-start; gap: 6px; min-width: 0; margin: 0; line-height: 17px; }
-.box-map-page :global(.vehicle-task-route p em) { flex: none; min-width: 24px; color: var(--color-text-3); font-style: normal; }
-.box-map-page :global(.vehicle-task-route p span) { flex: 1; min-width: 0; overflow: visible; overflow-wrap: anywhere; text-overflow: clip; white-space: normal; }
-.box-map-page :global(.vehicle-task-status) { flex: none; margin-left: auto; padding: 1px 7px; border-radius: 4px; font-size: 11px; font-weight: 600; line-height: 18px; }
-.box-map-page :global(.vehicle-task-status.done) { background: var(--color-success-light-1); color: rgb(var(--success-6)); }
-.box-map-page :global(.vehicle-task-status.active) { background: var(--color-primary-light-1); color: rgb(var(--primary-6)); }
-.box-map-page :global(.vehicle-task-status.muted) { background: var(--color-fill-2); color: var(--color-text-3); }
-.box-map-page :global(.vehicle-task > p.vehicle-task-route) { display: flex; align-items: center; gap: 5px; margin: 3px 0 0; overflow-x: auto; overflow-y: hidden; white-space: nowrap; line-height: 18px; scrollbar-width: thin; }
-.box-map-page :global(.vehicle-task > p.vehicle-task-route span) { flex: none; min-width: auto; overflow: visible; text-overflow: clip; white-space: nowrap; }
-.box-map-page :global(.vehicle-task > p.vehicle-task-route i) { flex: none; font-style: normal; }
+
+.vehicle-detail-card .detail-title { min-width: 0; flex: 1; flex-wrap: wrap; gap: 2px 8px; }
+.vehicle-detail-card .detail-title h2 { font-size: 24px; overflow-wrap: anywhere; }
+.vehicle-detail-card .detail-close-btn { flex-shrink: 0; }
+.vehicle-location-summary { padding-top: 0; }
+.vehicle-location-summary b { overflow-wrap: anywhere; line-height: 22px; }
+.vehicle-detail-grid { margin-bottom: 16px; }
+.vehicle-orders { margin-bottom: 12px; }
+.vehicle-order-list { display: grid; gap: 10px; overscroll-behavior: contain; }
+.vehicle-order { min-width: 0; padding: 10px; border: 1px solid var(--color-primary-light-3); border-radius: 6px; background: var(--color-primary-light-1); }
+.vehicle-order-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 6px; color: var(--color-text-1); font-size: 13px; }
+.vehicle-order-heading b { min-width: 0; overflow-wrap: anywhere; }
+.vehicle-order-heading :deep(.arco-tag) { flex-shrink: 0; }
+.vehicle-order-route { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 5px 8px; margin-top: 8px; font-size: 12px; line-height: 18px; }
+.vehicle-order-route span { color: var(--color-text-3); }
+.vehicle-order-route b { color: var(--color-text-2); font-weight: 500; overflow-wrap: anywhere; }
+.box-map-page :global(.vehicle-map-marker) { transform-origin: center bottom; transition: transform .15s ease, box-shadow .15s ease; }
+.box-map-page :global(.vehicle-map-marker.selected) { transform: scale(1.15); outline: 3px solid rgb(22 93 255 / 28%); box-shadow: 0 3px 10px rgb(29 33 41 / 35%); }
+
+.history-state { display: flex; flex: 1; min-height: 200px; align-items: center; justify-content: center; }
+.history-facts { display: flex; flex-wrap: wrap; gap: 8px 20px; padding-bottom: 12px; color: var(--color-text-3); font-size: 12px; }.history-facts b { color: var(--color-text-1); }
 </style>

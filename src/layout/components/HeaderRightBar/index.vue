@@ -20,7 +20,7 @@
         :arrow-style="{ width: 0, height: 0 }"
       >
         <a-badge :count="displayUnreadCount" dot>
-          <a-button size="mini" class="gi_hover_btn" :class="{ 'alarm-blink': displayUnreadCount > 0 }">
+          <a-button size="mini" class="gi_hover_btn" :class="{ 'alarm-unread': displayUnreadCount > 0 }">
             <template #icon>
               <icon-notification :size="18" />
             </template>
@@ -140,17 +140,7 @@ const logout = () => {
   }
 }
 
-.alarm-blink {
+.alarm-unread {
   color: rgb(var(--red-6));
-  animation: alarmBlink 1s ease-in-out infinite;
-}
-
-@keyframes alarmBlink {
-  0%, 100% {
-    background: rgba(var(--red-1), 0.65);
-  }
-  50% {
-    background: rgba(var(--red-3), 0.95);
-  }
 }
 </style>

@@ -138,7 +138,7 @@
           </template>
           <template v-else-if="selectedPoint">
             <div class="detail-heading">
-              <a-tag :color="selectedPoint.status === 1 ? 'green' : 'red'">{{ selectedPoint.status === 1 ? '启用' : '停用' }}</a-tag>
+              <a-tag :color="selectedPointStatus === 1 ? 'green' : selectedPointStatus === 0 ? 'red' : 'gray'">{{ selectedPointStatus === 1 ? '启用' : selectedPointStatus === 0 ? '停用' : '未知' }}</a-tag>
               <a-tag v-if="demoEditedPointIds.has(selectedPoint.id)" color="orange">演示修改</a-tag>
               <a-tooltip content="编辑">
                 <a-button class="point-edit-button" type="primary" size="mini" aria-label="编辑收集点" @click="openPointEditor"><template #icon><icon-edit /></template></a-button>
@@ -192,7 +192,7 @@ import { daasAuth, collectorMapRequest, getHiddenBoxIds, getHiddenPointIds, save
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
 
 import CollectionPointEditor from './components/CollectionPointEditor.vue'
-import { validateCollectionPointDraft, type CollectionPointDraft } from './collection-point-edit'
+import { getCollectionPointStatus, validateCollectionPointDraft, type CollectionPointDraft } from './collection-point-edit'
 
 defineOptions({ name: 'SanitationBoxPointMap' })
 
@@ -229,7 +229,8 @@ interface CollectionPoint {
   latitude: number
   serviceRadius: number
   address: string
-  status: number
+  status: number | undefined
+  rawPayload?: string
   remark: string
   responsiblePerson: string | null
   contactPhone: string | null
@@ -275,6 +276,7 @@ const boxes = ref<Box[]>(initialBoxes)
 const points = ref<CollectionPoint[]>(initialPoints)
 const selectedBox = ref<Box>()
 const selectedPoint = ref<CollectionPoint>()
+const selectedPointStatus = computed(() => selectedPoint.value ? getCollectionPointStatus(selectedPoint.value) : undefined)
 const editingPoint = ref<CollectionPoint>()
 const demoEditedPointIds = reactive(new Set<number>())
 const pointNameAliases = new Map<number, Set<string>>()
@@ -283,7 +285,7 @@ const pointEditorAreas = computed(() => {
   return source.map(point => ({ townshipId: point.townshipId, townshipName: point.townshipName, villageId: point.villageId, villageName: point.villageName }))
 })
 function openPointEditor() {
-  if (selectedPoint.value) editingPoint.value = { ...selectedPoint.value }
+  if (selectedPoint.value) editingPoint.value = { ...selectedPoint.value, status: getCollectionPointStatus(selectedPoint.value) }
 }
 async function savePointDemo(draft: CollectionPointDraft) {
   const error = validateCollectionPointDraft(draft)

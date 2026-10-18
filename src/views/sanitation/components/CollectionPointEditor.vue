@@ -55,7 +55,7 @@ const draft = reactive<CollectionPointDraft & { responsiblePerson: string, conta
   townshipId: props.point.townshipId, villageId: props.point.villageId,
   containerCount: props.point.containerCount ?? 0, address: props.point.address || '',
   responsiblePerson: props.point.responsiblePerson || '', contactPhone: props.point.contactPhone || '',
-  serviceRadius: props.point.serviceRadius ?? 100, status: props.point.status ?? 1,
+  serviceRadius: props.point.serviceRadius ?? 100, status: props.point.status,
   longitude: props.point.longitude ?? Number.NaN, latitude: props.point.latitude ?? Number.NaN,
 })
 const townships = computed(() => [...new Map(props.areas.filter(area => area.townshipId > 0 && area.townshipName)

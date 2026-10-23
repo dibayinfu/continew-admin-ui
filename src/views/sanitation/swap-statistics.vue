@@ -47,8 +47,13 @@
         <a-input v-model="taskNo" allow-clear placeholder="运单号" style="width: 160px" @press-enter="loadRecords(1)" />
         <a-input v-model="vehicle" allow-clear placeholder="车牌号" style="width: 150px" @press-enter="loadRecords(1)" />
         <a-input v-model="driver" allow-clear placeholder="司机姓名" style="width: 150px" @press-enter="loadRecords(1)" />
+        <a-select v-model="taskStatus" allow-clear placeholder="全部状态" style="width: 150px" @change="loadRecords(1)">
+          <a-option value="">全部状态</a-option>
+          <a-option v-for="status in statusOptions" :key="status" :value="status">{{ status }}</a-option>
+        </a-select>
         <a-button @click="search">搜索</a-button>
         <a-button v-if="selectedDay" @click="clearDay">清除日期筛选</a-button>
+        <a-button type="primary" :loading="exportLoading" :disabled="loading || recordLoading" title="按当前筛选条件导出全部运单" @click="exportRecords">导出 CSV</a-button>
       </a-space>
       <a-table row-key="taskId" :data="records" :loading="recordLoading" :pagination="pagination" :scroll="{ x: 1160 }" @page-change="loadRecords" @page-size-change="changeSize">
         <template #columns>
@@ -89,7 +94,7 @@ import { beijingDate } from '@/utils/beijing-time'
 
 interface MetricRow { day: string; taskCount: number; weightTon: number }
 interface TownshipRow { townshipName: string; taskCount: number; weightTon: number }
-interface TaskRow { taskId: string; taskNo: string | null; taskStatus: string | null; statusName: string | null; vehicleNo: string | null; driverName: string | null; townshipName: string | null; createdAt: string | null; boxNo: string | null; startPointName: string | null; destinationName: string | null; weightTon: number | null; rawPayload: string | object }
+interface TaskRow { taskId: string; taskNo: string | null; taskStatus: string | null; statusName: string | null; displayStatus?: string; vehicleNo: string | null; driverName: string | null; townshipName: string | null; createdAt: string | null; boxNo: string | null; startPointName: string | null; destinationName: string | null; weightTon: number | null; rawPayload: string | object }
 interface Overview { summary: { taskCount: number; weightTon: number; weightCount: number; dataUpdatedAt: string | null }; daily: MetricRow[]; townships: TownshipRow[] }
 type Preset = 'today' | 'yesterday' | 'week' | 'month'
 const rangeOptions: { value: Preset; label: string }[] = [{ value: 'today', label: '今天' }, { value: 'yesterday', label: '昨天' }, { value: 'week', label: '近7天' }, { value: 'month', label: '近30天' }]
@@ -102,10 +107,13 @@ const township = ref('')
 const vehicle = ref('')
 const driver = ref('')
 const taskNo = ref('')
+const taskStatus = ref('')
+const statusOptions = ref<string[]>([])
 const selectedDay = ref('')
 const rankMetric = ref<'taskCount' | 'weightTon'>('taskCount')
 const loading = ref(false)
 const recordLoading = ref(false)
+const exportLoading = ref(false)
 const overview = ref<Overview>({ summary: { taskCount: 0, weightTon: 0, weightCount: 0, dataUpdatedAt: null }, daily: [], townships: [] })
 const records = ref<TaskRow[]>([])
 const pagination = reactive({ current: 1, pageSize: 20, total: 0, showTotal: true, showPageSize: true, pageSizeOptions: [20, 50, 100] })
@@ -130,6 +138,7 @@ function barHeight(row: MetricRow) { return Number(row.taskCount) / maxCount.val
 function formatWeight(value: number | null | undefined) { return Number(value || 0).toFixed(3).replace(/\.?0+$/, '') }
 function formatTime(value: string | null | undefined) { return value ? value.replace('T', ' ').slice(0, 16) : '—' }
 function chineseStatus(row: TaskRow) {
+  if (row.displayStatus) return row.displayStatus
   if (row.statusName && /[\u4e00-\u9fa5]/.test(row.statusName)) return row.statusName
   const raw = (row.taskStatus || row.statusName || '').trim().toUpperCase()
   if (/[\u4e00-\u9fa5]/.test(raw)) return raw
@@ -144,6 +153,7 @@ function setRange(value: Preset) {
   void loadOverview()
 }
 function params(extra: Record<string, string> = {}) { return new URLSearchParams({ from: from.value, to: to.value, township: township.value, vehicle: vehicle.value, ...extra }) }
+function recordParams() { return params({ from: selectedDay.value || from.value, to: selectedDay.value || to.value, taskNo: taskNo.value, driver: driver.value, status: taskStatus.value || '' }) }
 async function getJson<T>(path: string, query: URLSearchParams): Promise<T> { const response = await fetch(`${base}/api/metrics/transport-statistics${path}?${query}`); if (!response.ok) throw new Error(`HTTP ${response.status}`); return response.json() as Promise<T> }
 async function loadOverview() {
   if (!from.value || !to.value || from.value > to.value || dayjs(to.value).diff(dayjs(from.value), 'day') > 30 || to.value > beijingDate()) { Message.warning('请选择过去 31 天以内的统计区间'); return }
@@ -155,12 +165,36 @@ async function loadOverview() {
 async function loadRecords(page = pagination.current) {
   recordLoading.value = true; pagination.current = page
   const day = selectedDay.value
+  const status = taskStatus.value
   try {
-    const data = await getJson<{ total: number; list: TaskRow[] }>('/records', params({ from: day || from.value, to: day || to.value, taskNo: taskNo.value, driver: driver.value, page: String(page), size: String(pagination.pageSize) }))
-    if (day !== selectedDay.value) return
+    const query = recordParams()
+    query.set('page', String(page)); query.set('size', String(pagination.pageSize))
+    const data = await getJson<{ total: number; list: TaskRow[]; statuses: string[] }>('/records', query)
+    if (day !== selectedDay.value || status !== taskStatus.value) return
     records.value = data.list; pagination.total = data.total
+    statusOptions.value = data.statuses || []
   } catch (error) { Message.error(`获取运单明细失败：${error instanceof Error ? error.message : '网络异常'}`) }
   finally { recordLoading.value = false }
+}
+async function exportRecords() {
+  if (exportLoading.value) return
+  const query = recordParams()
+  const start = query.get('from') || '', end = query.get('to') || ''
+  if (!start || !end || start > end || dayjs(end).diff(dayjs(start), 'day') > 30 || end > beijingDate()) { Message.warning('请选择过去 31 天以内的统计区间'); return }
+  exportLoading.value = true
+  try {
+    const response = await fetch(`${base}/api/metrics/transport-statistics/export?${query}`)
+    if (!response.ok) throw new Error(`HTTP ${response.status}`)
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url; link.download = `运单明细_${start}_${end}.csv`
+    document.body.appendChild(link)
+    try { link.click() }
+    finally { link.remove(); window.setTimeout(() => URL.revokeObjectURL(url), 1000) }
+    Message.success('运单导出成功')
+  } catch (error) { Message.error(`导出运单失败：${error instanceof Error ? error.message : '网络异常'}`) }
+  finally { exportLoading.value = false }
 }
 function search() { void loadOverview() }
 function selectDay(day: string) { selectedDay.value = day; void loadRecords(1) }

@@ -5,11 +5,15 @@
         <div class="page-title">箱体地图</div>
         <div class="page-subtitle">查看箱体实时位置、满溢状态及设备运行信息</div>
       </div>
-      <a-space>
+      <a-space wrap aria-live="polite">
         <a-tag v-if="pointsLoading" color="blue">收集点更新中</a-tag>
         <a-tag v-else-if="pointsError" color="orange">收集点未更新</a-tag>
         <a-tag v-if="transportTasksLoading" color="blue">运单更新中</a-tag>
         <a-tag v-else-if="transportTasksError" color="orange">运单未更新</a-tag>
+        <a-tag v-if="vehicleLoading" color="blue">车辆更新中</a-tag>
+        <a-tag v-else-if="vehicleError" color="orange">车辆未更新</a-tag>
+        <a-tag v-if="vehicleTypesLoading" color="blue">车型更新中</a-tag>
+        <a-tag v-else-if="vehicleTypesError" color="orange">车型未更新</a-tag>
         <a-button type="primary" :loading="cloudLoading" @click="refreshMapData()">
           <template #icon><icon-sync /></template>
           更新
@@ -291,12 +295,16 @@
             <strong>{{ formatFillLevel(selectedBox) }}%</strong>
             <div class="fill-track"><i :style="{ width: `${fillLevelPercent(selectedBox)}%` }"></i></div>
             <div v-if="selectedBox.overflowStatus === 1 && currentOverflow" class="overflow-duration-summary"><span>满溢时长</span><b>{{ currentOverflowDuration }}</b></div>
+            <div v-else-if="selectedBox.overflowStatus === 1 && overflowLoading" class="overflow-duration-summary"><span>满溢时长</span><b>加载中…</b></div>
+            <div v-else-if="selectedBox.overflowStatus === 1 && overflowError" class="overflow-duration-summary"><span>满溢时长</span><b>暂未获取，请重新点击箱体重试</b></div>
           </div>
           <div class="location-summary">
             <span class="section-label">乡镇村庄</span>
             <b>{{ selectedArea.township || '未匹配乡镇' }} · {{ selectedArea.village || '未匹配村庄' }}</b>
             <span class="matched-point">{{ selectedArea.pointName || '未匹配收集点' }}</span>
             <div v-if="currentResidence" class="residence-summary"><span>停留时长</span><b>{{ currentResidenceDuration }}</b></div>
+            <div v-else-if="residenceLoading" class="residence-summary"><span>停留时长</span><b>加载中…</b></div>
+            <div v-else-if="residenceError" class="residence-summary"><span>停留时长</span><b>暂未获取，请重新点击箱体重试</b></div>
           </div>
           <div v-if="matchedVehiclePlates.length" class="vehicle-summary">
             <span class="section-label">运输车辆</span>
@@ -464,7 +472,7 @@ import { useDevice } from '@/hooks'
 import { beijingDate, beijingDateTime, parseBeijingDateTime } from '@/utils/beijing-time'
 import { useAppStore, useUserStore } from '@/stores'
 import { type AMapInstance, type AMapMarker, type AMapMarkerCluster, type AMapMassMarks, loadAmapJsApi, loadAmapMarkerClusterer } from '@/utils/amap'
-import { daasAuth, collectorMapBoxesRequest, collectorMapPointsRequest, collectorMapTransportTasksRequest, collectorVehicleRuntimeRequest, collectorVehicleBasicInfoRequest, collectorVehicleTypesRequest, getHiddenBoxIds, saveSharedDaasToken } from '@/utils/daas'
+import { daasAuth, collectorDaasFetch, collectorMapBoxesRequest, collectorMapPointsRequest, collectorMapTransportTasksRequest, collectorVehicleRuntimeRequest, collectorVehicleBasicInfoRequest, collectorVehicleTypesRequest, getHiddenBoxIds, saveSharedDaasToken } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
 import { createAiConversationId, formatBoxAnalysisSummary, type AiMapAction, type AiShortcutIntent, type AiOverflowDurationItem, type AiQueryContext, type AiReply, type AiTransportMetricRow, queryBoxMapAssistantStream } from './box-map-ai'
 
@@ -656,6 +664,9 @@ const selectedBox = ref<Box>()
 const mapError = ref('')
 const cloudLoading = ref(false)
 const vehicleLoading = ref(false)
+const vehicleError = ref(false)
+const vehicleTypesLoading = ref(false)
+const vehicleTypesError = ref(false)
 const importVisible = ref(false)
 const importText = ref('')
 const aiVisible = ref(false)
@@ -767,6 +778,10 @@ const vehicleTypeById = ref<Map<number, VehicleType>>(new Map())
 const enabledVehicleTypes = ref<VehicleType[]>([])
 const currentResidence = ref<CurrentResidence>()
 const currentOverflow = ref<CurrentOverflow>()
+const residenceLoading = ref(false)
+const residenceError = ref(false)
+const overflowLoading = ref(false)
+const overflowError = ref(false)
 const residenceNow = ref(Date.now())
 const residenceCache = new Map<string, CurrentResidence>()
 let residenceRequestVersion = 0
@@ -801,6 +816,7 @@ const pointsError = ref(false)
 let pointsLoadedAt = 0
 /** 当前收集点停留不足一小时的箱体；由地图数据接口批量返回。 */
 const newBoxIds = ref<Set<number>>(new Set())
+let newBoxIdsLoading = false
 let map: AMapInstance | undefined
 let markers: AMapMarker[] = []
 let vehicleMarkers: AMapMarker[] = []
@@ -1233,14 +1249,16 @@ function markerClass(box: Box) {
 }
 async function loadNewBoxIds() {
   // “新”角标为增强信息；独立请求失败时保留当前角标，不干扰箱体地图主数据。
+  if (newBoxIdsLoading) return
+  newBoxIdsLoading = true
   try {
-    const response = await fetch(`${COLLECTOR_API_BASE_URL}/api/collector/box-map/new-box-ids`)
-    if (!response.ok) return
+    const response = await collectorDaasFetch('/api/collector/box-map/new-box-ids', { timeoutMs: 10000, maxAttempts: 1 })
     const result = await response.json() as { newBoxIds?: unknown }
     if (!Array.isArray(result.newBoxIds)) return
     newBoxIds.value = new Set(result.newBoxIds.map(Number).filter(Number.isSafeInteger))
     drawMarkers(false)
   } catch { /* 角标服务异常不影响地图主流程。 */ }
+  finally { newBoxIdsLoading = false }
 }
 function normalizeBoxNo(value: unknown) { return String(value ?? '').trim() }
 function taskStatus(task: TransportTask) { return String(task.status ?? task.taskStatus ?? task.statusName ?? task.taskStatusName ?? '').trim() }
@@ -1671,7 +1689,9 @@ function drawMarkers(fit = true) {
     if (selectedBox.value && visibleBoxes.value.includes(selectedBox.value)) selectedMassMarker = createBoxMarker(selectedBox.value, 0, true)
   }
   if (fit && markers.length) map.setFitView(markers, false, [60, 60, 60, 360])
-  if (selectedBox.value && !visibleBoxes.value.includes(selectedBox.value)) selectedBox.value = undefined
+  // 辅助数据晚返回或状态变化时保留正在查看的详情；主动筛选和隐藏操作仍可关闭。
+  if (selectedBox.value && (getHiddenBoxIds().has(selectedBox.value.id)
+    || (fit && !visibleBoxes.value.includes(selectedBox.value)))) selectedBox.value = undefined
 }
 
 function syncMarkerMode() {
@@ -1685,6 +1705,10 @@ function selectBox(box: Box) {
   selectedBox.value = box
   currentResidence.value = undefined
   currentOverflow.value = undefined
+  residenceLoading.value = false
+  residenceError.value = false
+  overflowLoading.value = false
+  overflowError.value = false
   drawMarkers(false)
   const point = getGcjPoint(box)
   if (map) map.setZoomAndCenter(Math.max(map.getZoom(), 16), [point.lng, point.lat])
@@ -1702,21 +1726,31 @@ async function loadCurrentResidence(box: Box, requestVersion: number) {
   const cacheKey = `${box.id}:${area.pointName}`
   const cached = residenceCache.get(cacheKey)
   if (cached) { if (requestVersion === residenceRequestVersion) currentResidence.value = cached; return }
+  residenceLoading.value = true
+  residenceError.value = false
   try {
-    const response = await fetch(`${COLLECTOR_API_BASE_URL}/api/collector/boxes/${box.id}/current-residence`)
-    if (!response.ok) return
+    const response = await collectorDaasFetch(`/api/collector/boxes/${box.id}/current-residence`, { timeoutMs: 10000, maxAttempts: 1 })
     const residence = await response.json() as CurrentResidence
     residenceCache.set(cacheKey, residence)
     if (requestVersion === residenceRequestVersion && selectedBox.value?.id === box.id) currentResidence.value = residence
-  } catch { /* 驻留时长为补充信息，接口异常不影响箱体详情主体展示。 */ }
+  } catch {
+    if (requestVersion === residenceRequestVersion) residenceError.value = true
+  } finally {
+    if (requestVersion === residenceRequestVersion) residenceLoading.value = false
+  }
 }
 async function loadCurrentOverflow(box: Box, requestVersion: number) {
+  overflowLoading.value = true
+  overflowError.value = false
   try {
-    const response = await fetch(`${COLLECTOR_API_BASE_URL}/api/collector/boxes/${box.id}/current-overflow-duration`)
-    if (!response.ok) return
+    const response = await collectorDaasFetch(`/api/collector/boxes/${box.id}/current-overflow-duration`, { timeoutMs: 10000, maxAttempts: 1 })
     const overflow = await response.json() as CurrentOverflow
     if (requestVersion === residenceRequestVersion && selectedBox.value?.id === box.id) currentOverflow.value = overflow
-  } catch { /* 满溢时长为补充信息，接口异常不影响箱体详情主体展示。 */ }
+  } catch {
+    if (requestVersion === residenceRequestVersion) overflowError.value = true
+  } finally {
+    if (requestVersion === residenceRequestVersion) overflowLoading.value = false
+  }
 }
 /** 箱体列表刷新会产生新对象；按稳定的箱体 ID 延续详情选中态，避免异步刷新造成卡片闪退。 */
 function syncSelectedBox(nextBoxes: Box[]) {
@@ -1839,7 +1873,7 @@ function importBoxes() {
 }
 
 watch(keyword, () => drawMarkers(false))
-watch([overflowOnly, highTemperatureOnly, offlineOnly, lowBatteryOnly, transportingOnly, townshipFilter, villageFilter], drawMarkers)
+watch([overflowOnly, highTemperatureOnly, offlineOnly, lowBatteryOnly, transportingOnly, townshipFilter, villageFilter], () => drawMarkers())
 // 刷新箱体列表时仅重绘标记，保留用户当前的中心点和缩放比例。
 watch([boxes, points, transportTasksByBoxNo, () => [...getHiddenBoxIds()]], () => drawMarkers(false))
 watch([vehicles, enabledVehicleTypes, vehicleTypeById], () => drawVehicleMarkers(), { deep: true })
@@ -1852,6 +1886,7 @@ async function loadFromCloud(silent = false) {
   // 收集点和运单独立补齐；主按钮只等待实时箱体。
   void loadCollectionPoints(silent)
   void loadTransportTasks(silent)
+  void loadNewBoxIds()
   try {
     const boxList = await collectorMapBoxesRequest<Box[]>()
     if (!Array.isArray(boxList)) throw new Error('箱体数据格式不正确')
@@ -1862,8 +1897,6 @@ async function loadFromCloud(silent = false) {
     gcjPoints = new WeakMap<Box, GcjPoint>()
     syncSelectedBox(boxList)
     saveCachedBoxes(boxList)
-    // 地图主数据完成后再异步加载角标；此请求不参与刷新成功/失败判断。
-    void loadNewBoxIds()
     if (!silent) Message.success(`已从云端更新 ${boxList.length} 个箱体`)
   } catch (error) {
     if (!silent) Message.warning(`云端数据加载失败：${error instanceof Error ? error.message : '网络异常'}`)
@@ -1881,6 +1914,10 @@ async function loadCollectionPoints(silent = false) {
     assignBoxAreas(boxes.value, pointList)
     pointsLoadedAt = Date.now()
     saveCachedPoints(pointList)
+    // 用户可能在收集点返回前已经点开箱体；此时补取该箱体的驻留详情。
+    if (selectedBox.value && !currentResidence.value && !residenceLoading.value) {
+      void loadCurrentResidence(selectedBox.value, residenceRequestVersion)
+    }
   } catch (error) {
     pointsError.value = true
     if (!silent) Message.warning('收集点更新失败，暂用上次数据')
@@ -1932,22 +1969,32 @@ function indexVehicleTypes(organizations: VehicleOrganization[]) {
 async function loadVehicleTypes(force = false) {
   // 车型档案变化频率低；自动刷新只更新位置，手动更新或半小时后才重新读取档案。
   if (!force && vehicleTypeById.value.size && Date.now() - vehicleTypesLoadedAt < 30 * 60 * 1000) return
-  const response = await collectorVehicleTypesRequest<unknown>()
-  indexVehicleTypes(responseDataArray<VehicleOrganization>(response))
-  vehicleTypesLoadedAt = Date.now()
+  if (vehicleTypesLoading.value) return
+  vehicleTypesLoading.value = true
+  vehicleTypesError.value = false
+  try {
+    const response = await collectorVehicleTypesRequest<unknown>()
+    if (!Array.isArray((response as { data?: unknown } | null)?.data)) throw new Error('车型数据格式不正确')
+    indexVehicleTypes(responseDataArray<VehicleOrganization>(response))
+    vehicleTypesLoadedAt = Date.now()
+  } catch (error) {
+    vehicleTypesError.value = true
+    console.warn('车辆档案加载失败，暂保留已有车型：', error)
+  } finally { vehicleTypesLoading.value = false }
 }
 async function loadVehicles(silent = false, refreshTypes = false) {
   if (vehicleLoading.value) return
   vehicleLoading.value = true
+  vehicleError.value = false
+  void loadVehicleTypes(refreshTypes)
   try {
     // 车辆档案只用于车型显示，不能因它的偶发失败而丢弃已经获取到的实时位置。
     const runtimeResponse = await collectorVehicleRuntimeRequest<unknown>()
+    if (!Array.isArray((runtimeResponse as { data?: unknown } | null)?.data)) throw new Error('车辆位置数据格式不正确')
     vehicles.value = responseDataArray<VehicleRuntime>(runtimeResponse)
-    try { await loadVehicleTypes(refreshTypes) } catch (error) {
-      console.warn('车辆档案加载失败，暂保留已有车型：', error)
-    }
     if (!silent) Message.success(`已更新 ${vehicles.value.length} 辆车辆位置`)
   } catch (error) {
+    vehicleError.value = true
     if (!silent) Message.warning(`车辆位置加载失败：${error instanceof Error ? error.message : '网络异常'}`)
   } finally { vehicleLoading.value = false }
 }

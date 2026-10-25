@@ -27,6 +27,7 @@ function setup() {
   const context = vm.createContext({
     cloudLoading: ref(false), transportTasksLoading: ref(false), transportTasksError: ref(false),
     pointsLoading: ref(false), pointsError: ref(false), pointsLoadedAt: 0,
+    selectedBox: ref(), currentResidence: ref(), residenceLoading: ref(false),
     boxes: ref([]), points: ref([]), todayTransportTasks: ref([{ taskId: 'previous' }]),
     boxAreas: reactive(new Map()), residenceCache: new Map(), WeakMap,
     collectorMapBoxesRequest: () => {
@@ -44,8 +45,9 @@ function setup() {
     // 故意永不完成，刷新按钮不能等待车辆请求。
     loadVehicles: () => { events.push('vehicles-start'); return new Promise(() => {}) },
     syncSelectedBox() {}, saveCachedBoxes() {}, saveCachedPoints() {},
-    loadNewBoxIds() {}, indexTransportTasks: () => events.push('transport-applied'),
-    Message: { success() {}, warning: () => events.push('warning') },
+    loadNewBoxIds: () => { events.push('new-box-ids-start'); return new Promise(() => {}) },
+    indexTransportTasks: () => events.push('transport-applied'),
+    Message: { success: text => events.push(text), warning: () => events.push('warning') },
     console: { warn() {} },
   })
   vm.runInContext(outputText, context)
@@ -55,13 +57,14 @@ function setup() {
 // 箱体、运单、车辆同时开始；箱体完成后按钮立即结束，慢运单仍可随后补齐。
 const slow = setup()
 const refresh = slow.context.refreshMapData()
-assert.deepEqual(slow.events, ['points-start', 'transport-start', 'boxes-start', 'vehicles-start'])
+assert.deepEqual(slow.events, ['points-start', 'transport-start', 'new-box-ids-start', 'boxes-start', 'vehicles-start'])
 const town = computed(() => slow.context.boxAreas.get(1)?.township)
 slow.boxRequest.resolve([{ id: 1, longitude: 114, latitude: 36, matchObject: '{"收集点":{}}' }])
 await refresh
 assert.equal(slow.context.cloudLoading.value, false)
 assert.equal(slow.context.boxes.value[0].id, 1)
-assert.equal(slow.context.transportTasksLoading.value, true)
+assert.ok(slow.events.includes('已从云端更新 1 个箱体'))
+assert.equal(slow.context.transportTasksLoading.value, true, '箱体成功提示无需等待运单')
 assert.equal(slow.context.todayTransportTasks.value[0].taskId, 'previous')
 assert.equal(slow.context.pointsLoading.value, true)
 assert.equal(town.value, undefined)
@@ -111,6 +114,18 @@ await pending
 await settle()
 assert.equal(boxesFailed.context.todayTransportTasks.value[0].taskId, 'independent')
 assert.equal(boxesFailed.context.cloudLoading.value, false)
+
+// 用户在收集点未返回时点开箱体，收集点补齐后应自动加载该箱体驻留详情。
+const earlySelection = setup()
+const selected = { id: 11 }
+earlySelection.context.selectedBox.value = selected
+earlySelection.context.residenceRequestVersion = 3
+const detailLoads = []
+earlySelection.context.loadCurrentResidence = (box, version) => detailLoads.push([box.id, version])
+const pointsLoad = earlySelection.context.loadCollectionPoints()
+earlySelection.pointsRequest.resolve([{ id: 10, pointName: '收集点' }])
+await pointsLoad
+assert.deepEqual(detailLoads, [[11, 3]])
 
 console.log('Box map independent refresh regression checks passed')
 

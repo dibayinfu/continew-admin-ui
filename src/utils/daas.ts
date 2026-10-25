@@ -245,6 +245,15 @@ export async function collectorMapRequest<T>(includeTransportTasks = true): Prom
   return data
 }
 
+/** 运单独立加载，不能阻塞箱体主数据刷新。 */
+export async function collectorMapTransportTasksRequest<T>(): Promise<T> {
+  const response = await collectorDaasFetch('/api/collector/box-map/transport-tasks', {
+    timeoutMs: 28000,
+    maxAttempts: 1,
+  })
+  return await response.json() as T
+}
+
 /** 箱体地图车辆图层：实时位置与车型档案保持两个独立请求。 */
 export async function collectorVehicleRuntimeRequest<T>(): Promise<T> {
   const response = await collectorDaasFetch('/api/collector/vehicles/runtime')

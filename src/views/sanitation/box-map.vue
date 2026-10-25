@@ -6,6 +6,8 @@
         <div class="page-subtitle">查看箱体实时位置、满溢状态及设备运行信息</div>
       </div>
       <a-space>
+        <a-tag v-if="transportTasksLoading" color="blue">运单更新中</a-tag>
+        <a-tag v-else-if="transportTasksError" color="orange">运单未更新</a-tag>
         <a-button type="primary" :loading="cloudLoading" @click="refreshMapData()">
           <template #icon><icon-sync /></template>
           更新
@@ -460,7 +462,7 @@ import { useDevice } from '@/hooks'
 import { beijingDate, beijingDateTime, parseBeijingDateTime } from '@/utils/beijing-time'
 import { useAppStore, useUserStore } from '@/stores'
 import { type AMapInstance, type AMapMarker, type AMapMarkerCluster, type AMapMassMarks, loadAmapJsApi, loadAmapMarkerClusterer } from '@/utils/amap'
-import { daasAuth, collectorMapRequest, collectorVehicleRuntimeRequest, collectorVehicleBasicInfoRequest, collectorVehicleTypesRequest, getHiddenBoxIds, saveSharedDaasToken } from '@/utils/daas'
+import { daasAuth, collectorMapRequest, collectorMapTransportTasksRequest, collectorVehicleRuntimeRequest, collectorVehicleBasicInfoRequest, collectorVehicleTypesRequest, getHiddenBoxIds, saveSharedDaasToken } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
 import { createAiConversationId, formatBoxAnalysisSummary, type AiMapAction, type AiShortcutIntent, type AiOverflowDurationItem, type AiQueryContext, type AiReply, type AiTransportMetricRow, queryBoxMapAssistantStream } from './box-map-ai'
 
@@ -790,6 +792,8 @@ watch(() => selectedBox.value?.id, (id, previousId) => {
 /** boxNo -> 最近一条临时视为“正在运输”的任务单 */
 const transportTasksByBoxNo = ref<Map<string, TransportTask>>(new Map())
 const todayTransportTasks = ref<TransportTask[]>([])
+const transportTasksLoading = ref(false)
+const transportTasksError = ref(false)
 /** 当前收集点停留不足一小时的箱体；由地图数据接口批量返回。 */
 const newBoxIds = ref<Set<number>>(new Set())
 let map: AMapInstance | undefined
@@ -1832,7 +1836,7 @@ function importBoxes() {
 watch(keyword, () => drawMarkers(false))
 watch([overflowOnly, highTemperatureOnly, offlineOnly, lowBatteryOnly, transportingOnly, townshipFilter, villageFilter], drawMarkers)
 // 刷新箱体列表时仅重绘标记，保留用户当前的中心点和缩放比例。
-watch(boxes, () => drawMarkers(false))
+watch([boxes, transportTasksByBoxNo], () => drawMarkers(false))
 watch([vehicles, enabledVehicleTypes, vehicleTypeById], () => drawVehicleMarkers(), { deep: true })
 watch(mapTheme, (theme) => map?.setMapStyle(`amap://styles/${theme}`))
 watch(aiLayout, () => { void resizeMapAfterLayout() })
@@ -1840,14 +1844,13 @@ async function loadFromCloud(silent = false) {
   // 手动刷新与定时刷新重叠时复用正在进行的请求，避免短时间重复请求。
   if (cloudLoading.value) return
   cloudLoading.value = true
+  // 运单较慢，独立更新运输标记；主按钮只等待箱体与收集点。
+  void loadTransportTasks(silent)
   try {
-    const result = await collectorMapRequest<{ boxes?: Box[], points?: CollectionPoint[], transportTasks?: TransportTask[] }>()
+    const result = await collectorMapRequest<{ boxes?: Box[], points?: CollectionPoint[] }>(false)
     const boxList = Array.isArray(result.boxes) ? result.boxes : []
     const pointList = Array.isArray(result.points) ? result.points : []
-    const transportTaskList = Array.isArray(result.transportTasks) ? result.transportTasks : []
     points.value = pointList
-    todayTransportTasks.value = transportTaskList
-    indexTransportTasks(transportTaskList)
     // 先分配箱体归属，再赋值 boxes（避免渲染时 boxAreas 为空导致筛选选项缓存为空）
     if (boxList.length && pointList.length) assignBoxAreas(boxList, pointList)
     residenceCache.clear()
@@ -1862,6 +1865,23 @@ async function loadFromCloud(silent = false) {
   } catch (error) {
     if (!silent) Message.warning(`云端数据加载失败：${error instanceof Error ? error.message : '网络异常'}`)
   } finally { cloudLoading.value = false }
+}
+
+async function loadTransportTasks(silent = false) {
+  if (transportTasksLoading.value) return
+  transportTasksLoading.value = true
+  transportTasksError.value = false
+  try {
+    const tasks = await collectorMapTransportTasksRequest<TransportTask[]>()
+    if (!Array.isArray(tasks)) throw new Error('运单数据格式不正确')
+    todayTransportTasks.value = tasks
+    indexTransportTasks(tasks)
+  } catch (error) {
+    // 保留上一轮成功数据，避免一次上游异常清空运输状态。
+    transportTasksError.value = true
+    if (!silent) Message.warning('箱体与运单独立更新：运单更新失败，保留上次数据')
+    console.warn('地图运单更新失败：', error)
+  } finally { transportTasksLoading.value = false }
 }
 
 function responseDataArray<T>(response: unknown): T[] {
@@ -1911,9 +1931,10 @@ async function loadVehicles(silent = false, refreshTypes = false) {
   } finally { vehicleLoading.value = false }
 }
 async function refreshMapData() {
-  // 箱体是本页核心数据：按钮只等待箱体完成；车辆改为后台静默刷新，不干扰操作反馈。
-  await loadFromCloud()
+  // 车辆与箱体同时发起，避免先等箱体再等待车辆接口。
+  const boxRefresh = loadFromCloud()
   void loadVehicles(true, true)
+  await boxRefresh
 }
 let offBoxes: () => void
 let offPoints: () => void

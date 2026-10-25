@@ -6,7 +6,8 @@ import ts from 'typescript'
 
 const storage = new Map([['sbg-monitor:hidden-boxes', '[375]'], ['sbg-monitor:hidden-points', '[65]']])
 globalThis.localStorage = { getItem: key => storage.get(key), setItem: (key, value) => storage.set(key, value) }
-globalThis.window = { setTimeout, clearTimeout }
+let storageChanged
+globalThis.window = { setTimeout, clearTimeout, addEventListener: (event, listener) => { if (event === 'storage') storageChanged = listener } }
 globalThis.visibilityVue = { reactive }
 const compile = async (source) => {
   const { outputText } = ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.ES2022 } })
@@ -42,6 +43,37 @@ globalThis.fetch = (url, options) => new Promise((resolve, reject) => options.si
 await assert.rejects(auth.saveDataVisibility({ hiddenBoxIds: [375], hiddenPointIds: [] }), /超时/)
 assert.equal(visible.value, true)
 globalThis.window.setTimeout = setTimeout
+
+// 地图短缓存与并发复用；配置页仍能强制读取，保存立即更新缓存。
+const actualNow = Date.now
+let now = actualNow()
+Date.now = () => now
+let reads = 0
+globalThis.fetch = async (url, options) => {
+  if (options?.method === 'PUT') return new Response(null, { status: 204 })
+  reads++
+  return new Response('{"hiddenBoxIds":[7],"hiddenPointIds":[]}')
+}
+try {
+  await Promise.all([auth.loadDataVisibility(60_000), auth.loadDataVisibility(60_000)])
+  assert.equal(reads, 1)
+  now += 59_999
+  await auth.loadDataVisibility(60_000)
+  assert.equal(reads, 1)
+  now += 1
+  await auth.loadDataVisibility(60_000)
+  assert.equal(reads, 2)
+  await auth.loadDataVisibility()
+  assert.equal(reads, 3, '配置页默认强制校验')
+  await auth.saveDataVisibility({ hiddenBoxIds: [8], hiddenPointIds: [] })
+  assert.deepEqual((await auth.loadDataVisibility(60_000)).hiddenBoxIds, [8])
+  assert.equal(reads, 3)
+  storage.set('sbg-monitor:hidden-boxes', '[9]')
+  storageChanged({ key: 'sbg-monitor:hidden-boxes' })
+  assert.ok(auth.getHiddenBoxIds().has(9))
+  await auth.loadDataVisibility(60_000)
+  assert.equal(reads, 4, '其他标签页修改后必须重新校验')
+} finally { Date.now = actualNow }
 
 // Execute the page's real handlers with isolated UI dependencies.
 let rejectSave

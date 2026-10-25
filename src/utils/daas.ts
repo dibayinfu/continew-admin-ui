@@ -90,6 +90,10 @@ function applyDataVisibility(config: Partial<DataVisibilityConfig>) {
 
 if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
   window.addEventListener('storage', (event) => {
+    if (event.key === HIDDEN_BOXES_KEY || event.key === HIDDEN_POINTS_KEY || event.key === null) {
+      visibilityLoadedAt = 0
+      visibilityRevision++
+    }
     if (event.key === HIDDEN_BOXES_KEY || event.key === null) dataVisibility.hiddenBoxIds = readIdSet(HIDDEN_BOXES_KEY)
     if (event.key === HIDDEN_POINTS_KEY || event.key === null) dataVisibility.hiddenPointIds = readIdSet(HIDDEN_POINTS_KEY)
   })
@@ -97,16 +101,37 @@ if (typeof window !== 'undefined' && typeof window.addEventListener === 'functio
 
 let visibilityRevision = 0
 let visibilitySaves = 0
+let visibilityLoadedAt = 0
+let visibilityRequest: Promise<DataVisibilityConfig> | undefined
+let visibilityRequestRevision = -1
 
-/** 从后台加载全局名单；调用方在失败时沿用上次缓存。 */
-export async function loadDataVisibility(): Promise<DataVisibilityConfig> {
+function currentDataVisibility(): DataVisibilityConfig {
+  return { hiddenBoxIds: [...dataVisibility.hiddenBoxIds], hiddenPointIds: [...dataVisibility.hiddenPointIds] }
+}
+
+/** 配置页默认强制校验；地图可短缓存。同一版本的并发读取复用请求。 */
+export async function loadDataVisibility(maxAgeMs = 0): Promise<DataVisibilityConfig> {
+  if (maxAgeMs > 0 && visibilityLoadedAt > 0 && Date.now() - visibilityLoadedAt < maxAgeMs) {
+    return currentDataVisibility()
+  }
   const revision = visibilityRevision
-  const response = await collectorDaasFetch('/api/collector/data-visibility', { timeoutMs: 4000, maxAttempts: 1 })
-  const config = await response.json() as DataVisibilityConfig
-  const normalized = { hiddenBoxIds: normalizeIds(config.hiddenBoxIds), hiddenPointIds: normalizeIds(config.hiddenPointIds) }
-  // 保存前发出的 GET 可能晚返回，不能用旧名单覆盖已保存的开关。
-  if (revision === visibilityRevision && visibilitySaves === 0) applyDataVisibility(normalized)
-  return normalized
+  if (visibilityRequest && visibilityRequestRevision === revision) return visibilityRequest
+  const request = (async () => {
+    const response = await collectorDaasFetch('/api/collector/data-visibility', { timeoutMs: 4000, maxAttempts: 1 })
+    const config = await response.json() as DataVisibilityConfig
+    const normalized = { hiddenBoxIds: normalizeIds(config.hiddenBoxIds), hiddenPointIds: normalizeIds(config.hiddenPointIds) }
+    // 保存前发出的 GET 可能晚返回，不能用旧名单覆盖已保存的开关或缓存时间。
+    if (revision === visibilityRevision && visibilitySaves === 0) {
+      applyDataVisibility(normalized)
+      visibilityLoadedAt = Date.now()
+      return normalized
+    }
+    return currentDataVisibility()
+  })()
+  visibilityRequest = request
+  visibilityRequestRevision = revision
+  try { return await request }
+  finally { if (visibilityRequest === request) visibilityRequest = undefined }
 }
 
 /** 保存完整全局名单，成功后才更新本地兜底缓存。 */
@@ -116,6 +141,7 @@ export async function saveDataVisibility(config: DataVisibilityConfig): Promise<
   const timeout = window.setTimeout(() => controller.abort(), 15000)
   visibilityRevision++
   visibilitySaves++
+  visibilityLoadedAt = 0
   try {
     const response = await fetch(`${COLLECTOR_API_BASE_URL}/api/collector/data-visibility`, {
       method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(normalized), signal: controller.signal,
@@ -131,6 +157,7 @@ export async function saveDataVisibility(config: DataVisibilityConfig): Promise<
       throw new Error(`保存全局隐藏配置失败：${detail || `HTTP ${response.status}`}`)
     }
     applyDataVisibility(normalized)
+    visibilityLoadedAt = Date.now()
   } catch (error) {
     if (controller.signal.aborted) throw new Error('保存全局隐藏配置超时，请刷新配置确认结果后重试')
     throw error
@@ -243,6 +270,24 @@ export async function collectorMapRequest<T>(includeTransportTasks = true): Prom
   const data = await response.json() as T
   await visibility
   return data
+}
+
+/** 箱体每次实时获取，独立于慢收集点和运单；隐藏名单使用已有配置并后台校验。 */
+export async function collectorMapBoxesRequest<T>(): Promise<T> {
+  void loadDataVisibility(60_000).catch(() => undefined)
+  const response = await collectorDaasFetch('/api/collector/box-map/boxes', {
+    timeoutMs: 28000,
+    maxAttempts: 1,
+  })
+  return await response.json() as T
+}
+
+export async function collectorMapPointsRequest<T>(): Promise<T> {
+  const response = await collectorDaasFetch('/api/collector/box-map/points', {
+    timeoutMs: 28000,
+    maxAttempts: 1,
+  })
+  return await response.json() as T
 }
 
 /** 运单独立加载，不能阻塞箱体主数据刷新。 */

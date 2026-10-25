@@ -6,6 +6,8 @@
         <div class="page-subtitle">查看箱体实时位置、满溢状态及设备运行信息</div>
       </div>
       <a-space>
+        <a-tag v-if="pointsLoading" color="blue">收集点更新中</a-tag>
+        <a-tag v-else-if="pointsError" color="orange">收集点未更新</a-tag>
         <a-tag v-if="transportTasksLoading" color="blue">运单更新中</a-tag>
         <a-tag v-else-if="transportTasksError" color="orange">运单未更新</a-tag>
         <a-button type="primary" :loading="cloudLoading" @click="refreshMapData()">
@@ -462,7 +464,7 @@ import { useDevice } from '@/hooks'
 import { beijingDate, beijingDateTime, parseBeijingDateTime } from '@/utils/beijing-time'
 import { useAppStore, useUserStore } from '@/stores'
 import { type AMapInstance, type AMapMarker, type AMapMarkerCluster, type AMapMassMarks, loadAmapJsApi, loadAmapMarkerClusterer } from '@/utils/amap'
-import { daasAuth, collectorMapRequest, collectorMapTransportTasksRequest, collectorVehicleRuntimeRequest, collectorVehicleBasicInfoRequest, collectorVehicleTypesRequest, getHiddenBoxIds, saveSharedDaasToken } from '@/utils/daas'
+import { daasAuth, collectorMapBoxesRequest, collectorMapPointsRequest, collectorMapTransportTasksRequest, collectorVehicleRuntimeRequest, collectorVehicleBasicInfoRequest, collectorVehicleTypesRequest, getHiddenBoxIds, saveSharedDaasToken } from '@/utils/daas'
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
 import { createAiConversationId, formatBoxAnalysisSummary, type AiMapAction, type AiShortcutIntent, type AiOverflowDurationItem, type AiQueryContext, type AiReply, type AiTransportMetricRow, queryBoxMapAssistantStream } from './box-map-ai'
 
@@ -794,6 +796,9 @@ const transportTasksByBoxNo = ref<Map<string, TransportTask>>(new Map())
 const todayTransportTasks = ref<TransportTask[]>([])
 const transportTasksLoading = ref(false)
 const transportTasksError = ref(false)
+const pointsLoading = ref(false)
+const pointsError = ref(false)
+let pointsLoadedAt = 0
 /** 当前收集点停留不足一小时的箱体；由地图数据接口批量返回。 */
 const newBoxIds = ref<Set<number>>(new Set())
 let map: AMapInstance | undefined
@@ -860,7 +865,7 @@ function saveRefreshSettings() {
 }
 
 /** 箱体 -> 所属乡镇/村庄（仅以收集点名称关联，不能使用车辆/箱体编号） */
-const boxAreas = new Map<number, { township: string, village: string, pointName: string, pointId?: number }>()
+const boxAreas = reactive(new Map<number, { township: string, village: string, pointName: string, pointId?: number }>())
 function isCollectionPointNameKey(key: string) {
   return !/^\d+$/.test(key) && !/^[\u4E00-\u9FFF][A-Z][A-Z0-9]{5,6}$/.test(key)
 }
@@ -1836,7 +1841,7 @@ function importBoxes() {
 watch(keyword, () => drawMarkers(false))
 watch([overflowOnly, highTemperatureOnly, offlineOnly, lowBatteryOnly, transportingOnly, townshipFilter, villageFilter], drawMarkers)
 // 刷新箱体列表时仅重绘标记，保留用户当前的中心点和缩放比例。
-watch([boxes, transportTasksByBoxNo], () => drawMarkers(false))
+watch([boxes, points, transportTasksByBoxNo, () => [...getHiddenBoxIds()]], () => drawMarkers(false))
 watch([vehicles, enabledVehicleTypes, vehicleTypeById], () => drawVehicleMarkers(), { deep: true })
 watch(mapTheme, (theme) => map?.setMapStyle(`amap://styles/${theme}`))
 watch(aiLayout, () => { void resizeMapAfterLayout() })
@@ -1844,27 +1849,43 @@ async function loadFromCloud(silent = false) {
   // 手动刷新与定时刷新重叠时复用正在进行的请求，避免短时间重复请求。
   if (cloudLoading.value) return
   cloudLoading.value = true
-  // 运单较慢，独立更新运输标记；主按钮只等待箱体与收集点。
+  // 收集点和运单独立补齐；主按钮只等待实时箱体。
+  void loadCollectionPoints(silent)
   void loadTransportTasks(silent)
   try {
-    const result = await collectorMapRequest<{ boxes?: Box[], points?: CollectionPoint[] }>(false)
-    const boxList = Array.isArray(result.boxes) ? result.boxes : []
-    const pointList = Array.isArray(result.points) ? result.points : []
-    points.value = pointList
+    const boxList = await collectorMapBoxesRequest<Box[]>()
+    if (!Array.isArray(boxList)) throw new Error('箱体数据格式不正确')
     // 先分配箱体归属，再赋值 boxes（避免渲染时 boxAreas 为空导致筛选选项缓存为空）
-    if (boxList.length && pointList.length) assignBoxAreas(boxList, pointList)
+    assignBoxAreas(boxList, points.value)
     residenceCache.clear()
     boxes.value = boxList
     gcjPoints = new WeakMap<Box, GcjPoint>()
     syncSelectedBox(boxList)
     saveCachedBoxes(boxList)
-    saveCachedPoints(pointList)
     // 地图主数据完成后再异步加载角标；此请求不参与刷新成功/失败判断。
     void loadNewBoxIds()
     if (!silent) Message.success(`已从云端更新 ${boxList.length} 个箱体`)
   } catch (error) {
     if (!silent) Message.warning(`云端数据加载失败：${error instanceof Error ? error.message : '网络异常'}`)
   } finally { cloudLoading.value = false }
+}
+
+async function loadCollectionPoints(silent = false) {
+  if (pointsLoading.value || (pointsLoadedAt > 0 && Date.now() - pointsLoadedAt < 5 * 60_000)) return
+  pointsLoading.value = true
+  pointsError.value = false
+  try {
+    const pointList = await collectorMapPointsRequest<CollectionPoint[]>()
+    if (!Array.isArray(pointList)) throw new Error('收集点数据格式不正确')
+    points.value = pointList
+    assignBoxAreas(boxes.value, pointList)
+    pointsLoadedAt = Date.now()
+    saveCachedPoints(pointList)
+  } catch (error) {
+    pointsError.value = true
+    if (!silent) Message.warning('收集点更新失败，暂用上次数据')
+    console.warn('地图收集点更新失败：', error)
+  } finally { pointsLoading.value = false }
 }
 
 async function loadTransportTasks(silent = false) {
@@ -1970,9 +1991,11 @@ onMounted(async () => {
   })
   offPoints = subscribePointsUpdated((list) => {
     if (list === toRaw(points.value)) return
-    if (Array.isArray(list) && list.length) {
+    if (Array.isArray(list)) {
       points.value = list as CollectionPoint[]
       assignBoxAreas(boxes.value, points.value)
+      pointsLoadedAt = Date.now()
+      pointsError.value = false
     }
   })
   if (!mapRef.value) return

@@ -72,3 +72,30 @@ globalThis.fetch = async (url, options) => {
 assert.equal((await auth.collectorMapRequest()).boxes[0].id, 1)
 assert.ok(auth.getHiddenBoxIds().has(9))
 console.log('Collector map parallel loading, retry and timeout checks passed')
+
+// 新箱体请求必须独立于仍未返回的隐藏名单，不等待其超时。
+let releaseVisibility
+let visibilityFinished = false
+const splitRequests = []
+globalThis.fetch = async (url) => {
+  splitRequests.push(url)
+  if (url.includes('data-visibility')) {
+    return new Promise(resolve => { releaseVisibility = () => {
+      visibilityFinished = true
+      resolve(response({ hiddenBoxIds: [12], hiddenPointIds: [] }))
+    } })
+  }
+  if (url.endsWith('/points')) return response([{ id: 10 }])
+  assert.ok(url.endsWith('/boxes'))
+  return response([{ id: 1 }])
+}
+const visibility = auth.loadDataVisibility()
+assert.equal((await auth.collectorMapBoxesRequest())[0].id, 1)
+assert.equal(visibilityFinished, false)
+assert.equal(splitRequests.filter(url => url.includes('data-visibility')).length, 1)
+releaseVisibility()
+await visibility
+assert.ok(auth.getHiddenBoxIds().has(12))
+assert.equal((await auth.collectorMapPointsRequest())[0].id, 10)
+assert.ok(!splitRequests.some(url => url.includes('/box-map/data?')))
+console.log('Split boxes and points endpoints, background visibility and shared requests checks passed')

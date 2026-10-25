@@ -12,7 +12,7 @@
         <p class="metric-note">上方为垃圾占比，下方色带为对应收集点；两图共用时间轴。悬停查看时间、占比及收集点，拖动底部滑块缩放。</p>
       </template>
       <p v-else-if="validSamples.length" class="metric-note">悬停查看时间与{{ label }}，拖动底部滑块缩放。</p>
-      <p v-if="validSamples.length" class="metric-note">缺测和超过 1 小时的采集间隔断线显示。<template v-if="metric === 'fillLevel'">收集点未匹配时明确标注，不推断空白时段。</template></p>
+      <p v-if="validSamples.length" class="metric-note">缺测和超过 1 小时的采集间隔以虚线连接两端有效值，虚线仅作连接参考，不代表实际采集值。<template v-if="metric === 'fillLevel'">收集点未匹配时明确标注，不推断空白时段。</template></p>
       <p v-if="validSamples.length === 1" class="metric-note">仅一个有效采集点，暂不能判断变化趋势。</p>
       <p v-if="history?.truncated" class="metric-note">数据较多，仅展示最近 6000 个采集点。</p>
     </div>
@@ -28,7 +28,7 @@ import { GridComponent, TooltipComponent, DataZoomComponent } from 'echarts/comp
 import { CanvasRenderer } from 'echarts/renderers'
 import { useAppStore } from '@/stores'
 import { beijingDateTime, parseBeijingDateTime } from '@/utils/beijing-time'
-import { buildPointSegments, HISTORY_GAP_MS, METRIC_LABELS, normalizeHistorySamples, sampleMetricValue, type BoxHistoryMetric, type BoxHistoryView, type BoxHistoryDays, type BoxMetricHistory } from '../box-history-metrics'
+import { buildMetricGapData, buildPointSegments, HISTORY_GAP_MS, METRIC_LABELS, normalizeHistorySamples, sampleMetricValue, type BoxHistoryMetric, type BoxHistoryView, type BoxHistoryDays, type BoxMetricHistory } from '../box-history-metrics'
 
 import BoxHistoryToolbar from './BoxHistoryToolbar.vue'
 
@@ -107,7 +107,11 @@ const option = computed(() => {
       if (!point) return ''
       return `${beijingDateTime(new Date(point.value[0]), ' ')}\n${label.value}：${point.value[1] == null ? '缺测' : numberLabel(point.value[1])}${withPoints ? `\n收集点：${point.data.pointName || '未匹配收集点'}` : ''}`
     } },
-    series: [{ id: 'box-metric', type: 'line', data, smooth: false, connectNulls: false, showSymbol: validSamples.value.length <= 30, symbolSize: 6, lineStyle: { color, width: 2 }, itemStyle: { color } }, ...(withPoints ? [{
+    series: [{ id: 'box-metric', type: 'line', data, smooth: false, connectNulls: false, showSymbol: validSamples.value.length <= 30, symbolSize: 6, lineStyle: { color, width: 2 }, itemStyle: { color } }, {
+      id: 'box-metric-gaps', type: 'line', data: buildMetricGapData(samples.value, metric.value),
+      smooth: false, connectNulls: false, showSymbol: false, silent: true,
+      lineStyle: { color, width: 2, type: 'dashed' }, tooltip: { show: false },
+    }, ...(withPoints ? [{
       id: 'collection-points', type: 'custom', xAxisIndex: 1, yAxisIndex: 1, encode: { x: [0, 1], y: 2 },
       data: pointSegments.value.map(point => ({ value: [point.start, point.end, 0], ...point })),
       tooltip: { trigger: 'item', renderMode: 'richText', formatter: ({ data: point }: { data: { name: string, start: number, end: number } }) => `${point.name}\n${timeLabel(point.start)} ～ ${timeLabel(point.end)}` },

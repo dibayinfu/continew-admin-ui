@@ -35,6 +35,16 @@ await auth.collectorMapRequest(false)
 assert.equal(auth.daasAuth.visible, false)
 assert.equal(storage.size, 0)
 
+// 独立运单只请求自己的接口，不重新拉取箱体与收集点。
+let transportRequests = 0
+installFetch(async (url) => {
+  assert.equal(url, '/api/collector/box-map/transport-tasks')
+  transportRequests++
+  return response(200, [{ taskId: 'task-1' }])
+})
+assert.deepEqual(await auth.collectorMapTransportTasksRequest(), [{ taskId: 'task-1' }])
+assert.equal(transportRequests, 1)
+
 // 两页同时失效：保存失败不关闭弹窗；保存成功后两页各重试一次。
 let reads = 0
 let saved = false

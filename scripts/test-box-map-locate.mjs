@@ -23,6 +23,7 @@ function setup({ target = box, town = '', village = '', overflow = false, transp
     matchedVehicles: ref(vehicle ? [vehicle] : []),
     townshipFilter: ref(town), villageFilter: ref(village),
     overflowOnly: ref(overflow), transportingOnly: ref(transporting),
+    highTemperatureOnly: ref(false), offlineOnly: ref(false), lowBatteryOnly: ref(false),
     UNMATCHED: '__unmatched__',
     boxAreas: new Map([[48, { township: '龙泉镇', village: '某村' }]]),
     getHiddenBoxIds: () => new Set(hidden ? [48] : []),
@@ -37,7 +38,7 @@ function setup({ target = box, town = '', village = '', overflow = false, transp
       actions.push(selected.id)
     },
     vehicleTypeOf: () => '小勾臂车', enabledVehicleTypes: ref([]), selectedBox: ref(box),
-    drawMarkers() {}, vehiclePoint: () => ({ lng: 114, lat: 36 }),
+    drawMarkers() {}, drawVehicleMarkers() {}, vehiclePoint: () => ({ lng: 114, lat: 36 }),
     map: { getZoom: () => 12, setZoomAndCenter: () => actions.push('center') },
     visibleVehicles: ref(vehicle ? [vehicle] : []), vehicleMarkers: [],
     openVehicleInfo: selected => actions.push(selected.id),

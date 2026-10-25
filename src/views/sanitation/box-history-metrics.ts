@@ -33,6 +33,20 @@ export function sampleMetricValue(sample: BoxHistorySample, metric: BoxHistoryMe
   const value = sample[metric]
   return value != null && Number.isFinite(value) && (metric === 'temperature' || (value >= 0 && value <= 100)) ? value : null
 }
+/** 只连接缺口两端的有效值，各段用 null 隔开，不补造采集值或向首尾外推。 */
+export function buildMetricGapData(samples: TimedBoxSample[], metric: BoxHistoryMetric): Array<[number, number | null]> {
+  const data: Array<[number, number | null]> = []
+  let previous: { timestamp: number, value: number, index: number } | undefined
+  samples.forEach((sample, index) => {
+    const value = sampleMetricValue(sample, metric)
+    if (value == null) return
+    if (previous && (index > previous.index + 1 || sample.timestamp - previous.timestamp > HISTORY_GAP_MS)) {
+      data.push([previous.timestamp, previous.value], [sample.timestamp, value], [sample.timestamp, null])
+    }
+    previous = { timestamp: sample.timestamp, value, index }
+  })
+  return data
+}
 /** 色带只连接相邻采集记录；长时间缺测不推断地点，也不把末次点位延伸到现在。 */
 export function buildPointSegments(samples: TimedBoxSample[]): BoxPointSegment[] {
   const segments: BoxPointSegment[] = []

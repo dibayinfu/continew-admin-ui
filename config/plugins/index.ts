@@ -9,6 +9,7 @@ import createAutoImport from './auto-import'
 import createComponents from './components'
 import createSvgIcon from './svg-icon'
 import createMock from './mock'
+import startupPreload from './startup-preload'
 
 export default function createVitePlugins(viteEnv, isBuild = false) {
   const vitePlugins: (PluginOption | PluginOption[])[] = [appInfo(), vue(), vueJsx(), tailwindcss()]
@@ -17,5 +18,6 @@ export default function createVitePlugins(viteEnv, isBuild = false) {
   vitePlugins.push(createComponents())
   vitePlugins.push(createSvgIcon(isBuild))
   vitePlugins.push(createMock(viteEnv, isBuild))
+  vitePlugins.push(startupPreload(viteEnv))
   return vitePlugins
 }

@@ -1,6 +1,15 @@
 import { URL, fileURLToPath } from 'node:url'
+import { existsSync } from 'node:fs'
 import { defineConfig, loadEnv } from 'vite'
 import createVitePlugins from './config/plugins'
+
+// 只合并布局和地图共用的基础组件，避免根导出将所有业务组件拉进首屏，
+// 同时避免每个按钮、菜单及其样式分别产生网络请求。
+const arcoCoreComponents = [
+  'button', 'space', 'grid', 'layout', 'card', 'input', 'checkbox', 'select',
+  'dropdown', 'menu', 'tabs', 'tooltip', 'tag', 'popover', 'badge', 'scrollbar',
+  'spin', 'empty', 'avatar', 'watermark', 'message', 'notification', 'modal', 'drawer',
+]
 
 export default defineConfig(({ command, mode }) => {
   const env = loadEnv(mode, process.cwd()) as ImportMetaEnv
@@ -18,6 +27,21 @@ export default defineConfig(({ command, mode }) => {
     // 引入sass全局样式变量
     css: {
       preprocessorOptions: {
+        less: {
+          // 保留原有主题对尺寸、颜色等 Less token 的覆盖；reference 不重复输出 CSS。
+          additionalData: (source: string, filename: string) => {
+            const theme = fileURLToPath(new URL('./node_modules/@arco-themes/vue-gi-demo/', import.meta.url))
+            const component = filename.replace(/\\/g, '/').match(/\/es\/(?:_components\/)?([^/]+)\/style\/index\.less$/)?.[1]
+            const aliases = { drawer: 'modal', 'date-picker': 'picker', 'time-picker': 'picker', 'select-view': 'input' }
+            const name = aliases[component || ''] || component
+            const override = fileURLToPath(new URL(`./src/styles/arco-ui/a-${name}.less`, import.meta.url))
+            // 懒加载组件的样式可能晚于全局 CSS 到达，末尾补上对应覆盖，避免覆盖顺序改变。
+            return `${source}
+@import (reference) "${theme}theme.less";
+@import (reference) "${theme}variables.less";
+${component && existsSync(override) ? `@import "${override}";` : ''}`
+          },
+        },
         scss: {
           additionalData: `@use "@/styles/var.scss" as *;`,
           api: 'modern-compiler',
@@ -67,9 +91,13 @@ export default defineConfig(({ command, mode }) => {
           // 浏览器可继续复用这些依赖缓存，避免重复下载整个入口包。
           manualChunks: {
             vue: ['vue', 'vue-router', 'pinia'],
-            arco: ['@arco-design/web-vue', '@arco-design/web-vue/es/icon'],
+            'arco-core': arcoCoreComponents.flatMap((name) => [
+              `@arco-design/web-vue/es/${name}/index.js`,
+              `@arco-design/web-vue/es/${name}/style/index.js`,
+            ]),
             echarts: ['echarts', 'vue-echarts'],
-            utils: ['axios', 'dayjs', 'lodash-es', '@vueuse/core'],
+            utils: ['dayjs', 'lodash-es', '@vueuse/core'],
+            'http-client': ['axios', 'query-string'],
           },
           chunkFileNames: 'static/js/[name]-[hash].js',
           entryFileNames: 'static/js/[name]-[hash].js',

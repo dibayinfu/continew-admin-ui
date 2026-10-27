@@ -1,10 +1,11 @@
 import { ref } from 'vue'
 import { defineStore } from 'pinia'
 import type { RouteRecordRaw } from 'vue-router'
-import { mapTree, toTreeArray } from 'xe-utils'
+import mapTree from 'xe-utils/mapTree'
+import toTreeArray from 'xe-utils/toTreeArray'
 import { cloneDeep, omit } from 'lodash-es'
 import { constantRoutes, systemRoutes } from '@/router/route'
-import { type RouteItem, getUserRoute } from '@/apis'
+import type { RouteItem } from '@/apis/auth/type'
 import { transformPathToName } from '@/utils'
 import { asyncRouteModules } from '@/router/asyncModules'
 import { isPrototypeMode } from '@/utils/prototype'
@@ -101,6 +102,7 @@ const storeSetup = () => {
       asyncRoutes.value = []
       return []
     }
+    const { getUserRoute } = await import('@/apis/auth')
     const { data } = await getUserRoute()
     const formattedRoutes = formatAsyncRoutes(data)
     const flatRoutes = flatMultiLevelRoutes(cloneDeep(formattedRoutes))

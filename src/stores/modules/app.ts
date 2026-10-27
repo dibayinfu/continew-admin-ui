@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { computed, reactive, toRefs } from 'vue'
 import { generate, getRgbStr } from '@arco-design/color'
-import { type BasicConfig, listSiteOptionDict } from '@/apis/system'
+import type { BasicConfig } from '@/apis/system/type'
 import { getSettings } from '@/config/setting'
 import { isPrototypeMode } from '@/utils/prototype'
 import { withBase } from '@/utils'
@@ -70,7 +70,7 @@ const storeSetup = () => {
       })
       return
     }
-    listSiteOptionDict().then((res) => {
+    import('@/apis/system/common').then(({ listSiteOptionDict }) => listSiteOptionDict()).then((res) => {
       const resMap = new Map()
       res.data.forEach((item) => {
         resMap.set(item.label, item.value)

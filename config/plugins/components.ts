@@ -8,7 +8,7 @@ export default function createComponents() {
     extensions: ['vue', 'tsx'],
     // 不再通过 app.use(ArcoVue) 注册整套组件；仅编译并下载模板实际使用的
     // Arco 组件和图标，减小 GitHub Pages 的首屏 JS 请求。
-    resolvers: [ArcoResolver({ resolveIcons: true, importStyle: false })],
+    resolvers: [ArcoResolver({ resolveIcons: true, importStyle: 'less' })],
     // 配置文件生成位置
     dts: './src/types/components.d.ts',
   })

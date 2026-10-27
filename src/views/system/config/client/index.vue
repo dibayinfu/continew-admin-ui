@@ -61,6 +61,7 @@
 <script setup lang="tsx">
 import type { LabelValue } from '@arco-design/web-vue/es/tree-select/interface'
 import { type TableInstance, Tag } from '@arco-design/web-vue'
+import '@arco-design/web-vue/es/tag/style/index.js'
 import AddModal from './AddModal.vue'
 import DetailDrawer from './DetailDrawer.vue'
 import { type ClientQuery, type ClientResp, deleteClient, listClient } from '@/apis/system/client'

@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { type RouteLocationNormalized, type RouteRecordName, useRouter } from 'vue-router'
-import _XEUtils_ from 'xe-utils'
+import eachTree from 'xe-utils/eachTree'
 import { useRouteStore } from '@/stores'
 import { isPrototypeMode } from '@/utils/prototype'
 
@@ -38,7 +38,7 @@ const storeSetup = () => {
   const clearTabList = () => {
     const routeStore = useRouteStore()
     const arr: RouteLocationNormalized[] = []
-    _XEUtils_.eachTree(routeStore.routes, (item) => {
+    eachTree(routeStore.routes, (item) => {
       if (item.meta?.affix ?? false) {
         arr.push(item as unknown as RouteLocationNormalized)
       }

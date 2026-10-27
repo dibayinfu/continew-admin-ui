@@ -59,10 +59,14 @@ export default function startupPreload(env: Record<string, string>): Plugin {
           }]
         }))
         const data = JSON.stringify({ base, home, defaultLayout: defaultSettings.layout, common, layouts }).replace(/</g, '\\u003c')
-        return [{
+        // 经典内联脚本会等待前面的样式表；必须放在所有 CSS 之前。
+        // 同时把 charset 保留为 head 的第一个元素，避免编码声明被大段预加载信息挤到后面。
+        return {
+          html: html.replace(/<meta\s+charset\s*=\s*["']?utf-8["']?\s*\/?>/i, ''),
+          tags: [{ tag: 'meta', attrs: { charset: 'UTF-8' }, injectTo: 'head-prepend' }, {
           tag: 'script',
           attrs: { 'data-startup-preload': '' },
-          injectTo: 'head',
+          injectTo: 'head-prepend',
           children: `(function(d){
 var route=location.hash.slice(1).split(/[?#]/)[0]||'/';
 if(['/',d.home,'/dashboard/workplace','/dashboard/analysis'].indexOf(route)<0)return;
@@ -78,7 +82,8 @@ link.crossOrigin='anonymous';link.fetchPriority='low';link.href=href;document.he
 preload(d.common.js,false);preload(layout.js,false);
 preload(d.common.css,true);preload(layout.css,true);
 })(${data});`,
-        }]
+          }],
+        }
       },
     },
   }

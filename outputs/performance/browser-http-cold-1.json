@@ -1,0 +1,1068 @@
+{
+  "now": 5812.70000000298,
+  "diag": {
+    "milestones": {
+      "page": 3911.0999999940395,
+      "canvas": 5643.9000000059605,
+      "marker": 5643.9000000059605
+    },
+    "fetches": [
+      {
+        "url": "https://longan.mozi365.com/api/collector/box-map/points",
+        "start": 3879.5,
+        "headersAt": 4276,
+        "status": 200,
+        "edge": "a512d509cdaae584-LAX",
+        "cache": "DYNAMIC"
+      },
+      {
+        "url": "https://longan.mozi365.com/api/collector/box-map/transport-tasks",
+        "start": 3879.7999999970198
+      },
+      {
+        "url": "https://longan.mozi365.com/api/collector/box-map/new-box-ids",
+        "start": 3879.9000000059605,
+        "headersAt": 4799.0999999940395,
+        "status": 200,
+        "edge": "a512d509cdbfe584-LAX",
+        "cache": "DYNAMIC"
+      },
+      {
+        "url": "https://longan.mozi365.com/api/collector/data-visibility",
+        "start": 3880,
+        "headersAt": 4598,
+        "status": 200,
+        "edge": "a512d509cdfee584-LAX",
+        "cache": "DYNAMIC"
+      },
+      {
+        "url": "https://longan.mozi365.com/api/collector/box-map/boxes",
+        "start": 3880,
+        "headersAt": 5659.9000000059605,
+        "status": 200,
+        "edge": "a512d509cdd3e584-LAX",
+        "cache": "DYNAMIC"
+      },
+      {
+        "url": "https://longan.mozi365.com/api/collector/vehicles/types",
+        "start": 3880.0999999940395,
+        "headersAt": 5274.70000000298,
+        "status": 200,
+        "edge": "a512d509cdd7e584-LAX",
+        "cache": "DYNAMIC"
+      },
+      {
+        "url": "https://longan.mozi365.com/api/collector/vehicles/runtime",
+        "start": 3880.0999999940395,
+        "headersAt": 5370,
+        "status": 200,
+        "edge": "a512d509ce12e584-LAX",
+        "cache": "DYNAMIC"
+      }
+    ],
+    "errors": [],
+    "scripts": [],
+    "longtasks": [
+      {
+        "start": 2018,
+        "duration": 55
+      },
+      {
+        "start": 3737.4000000059605,
+        "duration": 174
+      },
+      {
+        "start": 5498.20000000298,
+        "duration": 146
+      },
+      {
+        "start": 5668.5,
+        "duration": 143
+      }
+    ],
+    "initialStorageEntries": 16
+  },
+  "preload": true,
+  "navigation": [
+    {
+      "ttfb": 946,
+      "htmlEnd": 948,
+      "dcl": 2077.2000000029802,
+      "load": 2366.9000000059605,
+      "tls": 675.8000000119209
+    }
+  ],
+  "paints": [
+    {
+      "name": "first-paint",
+      "start": 2140
+    },
+    {
+      "name": "first-contentful-paint",
+      "start": 2140
+    }
+  ],
+  "resources": [
+    {
+      "url": "https://longan.mozi365.com/static/css/loading.css",
+      "start": 962.4000000059605,
+      "end": 1865.9000000059605,
+      "duration": 903.5,
+      "ttfb": 848.5,
+      "encoded": 247,
+      "decoded": 453,
+      "status": 200,
+      "transfer": 547
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-DhalCzgL.js",
+      "start": 962.7999999970198,
+      "end": 1865.7000000029802,
+      "duration": 902.9000000059605,
+      "ttfb": 682.3999999910593,
+      "encoded": 76931,
+      "decoded": 237217,
+      "status": 200,
+      "transfer": 77231
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/vue-DU1wApXC.js",
+      "start": 962.9000000059605,
+      "end": 2016.7999999970198,
+      "duration": 1053.8999999910593,
+      "ttfb": 862.0999999940395,
+      "encoded": 48356,
+      "decoded": 108921,
+      "status": 200,
+      "transfer": 48656
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/arco-core-Bk6zEnAu.js",
+      "start": 963.2000000029802,
+      "end": 1863.7000000029802,
+      "duration": 900.5,
+      "ttfb": 273.20000000298023,
+      "encoded": 76619,
+      "decoded": 228034,
+      "status": 200,
+      "transfer": 76919
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/utils-Braej2N4.js",
+      "start": 963.5,
+      "end": 1866.2000000029802,
+      "duration": 902.7000000029802,
+      "ttfb": 661.2000000029802,
+      "encoded": 15272,
+      "decoded": 36698,
+      "status": 200,
+      "transfer": 15572
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/arco-core-0aQ1blGe.css",
+      "start": 963.5999999940395,
+      "end": 1846.9000000059605,
+      "duration": 883.3000000119209,
+      "ttfb": 661.2999999970198,
+      "encoded": 34255,
+      "decoded": 207944,
+      "status": 200,
+      "transfer": 34555
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/index-DgnlpLN0.css",
+      "start": 963.5999999940395,
+      "end": 1878.7999999970198,
+      "duration": 915.2000000029802,
+      "ttfb": 849.6000000089407,
+      "encoded": 18191,
+      "decoded": 72098,
+      "status": 200,
+      "transfer": 18491
+    },
+    {
+      "url": "https://static.cloudflareinsights.com/beacon.min.js/vce701823e78c4301a35b7e07294d87301792088814092",
+      "start": 963.7000000029802,
+      "end": 1908.7999999970198,
+      "duration": 945.0999999940395,
+      "ttfb": 0,
+      "encoded": 0,
+      "decoded": 0,
+      "status": 200,
+      "transfer": 0
+    },
+    {
+      "url": "https://longan.mozi365.com/static/images/loading.svg",
+      "start": 963.7000000029802,
+      "end": 2147.7999999970198,
+      "duration": 1184.0999999940395,
+      "ttfb": 267.5,
+      "encoded": 834,
+      "decoded": 2760,
+      "status": 200,
+      "transfer": 1134
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/box-map-B8Vso-Xr.js",
+      "start": 1881.5999999940395,
+      "end": 2648.9000000059605,
+      "duration": 767.3000000119209,
+      "ttfb": 192.09999999403954,
+      "encoded": 66967,
+      "decoded": 173815,
+      "status": 200,
+      "transfer": 67267
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-C3sDfVSZ.js",
+      "start": 1881.7000000029802,
+      "end": 2649.7000000029802,
+      "duration": 768,
+      "ttfb": 298.3999999910593,
+      "encoded": 2287,
+      "decoded": 5339,
+      "status": 200,
+      "transfer": 2587
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-BDDlx0Nf.js",
+      "start": 1881.7000000029802,
+      "end": 2650,
+      "duration": 768.2999999970198,
+      "ttfb": 298.6000000089407,
+      "encoded": 3156,
+      "decoded": 8551,
+      "status": 200,
+      "transfer": 3456
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index.es-BW_FzNZC.js",
+      "start": 1881.7000000029802,
+      "end": 2650.5,
+      "duration": 768.7999999970198,
+      "ttfb": 298.29999999701977,
+      "encoded": 688,
+      "decoded": 1291,
+      "status": 200,
+      "transfer": 988
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-opzTtUbu.js",
+      "start": 1881.7999999970198,
+      "end": 2649.2999999970198,
+      "duration": 767.5,
+      "ttfb": 297.5,
+      "encoded": 804,
+      "decoded": 1367,
+      "status": 200,
+      "transfer": 1104
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-_XXn3nvI.js",
+      "start": 1881.7999999970198,
+      "end": 3046.7000000029802,
+      "duration": 1164.9000000059605,
+      "ttfb": 282.20000000298023,
+      "encoded": 18485,
+      "decoded": 53881,
+      "status": 200,
+      "transfer": 18785
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-Dpe0ZKWF.js",
+      "start": 1881.7999999970198,
+      "end": 3050.0999999940395,
+      "duration": 1168.2999999970198,
+      "ttfb": 681.1999999880791,
+      "encoded": 1626,
+      "decoded": 4025,
+      "status": 200,
+      "transfer": 1926
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/get-value-by-path-BYx_KLWk.js",
+      "start": 1881.9000000059605,
+      "end": 2651.0999999940395,
+      "duration": 769.1999999880791,
+      "ttfb": 282.1000000089407,
+      "encoded": 320,
+      "decoded": 559,
+      "status": 200,
+      "transfer": 620
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-zdrzumYx.js",
+      "start": 1881.9000000059605,
+      "end": 3050.7999999970198,
+      "duration": 1168.8999999910593,
+      "ttfb": 395.29999999701977,
+      "encoded": 1555,
+      "decoded": 3189,
+      "status": 200,
+      "transfer": 1855
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-DDha9V44.js",
+      "start": 1881.9000000059605,
+      "end": 3052,
+      "duration": 1170.0999999940395,
+      "ttfb": 395.20000000298023,
+      "encoded": 2707,
+      "decoded": 6442,
+      "status": 200,
+      "transfer": 3007
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-D7KW-7qK.js",
+      "start": 1881.9000000059605,
+      "end": 3051.5,
+      "duration": 1169.5999999940395,
+      "ttfb": 395.79999999701977,
+      "encoded": 9597,
+      "decoded": 28154,
+      "status": 200,
+      "transfer": 9897
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/useDevice-DYcRmrYP.js",
+      "start": 1881.9000000059605,
+      "end": 3278.2000000029802,
+      "duration": 1396.2999999970198,
+      "ttfb": 222.1000000089407,
+      "encoded": 166,
+      "decoded": 192,
+      "status": 200,
+      "transfer": 466
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-u-ujRHgV.js",
+      "start": 1882,
+      "end": 3269.7999999970198,
+      "duration": 1387.7999999970198,
+      "ttfb": 212.70000000298023,
+      "encoded": 829,
+      "decoded": 1397,
+      "status": 200,
+      "transfer": 1129
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-lkFp5OiL.js",
+      "start": 1882,
+      "end": 3272.5,
+      "duration": 1390.5,
+      "ttfb": 214.5,
+      "encoded": 880,
+      "decoded": 1478,
+      "status": 200,
+      "transfer": 1180
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/sbg-store-Dm9D-2wv.js",
+      "start": 1882,
+      "end": 3275,
+      "duration": 1393,
+      "ttfb": 219.90000000596046,
+      "encoded": 340,
+      "decoded": 639,
+      "status": 200,
+      "transfer": 640
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/amap-DBBtLFSo.js",
+      "start": 1882,
+      "end": 3286.5,
+      "duration": 1404.5,
+      "ttfb": 228.5,
+      "encoded": 875,
+      "decoded": 1590,
+      "status": 200,
+      "transfer": 1175
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/mitt-25niWtk8.js",
+      "start": 1882,
+      "end": 3298.9000000059605,
+      "duration": 1416.9000000059605,
+      "ttfb": 244.5,
+      "encoded": 77,
+      "decoded": 68,
+      "status": 200,
+      "transfer": 377
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-B5Bbus6S.js",
+      "start": 1882.0999999940395,
+      "end": 3279.5,
+      "duration": 1397.4000000059605,
+      "ttfb": 220,
+      "encoded": 845,
+      "decoded": 1570,
+      "status": 200,
+      "transfer": 1145
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-DFTPFw1u.js",
+      "start": 1882.0999999940395,
+      "end": 3284.2999999970198,
+      "duration": 1402.2000000029802,
+      "ttfb": 223.70000000298023,
+      "encoded": 947,
+      "decoded": 1621,
+      "status": 200,
+      "transfer": 1247
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-Bu_whNuy.js",
+      "start": 1882.0999999940395,
+      "end": 3471.4000000059605,
+      "duration": 1589.300000011921,
+      "ttfb": 197.29999999701977,
+      "encoded": 851,
+      "decoded": 1439,
+      "status": 200,
+      "transfer": 1151
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-eKNoAFtg.js",
+      "start": 1882.0999999940395,
+      "end": 3489.5,
+      "duration": 1607.4000000059605,
+      "ttfb": 211.40000000596046,
+      "encoded": 879,
+      "decoded": 1479,
+      "status": 200,
+      "transfer": 1179
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-B6I5OFEn.js",
+      "start": 1882.0999999940395,
+      "end": 3495.9000000059605,
+      "duration": 1613.800000011921,
+      "ttfb": 217.5,
+      "encoded": 883,
+      "decoded": 1494,
+      "status": 200,
+      "transfer": 1183
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-BjyB6Iqh.js",
+      "start": 1882.2000000029802,
+      "end": 3496,
+      "duration": 1613.7999999970198,
+      "ttfb": 212.8999999910593,
+      "encoded": 858,
+      "decoded": 1474,
+      "status": 200,
+      "transfer": 1158
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-BMOcfR1t.js",
+      "start": 1882.2000000029802,
+      "end": 3496.7000000029802,
+      "duration": 1614.5,
+      "ttfb": 211.6000000089407,
+      "encoded": 851,
+      "decoded": 1465,
+      "status": 200,
+      "transfer": 1151
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-2ZqVpveq.js",
+      "start": 1882.2000000029802,
+      "end": 3498.4000000059605,
+      "duration": 1616.2000000029802,
+      "ttfb": 209.90000000596046,
+      "encoded": 998,
+      "decoded": 2417,
+      "status": 200,
+      "transfer": 1298
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/LayoutDefault-Dv4w4Bh6.js",
+      "start": 1882.2000000029802,
+      "end": 3566,
+      "duration": 1683.7999999970198,
+      "ttfb": 277.79999999701977,
+      "encoded": 1043,
+      "decoded": 2083,
+      "status": 200,
+      "transfer": 1343
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-DeVWZnVd.js",
+      "start": 1882.2999999970198,
+      "end": 3494.7000000029802,
+      "duration": 1612.4000000059605,
+      "ttfb": 198.90000000596046,
+      "encoded": 591,
+      "decoded": 1056,
+      "status": 200,
+      "transfer": 891
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/MenuFoldBtn-BhtmscOz.js",
+      "start": 1882.2999999970198,
+      "end": 3517.4000000059605,
+      "duration": 1635.1000000089407,
+      "ttfb": 227.5,
+      "encoded": 3112,
+      "decoded": 6663,
+      "status": 200,
+      "transfer": 3412
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-DFuSqBdU.js",
+      "start": 1882.4000000059605,
+      "end": 3496.2000000029802,
+      "duration": 1613.7999999970198,
+      "ttfb": 206.6000000089407,
+      "encoded": 878,
+      "decoded": 1481,
+      "status": 200,
+      "transfer": 1178
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index.vue_vue_type_script_setup_true_lang-CJ7wRcQZ.js",
+      "start": 1882.4000000059605,
+      "end": 3498.7000000029802,
+      "duration": 1616.2999999970198,
+      "ttfb": 207.40000000596046,
+      "encoded": 2722,
+      "decoded": 4089,
+      "status": 200,
+      "transfer": 3022
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-BjP0Ca4A.js",
+      "start": 1882.4000000059605,
+      "end": 3498.9000000059605,
+      "duration": 1616.5,
+      "ttfb": 209.3999999910593,
+      "encoded": 883,
+      "decoded": 1484,
+      "status": 200,
+      "transfer": 1183
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/regexp-JIzMga2u.js",
+      "start": 1882.4000000059605,
+      "end": 3499.2000000029802,
+      "duration": 1616.7999999970198,
+      "ttfb": 208.90000000596046,
+      "encoded": 518,
+      "decoded": 753,
+      "status": 200,
+      "transfer": 818
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/alert-task-cgNRFFSI.js",
+      "start": 1882.4000000059605,
+      "end": 3502.0999999940395,
+      "duration": 1619.699999988079,
+      "ttfb": 211.59999999403954,
+      "encoded": 4631,
+      "decoded": 13358,
+      "status": 200,
+      "transfer": 4931
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-CUPJF-l9.js",
+      "start": 1882.4000000059605,
+      "end": 3503,
+      "duration": 1620.5999999940395,
+      "ttfb": 212.70000000298023,
+      "encoded": 836,
+      "decoded": 1425,
+      "status": 200,
+      "transfer": 1136
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-BVkxBYX0.js",
+      "start": 1882.4000000059605,
+      "end": 3514.7000000029802,
+      "duration": 1632.2999999970198,
+      "ttfb": 213.69999998807907,
+      "encoded": 7989,
+      "decoded": 22034,
+      "status": 200,
+      "transfer": 8289
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-B0aGA2Wa.js",
+      "start": 1882.4000000059605,
+      "end": 3515.5999999940395,
+      "duration": 1633.199999988079,
+      "ttfb": 223.80000001192093,
+      "encoded": 1061,
+      "decoded": 1978,
+      "status": 200,
+      "transfer": 1361
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index.vue_vue_type_script_setup_true_lang-CPgXrmz3.js",
+      "start": 1882.4000000059605,
+      "end": 3516,
+      "duration": 1633.5999999940395,
+      "ttfb": 225.29999999701977,
+      "encoded": 1594,
+      "decoded": 4357,
+      "status": 200,
+      "transfer": 1894
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/useBreakpoint-A18MHO-I.js",
+      "start": 1882.4000000059605,
+      "end": 3516.7000000029802,
+      "duration": 1634.2999999970198,
+      "ttfb": 224.79999999701977,
+      "encoded": 199,
+      "decoded": 242,
+      "status": 200,
+      "transfer": 499
+    },
+    {
+      "url": "https://longan.mozi365.com/static/js/index-Cs3OJmh-.js",
+      "start": 1882.5,
+      "end": 3520.5999999940395,
+      "duration": 1638.0999999940395,
+      "ttfb": 225.20000000298023,
+      "encoded": 3099,
+      "decoded": 6544,
+      "status": 200,
+      "transfer": 3399
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/index-6wqdyVKp.css",
+      "start": 1882.5999999940395,
+      "end": 2144,
+      "duration": 261.40000000596046,
+      "ttfb": 251.5,
+      "encoded": 1350,
+      "decoded": 6833,
+      "status": 200,
+      "transfer": 1650
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/box-map-BlZDrI3B.css",
+      "start": 1882.5999999940395,
+      "end": 2152.2999999970198,
+      "duration": 269.70000000298023,
+      "ttfb": 260.29999999701977,
+      "encoded": 9741,
+      "decoded": 43248,
+      "status": 200,
+      "transfer": 10041
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/index-DN1pCliS.css",
+      "start": 1882.5999999940395,
+      "end": 2153.0999999940395,
+      "duration": 270.5,
+      "ttfb": 260.5,
+      "encoded": 831,
+      "decoded": 3893,
+      "status": 200,
+      "transfer": 1131
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/index-rJP3Qil1.css",
+      "start": 1882.7000000029802,
+      "end": 2152.7000000029802,
+      "duration": 270,
+      "ttfb": 260,
+      "encoded": 1111,
+      "decoded": 4572,
+      "status": 200,
+      "transfer": 1411
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/index-BLP8l1iC.css",
+      "start": 1882.7000000029802,
+      "end": 2160.0999999940395,
+      "duration": 277.3999999910593,
+      "ttfb": 261.29999999701977,
+      "encoded": 3351,
+      "decoded": 16953,
+      "status": 200,
+      "transfer": 3651
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/index-Dn539kzp.css",
+      "start": 1882.7000000029802,
+      "end": 2160.7000000029802,
+      "duration": 278,
+      "ttfb": 266.1000000089407,
+      "encoded": 267,
+      "decoded": 981,
+      "status": 200,
+      "transfer": 567
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/index-BwWoU8AS.css",
+      "start": 1882.7000000029802,
+      "end": 2161.5999999940395,
+      "duration": 278.8999999910593,
+      "ttfb": 266.20000000298023,
+      "encoded": 1056,
+      "decoded": 4246,
+      "status": 200,
+      "transfer": 1356
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/index-CvE4ACnC.css",
+      "start": 1882.7000000029802,
+      "end": 2185.0999999940395,
+      "duration": 302.3999999910593,
+      "ttfb": 291.70000000298023,
+      "encoded": 2143,
+      "decoded": 13994,
+      "status": 200,
+      "transfer": 2443
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/LayoutDefault-BktPKOl5.css",
+      "start": 1882.7000000029802,
+      "end": 2221.2000000029802,
+      "duration": 338.5,
+      "ttfb": 326.29999999701977,
+      "encoded": 451,
+      "decoded": 1204,
+      "status": 200,
+      "transfer": 751
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/index-QkksEEWz.css",
+      "start": 1882.7999999970198,
+      "end": 2153.2999999970198,
+      "duration": 270.5,
+      "ttfb": 258.20000000298023,
+      "encoded": 376,
+      "decoded": 843,
+      "status": 200,
+      "transfer": 676
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/index-6DMIIKXx.css",
+      "start": 1882.7999999970198,
+      "end": 2160.9000000059605,
+      "duration": 278.1000000089407,
+      "ttfb": 266.59999999403954,
+      "encoded": 1642,
+      "decoded": 5824,
+      "status": 200,
+      "transfer": 1942
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/MenuFoldBtn-CD6kZN9q.css",
+      "start": 1882.7999999970198,
+      "end": 2161,
+      "duration": 278.20000000298023,
+      "ttfb": 266.09999999403954,
+      "encoded": 686,
+      "decoded": 2439,
+      "status": 200,
+      "transfer": 986
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/regexp-BD5dtVOc.css",
+      "start": 1882.7999999970198,
+      "end": 2161.2999999970198,
+      "duration": 278.5,
+      "ttfb": 266.1000000089407,
+      "encoded": 92,
+      "decoded": 87,
+      "status": 200,
+      "transfer": 392
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/index-CmRi_ZW9.css",
+      "start": 1882.9000000059605,
+      "end": 2221.5,
+      "duration": 338.59999999403954,
+      "ttfb": 327,
+      "encoded": 695,
+      "decoded": 2038,
+      "status": 200,
+      "transfer": 995
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/index-6wqdyVKp.css",
+      "start": 2073.2999999970198,
+      "end": 2328.9000000059605,
+      "duration": 255.6000000089407,
+      "ttfb": 253,
+      "encoded": 1350,
+      "decoded": 6833,
+      "status": 200,
+      "transfer": 1650
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/index-rJP3Qil1.css",
+      "start": 2073.2999999970198,
+      "end": 2331.5,
+      "duration": 258.20000000298023,
+      "ttfb": 255.29999999701977,
+      "encoded": 1111,
+      "decoded": 4572,
+      "status": 200,
+      "transfer": 1411
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/index-BLP8l1iC.css",
+      "start": 2073.4000000059605,
+      "end": 2335.0999999940395,
+      "duration": 261.69999998807907,
+      "ttfb": 259.3999999910593,
+      "encoded": 3351,
+      "decoded": 16953,
+      "status": 200,
+      "transfer": 3651
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/index-CvE4ACnC.css",
+      "start": 2073.4000000059605,
+      "end": 2365,
+      "duration": 291.59999999403954,
+      "ttfb": 289,
+      "encoded": 2143,
+      "decoded": 13994,
+      "status": 200,
+      "transfer": 2443
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/index-Dn539kzp.css",
+      "start": 2073.5,
+      "end": 2343.2999999970198,
+      "duration": 269.79999999701977,
+      "ttfb": 267.09999999403954,
+      "encoded": 267,
+      "decoded": 981,
+      "status": 200,
+      "transfer": 567
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/index-BwWoU8AS.css",
+      "start": 2073.5999999940395,
+      "end": 2337.7000000029802,
+      "duration": 264.1000000089407,
+      "ttfb": 261.70000000298023,
+      "encoded": 1056,
+      "decoded": 4246,
+      "status": 200,
+      "transfer": 1356
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/box-map-BlZDrI3B.css",
+      "start": 2073.5999999940395,
+      "end": 2348.5,
+      "duration": 274.90000000596046,
+      "ttfb": 271.8999999910593,
+      "encoded": 9741,
+      "decoded": 43248,
+      "status": 200,
+      "transfer": 10041
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/index-DN1pCliS.css",
+      "start": 2073.5999999940395,
+      "end": 2349.2000000029802,
+      "duration": 275.6000000089407,
+      "ttfb": 272.70000000298023,
+      "encoded": 831,
+      "decoded": 3893,
+      "status": 200,
+      "transfer": 1131
+    },
+    {
+      "url": "https://hm.baidu.com/hm.js",
+      "start": 2366.4000000059605,
+      "end": 5351.70000000298,
+      "duration": 2985.2999999970198,
+      "ttfb": 0,
+      "encoded": 0,
+      "decoded": 0,
+      "status": 0,
+      "transfer": 0
+    },
+    {
+      "url": "https://longan.mozi365.com/cdn-cgi/rum",
+      "start": 2369.7000000029802,
+      "end": 3049,
+      "duration": 679.2999999970198,
+      "ttfb": 675.8999999910593,
+      "encoded": 0,
+      "decoded": 0,
+      "status": 204,
+      "transfer": 300
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/index-QkksEEWz.css",
+      "start": 3504.4000000059605,
+      "end": 3714.2000000029802,
+      "duration": 209.79999999701977,
+      "ttfb": 201.20000000298023,
+      "encoded": 376,
+      "decoded": 843,
+      "status": 200,
+      "transfer": 676
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/regexp-BD5dtVOc.css",
+      "start": 3504.5999999940395,
+      "end": 3724.0999999940395,
+      "duration": 219.5,
+      "ttfb": 211,
+      "encoded": 92,
+      "decoded": 87,
+      "status": 200,
+      "transfer": 392
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/index-CmRi_ZW9.css",
+      "start": 3504.7000000029802,
+      "end": 3718.0999999940395,
+      "duration": 213.3999999910593,
+      "ttfb": 204,
+      "encoded": 695,
+      "decoded": 2038,
+      "status": 200,
+      "transfer": 995
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/MenuFoldBtn-CD6kZN9q.css",
+      "start": 3504.7000000029802,
+      "end": 3724.4000000059605,
+      "duration": 219.70000000298023,
+      "ttfb": 211,
+      "encoded": 686,
+      "decoded": 2439,
+      "status": 200,
+      "transfer": 986
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/index-6DMIIKXx.css",
+      "start": 3504.7000000029802,
+      "end": 3736,
+      "duration": 231.29999999701977,
+      "ttfb": 223.40000000596046,
+      "encoded": 1642,
+      "decoded": 5824,
+      "status": 200,
+      "transfer": 1942
+    },
+    {
+      "url": "https://longan.mozi365.com/static/css/LayoutDefault-BktPKOl5.css",
+      "start": 3504.7999999970198,
+      "end": 3714.5999999940395,
+      "duration": 209.79999999701977,
+      "ttfb": 200.5,
+      "encoded": 451,
+      "decoded": 1204,
+      "status": 200,
+      "transfer": 751
+    },
+    {
+      "url": "https://longan.mozi365.com/api/collector/box-map/points",
+      "start": 3879.5999999940395,
+      "end": 4275.4000000059605,
+      "duration": 395.80000001192093,
+      "ttfb": 389.29999999701977,
+      "encoded": 9929,
+      "decoded": 58792,
+      "status": 200,
+      "transfer": 10229
+    },
+    {
+      "url": "https://longan.mozi365.com/api/collector/box-map/new-box-ids",
+      "start": 3879.9000000059605,
+      "end": 4797.20000000298,
+      "duration": 917.2999999970198,
+      "ttfb": 911.7000000029802,
+      "encoded": 48,
+      "decoded": 22,
+      "status": 200,
+      "transfer": 348
+    },
+    {
+      "url": "https://longan.mozi365.com/api/collector/data-visibility",
+      "start": 3880,
+      "end": 4596.4000000059605,
+      "duration": 716.4000000059605,
+      "ttfb": 711.2000000029802,
+      "encoded": 72,
+      "decoded": 55,
+      "status": 200,
+      "transfer": 372
+    },
+    {
+      "url": "https://longan.mozi365.com/api/collector/box-map/boxes",
+      "start": 3880,
+      "end": 5580,
+      "duration": 1700,
+      "ttfb": 1684.0999999940395,
+      "encoded": 26791,
+      "decoded": 167253,
+      "status": 200,
+      "transfer": 27091
+    },
+    {
+      "url": "https://longan.mozi365.com/api/collector/vehicles/types",
+      "start": 3880.0999999940395,
+      "end": 5274.0999999940395,
+      "duration": 1394,
+      "ttfb": 1388.7999999970198,
+      "encoded": 9185,
+      "decoded": 185210,
+      "status": 200,
+      "transfer": 9485
+    },
+    {
+      "url": "https://longan.mozi365.com/api/collector/vehicles/runtime",
+      "start": 3880.0999999940395,
+      "end": 5384.4000000059605,
+      "duration": 1504.300000011921,
+      "ttfb": 1484.9000000059605,
+      "encoded": 15217,
+      "decoded": 152676,
+      "status": 200,
+      "transfer": 15517
+    },
+    {
+      "url": "https://webapi.amap.com/maps",
+      "start": 3880.2999999970198,
+      "end": 5483.4000000059605,
+      "duration": 1603.1000000089407,
+      "ttfb": 0,
+      "encoded": 0,
+      "decoded": 0,
+      "status": 0,
+      "transfer": 0
+    },
+    {
+      "url": "https://longan.mozi365.com/logo.svg",
+      "start": 3911.7999999970198,
+      "end": 4224.9000000059605,
+      "duration": 313.1000000089407,
+      "ttfb": 309.40000000596046,
+      "encoded": 356,
+      "decoded": 683,
+      "status": 200,
+      "transfer": 656
+    },
+    {
+      "url": "https://longan.mozi365.com/static/png/empty-state-BCslKvtb.png",
+      "start": 3912,
+      "end": 4225,
+      "duration": 313,
+      "ttfb": 309.59999999403954,
+      "encoded": 36350,
+      "decoded": 36350,
+      "status": 200,
+      "transfer": 36650
+    }
+  ],
+  "state": {
+    "header": "箱体地图\n查看箱体实时位置、满溢状态及设备运行信息\n运单更新中\n更新\n更多",
+    "markers": 369
+  }
+}

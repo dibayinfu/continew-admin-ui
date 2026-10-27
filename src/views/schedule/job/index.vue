@@ -97,7 +97,8 @@ import DetailDrawer from './DetailDrawer.vue'
 import { type JobQuery, type JobResp, deleteJob, listGroup, listJob, triggerJob, updateJobStatus } from '@/apis/schedule'
 import { useTable } from '@/hooks'
 import { useDict } from '@/hooks/app'
-import { isMobile, parseCron } from '@/utils'
+import { isMobile } from '@/utils'
+import { parseCron } from '@/utils/cron'
 import has from '@/utils/has'
 
 defineOptions({ name: 'ScheduleJob' })

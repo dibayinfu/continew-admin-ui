@@ -90,7 +90,7 @@ import { useAppStore } from '@/stores'
 
 defineOptions({ name: 'SettingDrawer' })
 const appStore = useAppStore()
-const visible = ref(false)
+const visible = defineModel<boolean>('visible', { default: false })
 const settingOpen = JSON.parse(import.meta.env.VITE_APP_SETTING)
 interface LayoutItemProps { label: string, value: App.AppSettings['layout'] }
 

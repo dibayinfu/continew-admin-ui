@@ -8,7 +8,7 @@
     </a-layout>
 
     <!-- 公告弹窗 -->
-    <NoticePopup ref="noticePopupRef" />
+    <NoticePopup v-if="!isPrototypeMode" ref="noticePopupRef" />
   </a-layout>
 </template>
 

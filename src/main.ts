@@ -1,5 +1,10 @@
 import { createApp } from 'vue'
 import { Card, Drawer, Modal } from '@arco-design/web-vue'
+// 命令式弹窗/通知没有模板节点，显式引入样式；其余由组件解析器按需引入。
+import '@arco-design/web-vue/es/message/style/index.js'
+import '@arco-design/web-vue/es/notification/style/index.js'
+import '@arco-design/web-vue/es/modal/style/index.js'
+import '@arco-design/web-vue/es/space/style/index.js'
 import '@/styles/arco-ui/index.less'
 import '@/styles/tailwind.css'
 // import '@arco-themes/vue-gi-demo/index.less'

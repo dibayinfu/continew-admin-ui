@@ -1,5 +1,6 @@
 import type { RouteRecordRaw } from 'vue-router'
-import { eachTree, searchTree } from 'xe-utils'
+import eachTree from 'xe-utils/eachTree'
+import searchTree from 'xe-utils/searchTree'
 import { useRouteListener } from '@/hooks'
 import { useRouteStore } from '@/stores'
 import { filterTree } from '@/utils'

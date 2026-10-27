@@ -5,7 +5,7 @@
       <Search v-if="isDesktop" />
       <!-- 项目配置 -->
       <a-tooltip content="项目配置" position="bl">
-        <a-button size="mini" class="gi_hover_btn" @click="SettingDrawerRef?.open">
+        <a-button size="mini" class="gi_hover_btn" @click="settingsVisible = true">
           <template #icon>
             <icon-settings :size="18" />
           </template>
@@ -70,20 +70,21 @@
     </a-space>
   </a-row>
 
-  <SettingDrawer ref="SettingDrawerRef"></SettingDrawer>
+  <SettingDrawer v-if="settingsVisible" v-model:visible="settingsVisible" />
 </template>
 
 <script setup lang="ts">
 import { Modal } from '@arco-design/web-vue'
 import { useFullscreen } from '@vueuse/core'
-import { computed, ref } from 'vue'
+import { computed, defineAsyncComponent, ref } from 'vue'
 import Message from './Message.vue'
-import SettingDrawer from './SettingDrawer.vue'
 import Search from './Search.vue'
 import { sanitationAlarms } from '@/views/sanitation/data/alert-task'
 import { vehicleAlarms } from '@/views/sanitation/data/vehicle-alert'
 import { useUserStore } from '@/stores'
 import { useBreakpoint, useDevice } from '@/hooks'
+
+const SettingDrawer = defineAsyncComponent(() => import('./SettingDrawer.vue'))
 
 defineOptions({ name: 'HeaderRight' })
 
@@ -97,7 +98,7 @@ const displayUnreadCount = computed(() => sanitationUnreadCount.value + vehicleU
 
 const { isFullscreen, toggle } = useFullscreen()
 
-const SettingDrawerRef = ref<InstanceType<typeof SettingDrawer>>()
+const settingsVisible = ref(false)
 
 // 退出登录
 const logout = () => {

@@ -1,7 +1,7 @@
 import type { CSSProperties } from 'vue'
 import type { RouteRecordRaw } from 'vue-router'
 import { computed } from 'vue'
-import { eachTree } from 'xe-utils'
+import eachTree from 'xe-utils/eachTree'
 import { useDevice, useRouteListener } from '@/hooks'
 import { useAppStore, useRouteStore } from '@/stores'
 import { filterTree } from '@/utils'

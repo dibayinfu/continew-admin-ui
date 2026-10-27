@@ -24,7 +24,7 @@
     </section>
 
     <!-- 公告弹窗 -->
-    <NoticePopup ref="noticePopupRef" />
+    <NoticePopup v-if="!isPrototypeMode" ref="noticePopupRef" />
   </div>
 </template>
 

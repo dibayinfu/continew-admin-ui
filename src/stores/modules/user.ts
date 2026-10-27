@@ -2,19 +2,7 @@ import { defineStore } from 'pinia'
 import { computed, reactive, ref } from 'vue'
 import { useTenantStore } from './tenant'
 import { resetRouter } from '@/router'
-import {
-  type AccountLoginReq,
-  AuthTypeConstants,
-  type EmailLoginReq,
-  type PhoneLoginReq,
-  type UserInfo,
-  accountLogin as accountLoginApi,
-  emailLogin as emailLoginApi,
-  getUserInfo as getUserInfoApi,
-  logout as logoutApi,
-  phoneLogin as phoneLoginApi,
-  socialLogin as socialLoginApi,
-} from '@/apis'
+import { type AccountLoginReq, AuthTypeConstants, type EmailLoginReq, type PhoneLoginReq, type UserInfo } from '@/apis/auth/type'
 import { clearToken, getToken, setToken } from '@/utils/auth'
 import { resetHasRouteFlag } from '@/router/guard'
 import { isPrototypeMode, prototypeToken, prototypeUserInfo } from '@/utils/prototype'
@@ -62,6 +50,7 @@ const storeSetup = () => {
       permissions.value = prototypeUserInfo.permissions
       return
     }
+    const { accountLogin: accountLoginApi } = await import('@/apis/auth')
     const res = await accountLoginApi({ ...req, clientId: import.meta.env.VITE_CLIENT_ID, authType: AuthTypeConstants.ACCOUNT }, tenantCode)
     setToken(res.data.token)
     tenantStore.setTenantId(res.data.tenantId)
@@ -70,6 +59,7 @@ const storeSetup = () => {
 
   // 邮箱登录
   const emailLogin = async (req: EmailLoginReq, tenantCode?: string) => {
+    const { emailLogin: emailLoginApi } = await import('@/apis/auth')
     const res = await emailLoginApi({ ...req, clientId: import.meta.env.VITE_CLIENT_ID, authType: AuthTypeConstants.EMAIL }, tenantCode)
     setToken(res.data.token)
     tenantStore.setTenantId(res.data.tenantId)
@@ -78,6 +68,7 @@ const storeSetup = () => {
 
   // 手机号登录
   const phoneLogin = async (req: PhoneLoginReq, tenantCode?: string) => {
+    const { phoneLogin: phoneLoginApi } = await import('@/apis/auth')
     const res = await phoneLoginApi({ ...req, clientId: import.meta.env.VITE_CLIENT_ID, authType: AuthTypeConstants.PHONE }, tenantCode)
     setToken(res.data.token)
     tenantStore.setTenantId(res.data.tenantId)
@@ -86,6 +77,7 @@ const storeSetup = () => {
 
   // 三方账号登录
   const socialLogin = async (source: string, req: any) => {
+    const { socialLogin: socialLoginApi } = await import('@/apis/auth')
     const res: any = await socialLoginApi({ ...req, source, clientId: import.meta.env.VITE_CLIENT_ID, authType: AuthTypeConstants.SOCIAL })
     setToken(res.data.token)
     tenantStore.setTenantId(res.data.tenantId)
@@ -109,6 +101,7 @@ const storeSetup = () => {
       return true
     }
     try {
+      const { logout: logoutApi } = await import('@/apis/auth')
       await logoutApi()
       await logoutCallBack()
       return true
@@ -125,6 +118,7 @@ const storeSetup = () => {
       permissions.value = prototypeUserInfo.permissions
       return
     }
+    const { getUserInfo: getUserInfoApi } = await import('@/apis/auth')
     const res = await getUserInfoApi()
     Object.assign(userInfo, res.data)
     userInfo.avatar = res.data.avatar

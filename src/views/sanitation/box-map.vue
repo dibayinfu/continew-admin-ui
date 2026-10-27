@@ -467,7 +467,7 @@
 <script setup lang="ts">
 import { Message } from '@arco-design/web-vue'
 import { useFullscreen } from '@vueuse/core'
-import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, toRaw, watch } from 'vue'
+import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, toRaw, watch } from 'vue'
 import { useDevice } from '@/hooks'
 import { beijingDate, beijingDateTime, parseBeijingDateTime } from '@/utils/beijing-time'
 import { useAppStore, useUserStore } from '@/stores'
@@ -476,14 +476,16 @@ import { daasAuth, collectorDaasFetch, collectorMapBoxesRequest, collectorMapPoi
 import { getCachedBoxes, getCachedPoints, saveCachedBoxes, saveCachedPoints, subscribeBoxesUpdated, subscribePointsUpdated } from './sbg-store'
 import { createAiConversationId, formatBoxAnalysisSummary, type AiMapAction, type AiShortcutIntent, type AiOverflowDurationItem, type AiQueryContext, type AiReply, type AiTransportMetricRow, queryBoxMapAssistantStream } from './box-map-ai'
 
-import BoxAnalysisCard from './components/BoxAnalysisCard.vue'
-import BoxMetricCard from './components/BoxMetricCard.vue'
-import BoxHistoryCurves from './components/BoxHistoryCurves.vue'
 import BoxHistoryToolbar from './components/BoxHistoryToolbar.vue'
 import BoxHistoryIcon from './components/BoxHistoryIcon.vue'
-import BoxCreateTaskDialog from './components/BoxCreateTaskDialog.vue'
 import type { BoxHistoryMetric, BoxHistoryDays, BoxHistoryView } from './box-history-metrics'
 import WeatherCard from './components/WeatherCard.vue'
+
+// 图表与弹窗只在打开时下载，避免 ECharts 进入地图首屏依赖。
+const BoxAnalysisCard = defineAsyncComponent(() => import('./components/BoxAnalysisCard.vue'))
+const BoxMetricCard = defineAsyncComponent(() => import('./components/BoxMetricCard.vue'))
+const BoxHistoryCurves = defineAsyncComponent(() => import('./components/BoxHistoryCurves.vue'))
+const BoxCreateTaskDialog = defineAsyncComponent(() => import('./components/BoxCreateTaskDialog.vue'))
 
 defineOptions({ name: 'SanitationBoxMap' })
 
@@ -1578,8 +1580,22 @@ watch(selectedVehicle, (vehicle) => {
   if (!vehicle) { closeVehicleInfo(); return }
   if (activeVehicleInfoKey !== vehicleInfoKey(vehicle)) loadSelectedVehicleDetails(vehicle)
 })
+let clusterLoading = false
+let disposed = false
+async function loadTricycleCluster() {
+  if (clusterLoading) return
+  clusterLoading = true
+  try {
+    await loadAmapMarkerClusterer()
+    // 加载期间图层、数据或页面可能已经变化，始终按当前状态绘制。
+    if (!disposed) drawVehicleMarkers()
+  } catch (error) {
+    console.warn('小三轮聚合插件加载失败：', error)
+    if (!disposed) Message.warning('小三轮图层加载失败，请重新勾选重试')
+  } finally { clusterLoading = false }
+}
 function drawVehicleMarkers() {
-  if (!map || !amap || !amap.MarkerCluster) return
+  if (!map || !amap) return
   clearVehicleOverlays()
   // 车辆接口返回 WGS84 坐标，高德底图使用 GCJ-02。
   const hookAndLargeVehicles = visibleVehicles.value.filter((vehicle) => vehicleTypeOf(vehicle) !== '小三轮')
@@ -1605,7 +1621,11 @@ function drawVehicleMarkers() {
     const point = vehiclePoint(vehicle)
     return { lnglat: [point.lng, point.lat], vehicle }
   })
-  if (tricyclePoints.length) {
+  if (tricyclePoints.length && !amap.MarkerCluster) {
+    void loadTricycleCluster()
+    return
+  }
+  if (tricyclePoints.length && amap.MarkerCluster) {
     // 聚合插件会复用 Marker；每个 Marker 只绑定一次，并始终读取本轮车辆。
     const markerVehicles = new WeakMap<AMapMarker, VehicleRuntime | undefined>()
     const boundMarkers = new WeakSet<AMapMarker>()
@@ -2050,7 +2070,8 @@ onMounted(async () => {
     // 地图脚本与云端数据相互独立，提前发起数据请求，避免串行等待。
     void loadFromCloud(true)
     void loadVehicles(true)
-    amap = await loadAmapMarkerClusterer()
+    amap = await loadAmapJsApi()
+    if (disposed) return
     map = new amap.Map(mapRef.value, { zoom: 13, center: [114.1, 36.04], viewMode: '2D', mapStyle: `amap://styles/${mapTheme.value}`, resizeEnable: true, animateEnable: false, jogEnable: false })
     map.on('zoomend', syncMarkerMode)
     drawMarkers()
@@ -2063,7 +2084,7 @@ onMounted(async () => {
   // 仅更新已加载驻留时间的显示，不会请求后端。
   residenceClockTimer = window.setInterval(() => { residenceNow.value = Date.now() }, 60 * 1000)
 })
-onBeforeUnmount(() => { stopAiResize(); offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window.clearInterval(boxRefreshTimer); if (vehicleRefreshTimer) window.clearInterval(vehicleRefreshTimer); if (residenceClockTimer) window.clearInterval(residenceClockTimer); closeVehicleInfo(); clearBoxOverlays(); clearVehicleOverlays(); map?.destroy(); closeHistoryTrack() })
+onBeforeUnmount(() => { disposed = true; stopAiResize(); offBoxes?.(); offPoints?.(); if (boxRefreshTimer) window.clearInterval(boxRefreshTimer); if (vehicleRefreshTimer) window.clearInterval(vehicleRefreshTimer); if (residenceClockTimer) window.clearInterval(residenceClockTimer); closeVehicleInfo(); clearBoxOverlays(); clearVehicleOverlays(); map?.destroy(); closeHistoryTrack() })
 </script>
 
 <style scoped lang="scss">

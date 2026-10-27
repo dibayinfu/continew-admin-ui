@@ -35,7 +35,7 @@
           <div v-if="contentLoading" class="content-loading">
             <a-spin size="large" />
           </div>
-          <AiEditor v-else v-model:model-value="currentNoticeContent" />
+          <AiEditor v-else-if="visible" v-model:model-value="currentNoticeContent" />
         </div>
       </div>
 
@@ -68,10 +68,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
-import AiEditor from './view/components/index.vue'
-import { getUnreadNoticeIds, getUserNotice } from '@/apis/system/user-message'
+import { computed, defineAsyncComponent, ref } from 'vue'
 import type { NoticePreviewResp } from '@/apis/system'
+
+const AiEditor = defineAsyncComponent(() => import('./view/components/index.vue'))
 
 defineOptions({ name: 'NoticePopup' })
 
@@ -118,6 +118,7 @@ const fetchNoticeDetail = async (index: number) => {
 
   try {
     contentLoading.value = true
+    const { getUserNotice } = await import('@/apis/system/user-message')
     const { data } = await getUserNotice(noticeId)
     noticeCache.value.set(noticeId, data as NoticePreviewResp)
     // 确保设置当前索引，触发计算属性更新
@@ -143,6 +144,7 @@ const fetchNoticeDetail = async (index: number) => {
 const fetchUnreadNotices = async () => {
   try {
     loading.value = true
+    const { getUnreadNoticeIds } = await import('@/apis/system/user-message')
     const { data: noticeIds } = await getUnreadNoticeIds(props.method)
 
     if (noticeIds && noticeIds.length > 0) {

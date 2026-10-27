@@ -2,6 +2,8 @@
 <html lang="zh-CN">
   <head>
     <meta charset="UTF-8" />
+    <!-- 冷启动时提前建立高德连接，减少地图 SDK 的 DNS/TLS 等待。 -->
+    <link rel="preconnect" href="https://webapi.amap.com" />
     <link rel="shortcut icon" href="%BASE_URL%favicon.ico" />
     <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=0" />
     <link rel="stylesheet" href="%BASE_URL%static/css/loading.css" type="text/css" />

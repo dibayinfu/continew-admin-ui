@@ -7,6 +7,11 @@ const html = readFileSync(new URL('../dist/index.html', import.meta.url), 'utf8'
 const manifest = JSON.parse(readFileSync(new URL('../dist/.vite/manifest.json', import.meta.url), 'utf8'))
 const script = html.match(/<script[^>]*data-startup-preload[^>]*>([\s\S]*?)<\/script>/)?.[1]
 assert.ok(script, 'Build the prototype with --manifest first')
+const preloadAt = html.indexOf('data-startup-preload')
+const stylesheetAt = html.search(/<link[^>]+rel=["']stylesheet["']/i)
+assert.ok(preloadAt < stylesheetAt, 'Startup preloading must execute before render-blocking CSS')
+assert.ok(html.search(/<meta\s+charset=/i) < preloadAt, 'Charset must precede the preload script')
+assert.equal([...html.matchAll(/<meta\s+charset=/gi)].length, 1, 'Keep exactly one charset declaration')
 const origin = 'https://example.test'
 const initialLinks = [...html.matchAll(/<link[^>]+href="([^"]+)"/g)].map(match => ({ href: new URL(match[1], origin).href }))
 function run(hash, saved, unavailable = false) {

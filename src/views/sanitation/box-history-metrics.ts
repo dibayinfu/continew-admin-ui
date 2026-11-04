@@ -1,9 +1,28 @@
-import { parseBeijingDateTime } from '@/utils/beijing-time'
+import { beijingDateTime, parseBeijingDateTime } from '@/utils/beijing-time'
 
 export type BoxHistoryMetric = 'fillLevel' | 'temperature' | 'battery'
 export type BoxHistoryView = BoxHistoryMetric | 'track'
 export const HISTORY_DAY_OPTIONS = [1, 2, 3, 7] as const
 export type BoxHistoryDays = typeof HISTORY_DAY_OPTIONS[number]
+export interface BoxHistoryTimeRange { from: string, to: string }
+const HISTORY_WEEK_MS = 7 * 24 * 60 * 60 * 1000
+/** 与分钟选择器一致，允许最近七天边界所在的分钟。 */
+export function validateHistoryTimeRange(range: BoxHistoryTimeRange, now = Date.now()): string {
+  const start = parseBeijingDateTime(range.from).getTime()
+  const end = parseBeijingDateTime(range.to).getTime()
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return '请选择完整的开始和结束时间'
+  if (start >= end) return '开始时间必须早于结束时间'
+  if (start < Math.floor((now - HISTORY_WEEK_MS) / 60000) * 60000 || end > now || end - start > HISTORY_WEEK_MS) return '只能查询近7天内的时间，且结束时间不能晚于当前时间'
+  return ''
+}
+export function historyTimeRange(days: BoxHistoryDays, custom?: BoxHistoryTimeRange, now = Date.now()): BoxHistoryTimeRange {
+  if (custom) {
+    const error = validateHistoryTimeRange(custom, now)
+    if (error) throw new Error(error)
+    return custom
+  }
+  return { from: beijingDateTime(new Date(now - days * 24 * 60 * 60 * 1000)), to: beijingDateTime(new Date(now)) }
+}
 export interface BoxHistorySample {
   time: string
   fillLevel: number | null

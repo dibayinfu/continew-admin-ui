@@ -17,7 +17,7 @@
       <a-form-item label="驾驶员" required><a-auto-complete v-model="form.driver" :data="driverOptions" placeholder="选择或输入驾驶员" allow-clear @select="onDriverSelect" /></a-form-item>
       <a-form-item label="车牌号" required><a-auto-complete v-model="form.vehicle" :data="vehicleOptions" placeholder="选择或输入车牌号" allow-clear /></a-form-item>
       <a-form-item label="时效要求" required><a-auto-complete v-model="form.timeRequirement" :data="['30分钟', '60分钟', '90分钟', '120分钟']" placeholder="例如：60分钟" allow-clear /></a-form-item>
-      <a-form-item label="优先级" required><a-auto-complete v-model="form.priority" :data="['普通', '紧急']" placeholder="选择或输入优先级" allow-clear /></a-form-item>
+      <a-form-item label="优先级" required><a-select v-model="form.priority" placeholder="请选择优先级"><a-option value="普通">普通</a-option><a-option value="紧急">紧急</a-option></a-select></a-form-item>
     </a-form>
     <template #footer><a-button @click="emit('close')">取消</a-button><a-button type="primary" :disabled="loading || !box.pointId" @click="confirmDemo">确定</a-button></template>
   </a-modal>
@@ -31,7 +31,7 @@ import { getDriverVehicles, vehicles } from '../data/mock'
 
 const props = defineProps<{ box: { boxNo: string, pointId?: number, pointName: string, townshipName: string, villageName: string } }>()
 const emit = defineEmits<{ close: [] }>()
-const form = reactive({ destination: '', driver: '', vehicle: '', timeRequirement: '', priority: '' })
+const form = reactive({ destination: '', driver: '', vehicle: '', timeRequirement: '', priority: '普通' })
 const loading = ref(false)
 const fillNotice = ref('')
 const fillError = ref(false)
@@ -46,6 +46,7 @@ function onDriverSelect(name: string) {
 }
 async function smartFill() {
   if (loading.value || !props.box.pointId) return
+  form.priority = '普通'
   loading.value = true
   fillNotice.value = ''
   fillError.value = false
@@ -64,13 +65,13 @@ async function smartFill() {
       return
     }
     const task = result.task
-    const fields = ['destination', 'driver', 'vehicle', 'timeRequirement', 'priority'] as const
+    const fields = ['destination', 'driver', 'vehicle', 'timeRequirement'] as const
     const missing: string[] = []
-    const labels = { destination: '目的地', driver: '驾驶员', vehicle: '车牌号', timeRequirement: '时效要求', priority: '优先级' }
+    const labels = { destination: '目的地', driver: '驾驶员', vehicle: '车牌号', timeRequirement: '时效要求' }
     for (const key of fields) {
       const value = task[key]
       const text = typeof value === 'string' || typeof value === 'number' ? String(value).trim() : ''
-      form[key] = key === 'priority' ? ({ urgent: '紧急', normal: '普通', 紧急: '紧急', 普通: '普通' } as Record<string, string>)[text.toLowerCase()] || '' : text
+      form[key] = text
       if (!form[key]) missing.push(labels[key])
     }
     fillError.value = missing.length > 0

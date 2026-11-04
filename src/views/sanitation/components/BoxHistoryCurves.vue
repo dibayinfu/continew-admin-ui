@@ -1,12 +1,12 @@
 <template>
   <section class="metric-history" aria-label="箱体历史曲线">
-    <BoxHistoryToolbar v-model:days="rangeDays" :box-no="boxNo" :view="metric" :loading="loading" @range-change="loadHistory" @refresh="loadHistory" @view-change="changeView" @close="emit('close')" />
+    <BoxHistoryToolbar v-model:days="rangeDays" v-model:custom-range="customRange" :box-no="boxNo" :view="metric" :loading="loading" @range-change="loadHistory" @refresh="loadHistory" @view-change="changeView" @close="emit('close')" />
     <div v-if="loading" class="metric-empty"><a-spin tip="正在加载历史数据" /></div>
     <div v-else-if="error" class="metric-empty"><a-result status="error" title="曲线加载失败" :subtitle="error"><template #extra><a-button @click="loadHistory">重试</a-button></template></a-result></div>
     <div v-else class="metric-content">
       <div class="metric-facts"><span>有效采集 <b>{{ validSamples.length }}</b> 个点</span><span v-if="validSamples.length">范围 <b>{{ numberLabel(minValue) }} ～ {{ numberLabel(maxValue) }}</b></span><span v-if="history">{{ displayTime(history.from) }} ～ {{ displayTime(history.to) }}</span></div>
       <VChart v-if="validSamples.length" class="metric-chart" :option="option" :update-options="{ notMerge: true }" :theme="appStore.theme === 'dark' ? 'dark' : undefined" autoresize />
-      <a-empty v-else class="metric-empty" :description="`近${rangeDays}天暂无有效${label}数据`" />
+      <a-empty v-else class="metric-empty" :description="`${customRange ? '所选时段' : `近${rangeDays}天`}暂无有效${label}数据`" />
       <template v-if="metric === 'fillLevel' && validSamples.length">
         <div class="point-legend"><span v-for="point in pointLegend" :key="point.key"><i :style="{ background: point.color }"></i>{{ point.name }}</span></div>
         <p class="metric-note">上方为垃圾占比，下方色带为对应收集点；两图共用时间轴。悬停查看时间、占比及收集点，拖动底部滑块缩放。</p>
@@ -28,18 +28,19 @@ import { GridComponent, TooltipComponent, DataZoomComponent } from 'echarts/comp
 import { CanvasRenderer } from 'echarts/renderers'
 import { useAppStore } from '@/stores'
 import { beijingDateTime, parseBeijingDateTime } from '@/utils/beijing-time'
-import { buildMetricGapData, buildPointSegments, HISTORY_GAP_MS, METRIC_LABELS, normalizeHistorySamples, sampleMetricValue, type BoxHistoryMetric, type BoxHistoryView, type BoxHistoryDays, type BoxMetricHistory } from '../box-history-metrics'
+import { historyTimeRange, type BoxHistoryTimeRange, buildMetricGapData, buildPointSegments, HISTORY_GAP_MS, METRIC_LABELS, normalizeHistorySamples, sampleMetricValue, type BoxHistoryMetric, type BoxHistoryView, type BoxHistoryDays, type BoxMetricHistory } from '../box-history-metrics'
 
 import BoxHistoryToolbar from './BoxHistoryToolbar.vue'
 
 use([LineChart, CustomChart, GridComponent, TooltipComponent, DataZoomComponent, CanvasRenderer])
-const props = defineProps<{ boxId: number, boxNo: string, initialMetric: BoxHistoryMetric, initialDays?: BoxHistoryDays }>()
-const emit = defineEmits<{ (event: 'close'): void, (event: 'track', days: BoxHistoryDays): void }>()
+const props = defineProps<{ boxId: number, boxNo: string, initialMetric: BoxHistoryMetric, initialDays?: BoxHistoryDays, initialCustomRange?: BoxHistoryTimeRange }>()
+const emit = defineEmits<{ (event: 'close'): void, (event: 'track', days: BoxHistoryDays, customRange?: BoxHistoryTimeRange): void }>()
 const appStore = useAppStore()
 const metric = ref<BoxHistoryMetric>(props.initialMetric)
 const rangeDays = ref<BoxHistoryDays>(props.initialDays ?? 2)
+const customRange = ref(props.initialCustomRange)
 function changeView(view: BoxHistoryView) {
-  if (view === 'track') emit('track', rangeDays.value)
+  if (view === 'track') emit('track', rangeDays.value, customRange.value)
   else metric.value = view
 }
 const label = computed(() => METRIC_LABELS[metric.value])
@@ -58,8 +59,7 @@ async function loadHistory() {
   const timeout = window.setTimeout(() => abort.abort(), 25000)
   loading.value = true; error.value = ''; history.value = undefined
   try {
-    const end = new Date(), start = new Date(end.getTime() - rangeDays.value * 24 * 60 * 60 * 1000)
-    const query = new URLSearchParams({ from: beijingDateTime(start), to: beijingDateTime(end) })
+    const query = new URLSearchParams({ ...historyTimeRange(rangeDays.value, customRange.value) })
     const response = await fetch(`${BASE_URL}/api/collector/boxes/${props.boxId}/history-metrics?${query}`, { signal: abort.signal })
     if (!response.ok) throw new Error(`请求失败（${response.status}）`)
     const result = await response.json() as BoxMetricHistory

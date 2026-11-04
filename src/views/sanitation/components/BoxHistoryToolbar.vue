@@ -13,7 +13,11 @@
         <a-radio value="custom">自定义</a-radio>
       </a-radio-group>
       <div v-if="customMode" class="history-custom-query">
-        <a-range-picker v-model="draftRange" size="small" aria-label="自定义查询时间" show-time format="MM-DD HH:mm" value-format="YYYY-MM-DD HH:mm" :time-picker-props="{ format: 'HH:mm' }" :disabled-date="disabledDate" :allow-clear="false" class="history-custom-picker" />
+        <a-range-picker v-model="draftRange" size="small" aria-label="自定义查询时间" show-time format="MM-DD HH:mm" value-format="YYYY-MM-DD HH:mm" :time-picker-props="{ format: 'HH:mm', defaultValue: ['00:00', '23:59'] }" :disabled-date="disabledDate" :allow-clear="false" class="history-custom-picker" @select="selectCalendarRange" @popup-visible-change="syncCalendarRange">
+          <template #cell="{ date }">
+            <div class="arco-picker-date history-calendar-date" :class="calendarDayClass(date)"><div class="arco-picker-date-value">{{ date.getDate() }}</div></div>
+          </template>
+        </a-range-picker>
         <a-button type="primary" size="small" @click="applyRange">查询</a-button>
       </div>
       <a-button class="history-refresh" size="small" aria-label="刷新历史数据" :loading="loading" @click="emit('refresh')"><template #icon><icon-refresh /></template><span class="history-refresh-label">刷新</span></a-button>
@@ -23,7 +27,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { Message } from '@arco-design/web-vue'
-import { beijingDate } from '@/utils/beijing-time'
+import { beijingDate, beijingDateTime } from '@/utils/beijing-time'
 import { HISTORY_DAY_OPTIONS, METRIC_LABELS, historyTimeRange, validateHistoryTimeRange, type BoxHistoryTimeRange, type BoxHistoryDays, type BoxHistoryView } from '../box-history-metrics'
 const props = defineProps<{ boxNo: string, view: BoxHistoryView, days: BoxHistoryDays, loading: boolean, customRange?: BoxHistoryTimeRange }>()
 const emit = defineEmits<{
@@ -38,6 +42,23 @@ const views: Array<{ value: BoxHistoryView, label: string }> = [{ value: 'fillLe
 const title = computed(() => props.view === 'track' ? '历史轨迹' : `${METRIC_LABELS[props.view]}曲线`)
 const customMode = ref(!!props.customRange)
 const draftRange = ref<string[]>([])
+const calendarRange = ref<string[]>([])
+function syncCalendarRange(visible: boolean) {
+  if (visible) calendarRange.value = [...draftRange.value]
+}
+function selectCalendarRange(value: Array<string | undefined>) {
+  calendarRange.value = value.map(date => date || '')
+}
+function calendarDayClass(date: Date) {
+  const day = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+  const [start, end] = calendarRange.value.map(value => value.slice(0, 10))
+  if (disabledDate(date)) return {}
+  return {
+    'history-calendar-start': day === start,
+    'history-calendar-end': day === end,
+    'history-calendar-in-range': !!start && !!end && day >= start && day <= end,
+  }
+}
 watch(() => props.customRange, (range) => {
   customMode.value = !!range
   if (range) draftRange.value = [range.from.replace('T', ' ').slice(0, 16), range.to.replace('T', ' ').slice(0, 16)]
@@ -48,6 +69,9 @@ function disabledDate(date: Date) {
 }
 function applyRange() {
   const range = { from: (draftRange.value[0] || '').replace(' ', 'T'), to: (draftRange.value[1] || '').replace(' ', 'T') }
+  // 今天默认可选择到23:59，实际历史查询截止当前分钟；更晚的日期仍拒绝。
+  const now = beijingDateTime().slice(0, 16)
+  if (range.to.slice(0, 10) === now.slice(0, 10) && range.to > now) range.to = now
   const error = validateHistoryTimeRange(range)
   if (error) { Message.warning(error); return }
   emit('update:customRange', range)
@@ -58,7 +82,7 @@ function changeDays(value: string | number | boolean) {
     customMode.value = true
     if (!draftRange.value.length) {
       const range = historyTimeRange(props.days)
-      draftRange.value = [range.from.replace('T', ' ').slice(0, 16), range.to.replace('T', ' ').slice(0, 16)]
+      draftRange.value = [`${range.from.slice(0, 10)} 00:00`, `${range.to.slice(0, 10)} 23:59`]
     }
     return
   }
@@ -114,5 +138,18 @@ function changeView(value: string | number | boolean) {
   .history-refresh :deep(.arco-btn-icon) { margin: 0; }
   .history-day-switch { order: 2; }
   .history-custom-query { order: 3; }
+}
+/* 自定义单元格保留组件的禁用态，同时让跨月日期也显示选中范围。 */
+.history-calendar-date.history-calendar-in-range {
+  background-color: var(--color-primary-light-1);
+}
+.history-calendar-date.history-calendar-start { border-radius: 24px 0 0 24px; }
+.history-calendar-date.history-calendar-end { border-radius: 0 24px 24px 0; }
+.history-calendar-date.history-calendar-start.history-calendar-end { border-radius: 24px; }
+.history-calendar-date.history-calendar-start .arco-picker-date-value,
+.history-calendar-date.history-calendar-end .arco-picker-date-value {
+  color: var(--color-white);
+  background-color: rgb(var(--primary-6));
+  font-weight: 500;
 }
 </style>

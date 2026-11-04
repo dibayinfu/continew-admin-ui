@@ -35,6 +35,10 @@ for (const days of [1, 2, 3, 7]) {
 
 // 工具栏仅在合法时间提交后请求查询；回到相同快捷天数也必须清除自定义条件。
 const events = [], warnings = []
+context.Date = class extends Date {
+  constructor(value) { super(value === undefined ? now : value) }
+  static now() { return now }
+}
 Object.assign(context, {
   computed, ref, watch,
   defineProps: () => ({ boxNo: '65', view: 'track', days: 2, loading: false }),
@@ -45,6 +49,23 @@ const toolbar = read('../src/views/sanitation/components/BoxHistoryToolbar.vue')
 vm.runInContext(transpile(toolbar), context)
 context.changeDays('custom')
 assert.equal(events.length, 0)
+assert.equal(vm.runInContext('draftRange.value[0].slice(11)', context), '00:00')
+assert.equal(vm.runInContext('draftRange.value[1].slice(11)', context), '23:59')
+context.selectCalendarRange(['2026-10-31 00:00', '2026-11-02 23:59'])
+assert.equal(context.calendarDayClass(new Date(2026, 9, 31))['history-calendar-start'], true)
+assert.equal(context.calendarDayClass(new Date(2026, 10, 1))['history-calendar-in-range'], true)
+assert.equal(context.calendarDayClass(new Date(2026, 10, 2))['history-calendar-end'], true)
+assert.deepEqual(Object.keys(context.calendarDayClass(new Date(2026, 10, 5))), [])
+// 今日的默认结束时间按当前分钟查询，不把未来时间发送给接口。
+vm.runInContext('applyRange()', context)
+assert.equal(events[0][1].from, '2026-11-02T00:00')
+assert.equal(events[0][1].to, '2026-11-04T10:30')
+events.length = 0
+// 手动选择的历史分钟范围保持原样。
+vm.runInContext("draftRange.value = ['2026-10-31 08:12', '2026-11-01 14:37']; applyRange()", context)
+assert.equal(events[0][1].from, '2026-10-31T08:12')
+assert.equal(events[0][1].to, '2026-11-01T14:37')
+events.length = 0
 vm.runInContext("draftRange.value = ['', '']; applyRange()", context)
 assert.equal(warnings.length, 1)
 assert.equal(events.length, 0)

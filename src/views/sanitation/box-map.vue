@@ -394,15 +394,15 @@
           </div>
         </a-card>
 
-        <BoxHistoryCurves v-if="metricHistoryTarget" :key="metricHistoryTarget.boxId" class="history-overlay" :box-id="metricHistoryTarget.boxId" :box-no="metricHistoryTarget.boxNo" :initial-metric="metricHistoryTarget.metric" :initial-days="metricHistoryTarget.days" @track="openHistoryTrack" @close="metricHistoryTarget = undefined" />
+        <BoxHistoryCurves v-if="metricHistoryTarget" :key="metricHistoryTarget.boxId" class="history-overlay" :box-id="metricHistoryTarget.boxId" :box-no="metricHistoryTarget.boxNo" :initial-metric="metricHistoryTarget.metric" :initial-days="metricHistoryTarget.days" :initial-custom-range="metricHistoryTarget.customRange" @track="openHistoryTrack" @close="metricHistoryTarget = undefined" />
 
         <section v-if="historyVisible" class="history-overlay">
-          <BoxHistoryToolbar v-model:days="historyRange" :box-no="selectedBox?.containerNo || ''" view="track" :loading="historyLoading" @range-change="loadHistoryTrack" @refresh="loadHistoryTrack" @view-change="switchHistoryView" @close="closeHistoryTrack" />
+          <BoxHistoryToolbar v-model:days="historyRange" v-model:custom-range="historyCustomRange" :box-no="selectedBox?.containerNo || ''" view="track" :loading="historyLoading" @range-change="loadHistoryTrack" @refresh="loadHistoryTrack" @view-change="switchHistoryView" @close="closeHistoryTrack" />
           <div v-if="historyLoading" class="history-state"><a-spin tip="正在加载历史数据" /></div>
           <div v-else-if="historyError" class="history-state"><a-result status="error" title="轨迹加载失败" :subtitle="historyError"><template #extra><a-button @click="loadHistoryTrack">重试</a-button></template></a-result></div>
           <template v-else>
           <div v-if="historyData" class="history-facts"><span>有效位置采集 <b>{{ historyData.summary.snapshotCount }}</b> 个点</span><span><b>{{ historyData.summary.uniquePointCount }}</b> 个收集点 · <b>{{ historyData.summary.visitCount }}</b> 次停靠</span><span v-if="historyData.from && historyData.to">{{ formatTrackTime(historyData.from) }} ～ {{ formatTrackTime(historyData.to) }}</span></div>
-          <a-empty v-if="historyData && !historyData.track.length" class="history-state" :description="`近${historyRange}天暂无有效位置数据`" />
+          <a-empty v-if="historyData && !historyData.track.length" class="history-state" :description="`${historyCustomRange ? '所选时段' : `近${historyRange}天`}暂无有效位置数据`" />
           <div v-else class="history-layout">
             <div class="history-map-wrap"><div ref="historyMapRef" class="history-map"></div></div>
             <aside class="history-visits">
@@ -469,7 +469,7 @@ import { Message } from '@arco-design/web-vue'
 import { useFullscreen } from '@vueuse/core'
 import { computed, defineAsyncComponent, nextTick, onBeforeUnmount, onMounted, reactive, ref, shallowRef, toRaw, watch } from 'vue'
 import { useDevice } from '@/hooks'
-import { beijingDate, beijingDateTime, parseBeijingDateTime } from '@/utils/beijing-time'
+import { beijingDate, parseBeijingDateTime } from '@/utils/beijing-time'
 import { useAppStore, useUserStore } from '@/stores'
 import { type AMapInstance, type AMapMarker, type AMapMarkerCluster, type AMapMassMarks, loadAmapJsApi, loadAmapMarkerClusterer } from '@/utils/amap'
 import { daasAuth, collectorDaasFetch, collectorMapBoxesRequest, collectorMapPointsRequest, collectorMapTransportTasksRequest, collectorVehicleRuntimeRequest, collectorVehicleBasicInfoRequest, collectorVehicleTypesRequest, getHiddenBoxIds, saveSharedDaasToken } from '@/utils/daas'
@@ -478,7 +478,7 @@ import { createAiConversationId, formatBoxAnalysisSummary, type AiMapAction, typ
 
 import BoxHistoryToolbar from './components/BoxHistoryToolbar.vue'
 import BoxHistoryIcon from './components/BoxHistoryIcon.vue'
-import type { BoxHistoryMetric, BoxHistoryDays, BoxHistoryView } from './box-history-metrics'
+import { historyTimeRange, type BoxHistoryTimeRange, type BoxHistoryMetric, type BoxHistoryDays, type BoxHistoryView } from './box-history-metrics'
 import WeatherCard from './components/WeatherCard.vue'
 
 // 图表与弹窗只在打开时下载，避免 ECharts 进入地图首屏依赖。
@@ -789,20 +789,21 @@ const residenceCache = new Map<string, CurrentResidence>()
 let residenceRequestVersion = 0
 const historyVisible = ref(false)
 const historyRange = ref<BoxHistoryDays>(2)
+const historyCustomRange = ref<BoxHistoryTimeRange>()
 const historyError = ref('')
 let historyRequestVersion = 0
 let historyAbort: AbortController | undefined
 const historyLoading = ref(false)
 const historyMapRef = ref<HTMLDivElement>()
 const historyData = ref<HistoryTrackResponse>()
-const metricHistoryTarget = shallowRef<{ boxId: number, boxNo: string, metric: BoxHistoryMetric, days: BoxHistoryDays }>()
-function openMetricHistory(metric: BoxHistoryMetric, days: BoxHistoryDays = 2) {
+const metricHistoryTarget = shallowRef<{ boxId: number, boxNo: string, metric: BoxHistoryMetric, days: BoxHistoryDays, customRange?: BoxHistoryTimeRange }>()
+function openMetricHistory(metric: BoxHistoryMetric, days: BoxHistoryDays = 2, customRange?: BoxHistoryTimeRange) {
   if (!selectedBox.value) return
   if (historyVisible.value) closeHistoryTrack()
-  metricHistoryTarget.value = { boxId: selectedBox.value.id, boxNo: selectedBox.value.containerNo, metric, days }
+  metricHistoryTarget.value = { boxId: selectedBox.value.id, boxNo: selectedBox.value.containerNo, metric, days, customRange }
 }
 function switchHistoryView(view: BoxHistoryView) {
-  if (view !== 'track') openMetricHistory(view, historyRange.value)
+  if (view !== 'track') openMetricHistory(view, historyRange.value, historyCustomRange.value)
 }
 watch(() => selectedBox.value?.id, (id, previousId) => {
   if (metricHistoryTarget.value && metricHistoryTarget.value.boxId !== id) metricHistoryTarget.value = undefined
@@ -1311,10 +1312,11 @@ function formatStayDuration(totalMinutes: number) {
 function historyContent(label: string, tone: string) { return `<div class="history-track-pin ${tone}">${escapeHtml(label)}</div>` }
 function clearHistoryOverlays() { historyOverlays.forEach((overlay) => overlay.setMap(null)); historyOverlays = [] }
 function destroyHistoryMap() { clearHistoryOverlays(); historyMap?.destroy(); historyMap = undefined }
-async function openHistoryTrack(days: BoxHistoryDays = 2) {
+async function openHistoryTrack(days: BoxHistoryDays = 2, customRange?: BoxHistoryTimeRange) {
   if (!selectedBox.value) return
   metricHistoryTarget.value = undefined
   historyRange.value = days
+  historyCustomRange.value = customRange
   historyVisible.value = true
   await nextTick()
   await loadHistoryTrack()
@@ -1342,9 +1344,7 @@ async function loadHistoryTrack() {
   historyError.value = ''
   historyData.value = undefined
   try {
-    const end = new Date()
-    const start = new Date(end.getTime() - historyRange.value * 24 * 60 * 60 * 1000)
-    const query = new URLSearchParams({ from: beijingDateTime(start), to: beijingDateTime(end) })
+    const query = new URLSearchParams({ ...historyTimeRange(historyRange.value, historyCustomRange.value) })
     const response = await fetch(`${COLLECTOR_API_BASE_URL}/api/collector/boxes/${box.id}/history-track?${query}`, { signal: abort.signal })
     if (!response.ok) throw new Error(`请求失败（${response.status}）`)
     const result = await response.json() as HistoryTrackResponse

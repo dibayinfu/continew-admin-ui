@@ -183,16 +183,16 @@ export const systemRoutes: RouteRecordRaw[] = [
         ],
       },
 
-      // ===== 收运任务单（子菜单） =====
+      // ===== 运单管理（子菜单） =====
       {
         path: '/sanitation/work-orders',
         name: 'SanitationWorkOrders',
         redirect: '/sanitation/workOrderCreate',
-        meta: { title: '收运任务单', icon: 'schedule', hidden: false },
+        meta: { title: '运单管理', icon: 'schedule', hidden: false },
         children: [
-          { path: '/sanitation/workOrderCreate', name: 'SanitationWorkOrderCreate', component: () => import('@/views/sanitation/alarm-center.vue'), meta: { title: '告警建任务单', icon: 'file', hidden: false } },
-          { path: '/sanitation/workOrderMonitor', name: 'SanitationWorkOrderMonitor', component: () => import('@/views/sanitation/task-monitor.vue'), meta: { title: '收运单监控', icon: 'file', hidden: false } },
-          { path: '/sanitation/workOrderStats', name: 'SanitationWorkOrderStats', component: () => import('@/views/sanitation/prototype.vue'), props: { pageKey: 'taskOrderStats' }, meta: { title: '全部任务单', icon: 'file', hidden: false } },
+          { path: '/sanitation/workOrderCreate', name: 'SanitationWorkOrderCreate', component: () => import('@/views/sanitation/alarm-center.vue'), meta: { title: '告警消息', icon: 'file', hidden: false } },
+          { path: '/sanitation/workOrderMonitor', name: 'SanitationWorkOrderMonitor', component: () => import('@/views/sanitation/task-monitor.vue'), meta: { title: '运单监控', icon: 'file', hidden: false } },
+          { path: '/sanitation/workOrderStats', name: 'SanitationWorkOrderStats', component: () => import('@/views/sanitation/prototype.vue'), props: { pageKey: 'taskOrderStats' }, meta: { title: '全部运单', icon: 'file', hidden: false } },
         ],
       },
 

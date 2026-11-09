@@ -160,7 +160,7 @@ const focusMode = ref('realtime')
 const selectedPoint = ref<SmartMapPoint>()
 
 const pendingAlarms = computed(() => sanitationAlarms.filter((item) => item.readStatus === '未读' || item.handleStatus === '待处理').slice(0, 5))
-const activeTasks = computed(() => collectionTasks.filter((item) => item.collectionStatus !== '已完成').slice(0, 5))
+const activeTasks = computed(() => collectionTasks.filter((item) => item.collectionStatus !== '已完成' && item.collectionStatus !== '已取消').slice(0, 5))
 
 const metrics = computed(() => [
   { label: '未读告警', value: sanitationAlarms.filter((item) => item.readStatus === '未读').length, unit: '条', tone: 'danger' },

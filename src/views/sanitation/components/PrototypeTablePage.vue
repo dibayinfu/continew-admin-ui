@@ -104,6 +104,7 @@
             <a-tooltip content="查看详情">
               <a-link @click="showDetail(record)"><icon-eye /></a-link>
             </a-tooltip>
+            <CollectionTaskActions v-if="props.pageKey === 'taskOrderStats'" :task="record.task" size="mini" />
             <a-tooltip v-if="!['smallBoxState', 'bigBoxState', 'taskOrderStats'].includes(props.pageKey)" content="编辑">
               <a-link @click="handleEdit(record)"><icon-edit /></a-link>
             </a-tooltip>
@@ -130,7 +131,7 @@
     </a-drawer>
 
     <!-- 任务单详情抽屉（含地图轨迹，仅全部任务单使用） -->
-    <a-drawer v-model:visible="taskDrawerVisible" title="全部任务单详情" :width="760" unmount-on-close>
+    <a-drawer v-model:visible="taskDrawerVisible" title="运单详情" :width="760" unmount-on-close>
       <template v-if="detailTask">
         <div class="task-detail-hero">
           <div>
@@ -145,6 +146,11 @@
             <StatusTag :value="detailTask.overtimeStatus" />
             <StatusTag :value="detailTask.priority" />
           </a-space>
+        </div>
+
+        <div v-if="['待接单', '已接单', '收运中'].includes(detailTask.collectionStatus)" class="task-detail-section">
+          <div class="section-title">操作</div>
+          <CollectionTaskActions :task="detailTask" />
         </div>
 
         <div class="task-detail-route">
@@ -358,7 +364,9 @@
 import type { TableColumnData } from '@arco-design/web-vue'
 import { Modal } from '@arco-design/web-vue'
 import { computed, h, reactive, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { parseBeijingDateTime } from '@/utils/beijing-time'
+import CollectionTaskActions from './CollectionTaskActions.vue'
 import ModuleHeader from './ModuleHeader.vue'
 import MetricGrid from './MetricGrid.vue'
 import StatusTag from './StatusTag.vue'
@@ -430,6 +438,7 @@ function onAreaChange(_val: any) {
 const props = defineProps<{
   pageKey: string
 }>()
+const route = useRoute()
 
 const detailTask = computed(() => {
   if (props.pageKey !== 'taskOrderStats') return null
@@ -484,6 +493,10 @@ function getEventPoints(task: CollectionTask) {
 
   // ① 派单
   events.push({ label: '派单', time: task.createTime?.slice(11, 16) || '-', done: true })
+  if (task.collectionStatus === '已取消') {
+    events.push({ label: '取消运单', time: task.cancelTime || '-', done: true })
+    return events
+  }
 
   // ② 接单
   events.push({ label: '接单', time: task.acceptTime?.slice(11, 16) || '-', done: !!task.acceptTime })
@@ -750,7 +763,15 @@ const scrollX = computed(() => {
 })
 
 const filteredRows = computed(() => {
-  let result = config.rows
+  let result = props.pageKey === 'taskOrderStats'
+    ? collectionTasks.map((task) => ({
+      ...task,
+      slaMinutes: `${task.slaMinutes}min`,
+      weight: task.weight ? `${task.weight}t` : '-',
+      finishTime: task.finishTime || '-',
+      task,
+    }))
+    : config.rows
   if (keyword.value) {
     const text = keyword.value.toLowerCase()
     result = result.filter((row) => Object.values(row).some((value) => String(value).toLowerCase().includes(text)))
@@ -934,6 +955,19 @@ function showDetail(record: Record<string, any>) {
     drawerVisible.value = true
   }
 }
+
+watch(
+  () => route.name === 'SanitationWorkOrderStats' ? route.query.taskId : undefined,
+  (taskId) => {
+    if (props.pageKey !== 'taskOrderStats') return
+    if (typeof taskId === 'string' && taskId) {
+      showDetail({ id: taskId })
+    } else {
+      taskDrawerVisible.value = false
+    }
+  },
+  { immediate: true },
+)
 
 function handleAdd() {
   isEdit.value = false

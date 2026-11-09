@@ -1,8 +1,8 @@
 <template>
   <div class="gi_page task-monitor-page">
     <ModuleHeader
-      :title="pageTitle"
-      :subtitle="pageSubtitle"
+      title="运单监控"
+      subtitle="围绕始发点、目的地、时效和关键事件监控收运单，支持轨迹核查、围栏判断和调度处置。"
       phase="试运营"
       priority="P0"
       module="收运任务单"
@@ -26,10 +26,7 @@
           <div class="toolbar-filters">
             <a-select v-model="collectionFilter" placeholder="收运状态" style="width: 110px;">
               <a-option value="全部">全部</a-option>
-              <a-option value="待接单">待接单</a-option>
-              <a-option value="已接单">已接单</a-option>
-              <a-option value="收运中">收运中</a-option>
-              <a-option value="已完成">已完成</a-option>
+              <a-option v-for="status in collectionStatuses" :key="status" :value="status">{{ status }}</a-option>
             </a-select>
             <a-select v-model="overtimeFilter" placeholder="超时状态" style="width: 110px;">
               <a-option value="全部">全部</a-option>
@@ -138,20 +135,7 @@
         <template v-if="showPanelActions">
           <div class="panel-title">操作</div>
           <div class="panel-actions">
-            <a-button
-              v-if="['已接单', '收运中'].includes(selectedTask.collectionStatus)"
-              status="danger"
-              @click="forceComplete"
-            >
-              强制完成
-            </a-button>
-            <a-button
-              v-if="selectedTask.collectionStatus === '待接单'"
-              type="primary"
-              @click="reassign"
-            >
-              重新派单
-            </a-button>
+            <CollectionTaskActions :task="selectedTask" />
           </div>
         </template>
 
@@ -346,6 +330,7 @@ import { Message as ArcoMessage } from '@arco-design/web-vue'
 import { computed, reactive, ref, watch } from 'vue'
 import { parseBeijingDateTime } from '@/utils/beijing-time'
 import { useRoute, useRouter } from 'vue-router'
+import CollectionTaskActions from './components/CollectionTaskActions.vue'
 import ModuleHeader from './components/ModuleHeader.vue'
 import MetricGrid from './components/MetricGrid.vue'
 import StatusTag from './components/StatusTag.vue'
@@ -353,14 +338,12 @@ import TaskTrackMap from './components/TaskTrackMap.vue'
 import PrdPanel from './components/PrdPanel.vue'
 import type { PrdSection } from './data/pageConfigs'
 import {
-  acceptCollectionTask,
-  autoCompleteCollectionTask,
+  collectionStatuses,
   collectionTasks,
   createCollectionTaskFromAlarm,
   destinations,
   drivers,
   sanitationAlarms,
-  startCollectionTask,
   type CollectionTask,
   type SanitationAlarm,
 } from './data/alert-task'
@@ -370,7 +353,7 @@ const prdSections: PrdSection[] = [
   {
     title: '🎯 功能要点（开发 / 测试关注）',
     items: [
-      { label: '页面', value: '「收运单监控」和「全部任务单」共用同一组件，根据 URL 路径动态切换标题/副标题' },
+      { label: '页面', value: '「运单监控」和「全部运单」共用运单数据和操作规则' },
       { label: '业务流', value: '派单（创建任务单）→ 驾驶员手动接单（必须步骤，不可跳过）→ 系统自动识别进入始发点电子围栏 → 装车（始发地+称重变化判断）→ 发车离开始发地 → 到达目的地电子围栏 → 卸车完成（目的地围栏+称重变化判断）→ 驾驶员补传凭证照片。未接单时即使车辆进入围栏也不会变为收运中，防止路过车辆误触发' },
       { label: '数据关联', value: '一个收运单必须有始发点、目的地、时效要求和八个关键事件；小勾臂为收集点→中转站，大勾臂为中转站→焚烧厂' },
       { label: '快速创建任务', value: '顶部按钮 → 本页弹出创建弹窗，选箱体后自动填充驾驶员/车辆/目的地，提交后追加到列表' },
@@ -378,14 +361,14 @@ const prdSections: PrdSection[] = [
       { label: '布局', value: '三栏布局：左侧运单卡片（运营筛选）| 中间地图轨迹（调度判断）| 右侧关键详情（核查与复盘）' },
       { label: '左侧列表', value: '卡片第一层展示「箱体编号+任务类型」与状态标签；第二层用箭头展示「始发点 → 目的地」内容；第三层展示车牌、司机、SLA、优先级，弱化箱体名称等辅助信息' },
       { label: '中间面板', value: '地图按车辆实际轨迹点绘制平滑线路，实线表示已行驶、虚线表示待完成；始发点和目的地电子围栏按业务半径显示' },
-      { label: '右侧面板', value: '顶部为操作按钮（已接单/收运中显示「强制完成」，待接单显示「重新派单」）；中部展示八个关键事件时间线和围栏规则；底部辅助信息区展示箱体编号、满溢率、告警号、电话等' },
+      { label: '右侧面板', value: '顶部为操作按钮（已接单/收运中显示「强制完成」，待接单显示「取消」）；中部展示关键事件时间线和围栏规则；底部辅助信息区展示箱体编号、满溢率、告警号、电话等' },
       { label: '称重数据', value: '装车后称重设备读取垃圾重量（吨），收运中/已完成时在地图面板和右侧详情中展示，模拟推进/强制完成时自动生成随机重量' },
       { label: '满溢率', value: '箱体当前满溢百分比（来自满溢传感器），在右侧辅助信息区展示，≥90% 红色高亮标记「满溢」' },
       { label: '模拟推进', value: '点击按状态机推进：待接单→（接单）→已接单→（车辆入栏）→收运中→已完成，实时计算耗时、超时和称重，同步点亮对应关键事件步骤。待接单状态时「模拟推进」执行接单操作，已接单状态时才可推进至收运中' },
       { label: '完成凭证', value: '已完成任务显示证明图片（SVG 占位图），可预览放大' },
-      { label: '强制完成', value: '右侧面板顶部按钮，已接单/收运中任务可强制设为已完成，自动计算耗时/超时/称重，当前步骤标记「已强制完成」。强制完成的任务会打上「强制完成」图标，关键事件可能不完整' },
-      { label: '重新派单', value: '右侧面板顶部按钮，仅待接单任务可操作，点击协同打开「快速创建任务」弹层（弹层优化见后续需求）' },
-      { label: '状态拆分', value: '收运状态（待接单/已接单/收运中/已完成）与超时状态（未超时/已超时）独立显示和筛选' },
+      { label: '强制完成', value: '已接单/收运中任务可在右侧面板点击「强制完成」，二次确认后设为已完成，自动计算耗时/超时/称重，当前步骤标记「已强制完成」。强制完成的任务会打上「强制完成」图标，关键事件可能不完整' },
+      { label: '取消', value: '仅待接单运单可取消，确认后进入「已取消」状态' },
+      { label: '状态拆分', value: '收运状态（待接单/已接单/收运中/已完成/已取消）与超时状态（未超时/已超时）独立显示和筛选' },
       { label: '统计卡', value: '今日总任务 / 待接单 / 收运中 / 已完成 / 收运垃圾量(小勾臂完成总和) / 已超时，6 个指标卡片' },
       { label: '历史任务', value: '过往历史中未完成的任务单（如昨天创建仍未完成的）也会显示在列表中，不限定仅当日数据' },
     ],
@@ -393,7 +376,7 @@ const prdSections: PrdSection[] = [
   {
     title: '🔑 状态设计',
     items: [
-      { label: '收运状态', value: '待接单 / 已接单 / 收运中 / 已完成，四个值互斥按序流转' },
+      { label: '收运状态', value: '待接单 → 已接单 → 收运中 → 已完成；待接单也可转为已取消' },
       { label: '待接单', value: '创建任务单后的初始状态' },
       { label: '已接单', value: '驾驶员手动接单后变为已接单' },
       { label: '收运中', value: '驾驶员手动接单后，车辆进入任务单中的始发点电子围栏后变为收运中；必须手动接单，未接单时即使进入围栏也不会自动开始收运，防止路过车辆误触发状态变更' },
@@ -416,7 +399,6 @@ const prdSections: PrdSection[] = [
       { label: '✓ 模拟推进', value: '按状态机推进，关键事件步骤同步点亮，最终计算实际耗时' },
       { label: '✓ 强制完成', value: '已接单/收运中任务可强制完成，自动计算耗时/超时/称重，track 全部点亮' },
       { label: '✓ 称重显示', value: '收运中/已完成状态显示称重数据（地图面板 + 右侧详情），完成后统计卡更新垃圾量' },
-      { label: '✓ 重新派单', value: '待接单任务可重新派单，点击协同打开快速创建任务弹层' },
       { label: '✓ 超时判定', value: '实际耗时 > SLA 时 overtimeStatus=已超时，显示红色标记' },
       { label: '✓ 完成凭证', value: '已完成任务显示图片证明，可预览' },
       { label: '✓ 历史任务', value: '过往未完成的任务单正常显示在列表中，不受日期限制' },
@@ -436,12 +418,6 @@ const collectionFilter = ref('全部')
 const overtimeFilter = ref('全部')
 const selectedTask = ref<CollectionTask>(collectionTasks[0])
 const showPanelActions = computed(() => ['待接单', '已接单', '收运中'].includes(selectedTask.value.collectionStatus))
-
-const isAllTasks = computed(() => route.path.includes('workOrderStats'))
-const pageTitle = computed(() => isAllTasks.value ? '全部任务单' : '收运单监控')
-const pageSubtitle = computed(() => isAllTasks.value
-  ? '查看全部收运任务单（含已完成和未完成），支持快速创建、重新派单、强制完成和状态跟踪。'
-  : '围绕始发点、目的地、时效和四个关键事件监控收运单，支持轨迹核查、围栏判断和调度处置。')
 
 const metrics = computed(() => {
   const smallBoxWeight = collectionTasks
@@ -526,7 +502,7 @@ const boxOptions = computed<BoxOption[]>(() => {
   ;(boxes as BoxRecord[]).forEach((box) => {
     if (box.boxType !== '小勾臂箱' && box.boxType !== '大勾臂箱') return
     // 任务中 = 存在该箱体的未完成运单（待接单/已接单/收运中），此类箱体仅展示不可选
-    const inTask = collectionTasks.some((t) => t.boxName === box.name && t.collectionStatus !== '已完成')
+    const inTask = collectionTasks.some((t) => t.boxName === box.name && t.collectionStatus !== '已完成' && t.collectionStatus !== '已取消')
     const points = getBoxCollectionPoints(box)
     if (points.length === 0) {
       list.push({ key: `${box.id}::none`, boxNo: displayBoxNo(box), fillRate: box.fillRate, collectionPoint: null, inTask, box })
@@ -723,6 +699,10 @@ const eventPoints = computed(() => {
 
   // ① 派单
   events.push({ label: '派单', time: toMinute(t.createTime), done: true })
+  if (t.collectionStatus === '已取消') {
+    events.push({ label: '取消运单', time: toMinute(t.cancelTime), done: true })
+    return events
+  }
 
   // ② 接单
   events.push({ label: '接单', time: toMinute(t.acceptTime), done: !!t.acceptTime })
@@ -792,31 +772,6 @@ watch(
 function goCreate() {
   clearBoxSelection()
   createVisible.value = true
-}
-
-function reassign() {
-  goCreate()
-}
-
-function advanceSelected() {
-  const task = selectedTask.value
-  if (task.collectionStatus === '已完成') {
-    ArcoMessage.info('当前任务已完成')
-    return
-  }
-  if (task.collectionStatus === '待接单') {
-    acceptCollectionTask(task)
-  } else if (task.collectionStatus === '已接单') {
-    startCollectionTask(task)
-  } else if (task.collectionStatus === '收运中') {
-    autoCompleteCollectionTask(task)
-  }
-  ArcoMessage.success('任务状态已推进')
-}
-
-function forceComplete() {
-  autoCompleteCollectionTask(selectedTask.value, 'force')
-  ArcoMessage.success('已强制完成')
 }
 
 </script>

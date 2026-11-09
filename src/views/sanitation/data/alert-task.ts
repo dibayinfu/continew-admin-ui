@@ -1,6 +1,7 @@
 export type ReadStatus = '未读' | '已读'
 export type HandleStatus = '不需处理' | '待处理' | '已处理'
-export type CollectionStatus = '待接单' | '已接单' | '收运中' | '已完成'
+export const collectionStatuses = ['待接单', '已接单', '收运中', '已完成', '已取消'] as const
+export type CollectionStatus = (typeof collectionStatuses)[number]
 export type OvertimeStatus = '未超时' | '已超时'
 export type AlarmType = '满溢告警' | '低电量告警' | '设备离线' | '称重异常'
 export type BoxType = '小勾臂箱' | '大勾臂箱'
@@ -64,6 +65,7 @@ export interface CollectionTask {
   acceptTime?: string
   startTime?: string
   finishTime?: string
+  cancelTime?: string
   collectionStatus: CollectionStatus
   overtimeStatus: OvertimeStatus
   durationText: string
@@ -520,6 +522,7 @@ export function dispatchAlarmToTask(alarm: SanitationAlarm, driverName = '张师
 }
 
 export function transferTask(task: CollectionTask, driverName: string) {
+  if (task.collectionStatus === '已取消') return false
   const driver = drivers.find((item) => item.name === driverName)
   if (!driver || driver.name === task.driver) return false
   task.driver = driver.name
@@ -541,6 +544,14 @@ export function acceptCollectionTask(task: CollectionTask) {
     startPt.done = true
     startPt.time = formatNow().slice(11, 16)
   }
+  return true
+}
+
+export function cancelCollectionTask(task: CollectionTask) {
+  if (task.collectionStatus !== '待接单') return false
+  task.cancelTime = formatNow()
+  task.currentStep = '已取消'
+  task.collectionStatus = '已取消'
   return true
 }
 
@@ -572,7 +583,7 @@ export function startCollectionTask(task: CollectionTask) {
 }
 
 export function autoCompleteCollectionTask(task: CollectionTask, mode: 'auto' | 'force' = 'auto') {
-  if (task.collectionStatus === '已完成') return false
+  if (task.collectionStatus === '已完成' || task.collectionStatus === '已取消') return false
   if (!task.startTime) startCollectionTask(task)
   const elapsed = calcElapsedMinutes(task)
   task.finishTime = formatNow()
@@ -597,7 +608,7 @@ export function autoCompleteCollectionTask(task: CollectionTask, mode: 'auto' | 
 }
 
 export function uploadCollectionProof(task: CollectionTask) {
-  if (task.collectionStatus !== '已完成') autoCompleteCollectionTask(task)
+  if (task.collectionStatus !== '已完成' && !autoCompleteCollectionTask(task)) return false
   task.proof = '驾驶员补传凭证照片 1 张'
   task.proofImages = ['/src/assets/images/task-proof-1.svg']
   return true

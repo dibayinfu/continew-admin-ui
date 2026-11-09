@@ -1,6 +1,6 @@
 import type { TableRow } from './mock'
 import { alarms, boxes, stations, towns, vehicles, villages, weighRecords, workOrders } from './mock'
-import { collectionTasks } from './alert-task'
+import { collectionStatuses } from './alert-task'
 
 export interface PageColumn {
   title: string
@@ -1570,20 +1570,14 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
   }),
   taskOrderStats: makeConfig({
     key: 'taskOrderStats',
-    title: '全部任务单',
+    title: '全部运单',
     subtitle: '查看全部收运任务单，围绕始发点、目的地、时效、轨迹和四个关键事件做运营追溯。',
     phase: 'V1.5',
     priority: 'P0',
     module: '收运任务单',
     searchPlaceholder: '搜索任务名称/驾驶员/车牌',
-    filters: ['全部', '待接单', '已接单', '收运中', '已完成'],
-    metrics: [
-      { label: '总任务单', value: collectionTasks.length, unit: '单' },
-      { label: '待接单', value: collectionTasks.filter((t) => t.collectionStatus === '待接单').length, unit: '单', tone: 'warning' },
-      { label: '收运中', value: collectionTasks.filter((t) => t.collectionStatus === '收运中' || t.collectionStatus === '已接单').length, unit: '单', tone: 'processing' },
-      { label: '已完成', value: collectionTasks.filter((t) => t.collectionStatus === '已完成').length, unit: '单', tone: 'success' },
-      { label: '总垃圾量', value: collectionTasks.filter((t) => t.collectionStatus === '已完成' && t.boxType === '小勾臂箱' && t.weight).reduce((s, t) => s + (t.weight || 0), 0).toFixed(1), unit: 't' },
-    ],
+    filters: ['全部', ...collectionStatuses],
+    metrics: [],
     columns: [
       { title: '任务单号', dataIndex: 'id', width: 150 },
       { title: '任务名称', dataIndex: 'taskName', width: 200 },
@@ -1598,34 +1592,29 @@ export const pageConfigs: Record<string, PrototypePageConfig> = {
       { title: '创建时间', dataIndex: 'createTime', width: 180 },
       { title: '完成时间', dataIndex: 'finishTime', width: 180 },
     ],
-    rows: collectionTasks.map((t) => ({
-      ...t,
-      slaMinutes: `${t.slaMinutes}min`,
-      weight: t.weight ? `${t.weight}t` : '-',
-      finishTime: t.finishTime || '-',
-    })),
+    rows: [],
     multiFilters: [
-      { key: 'collectionStatus', options: ['全部', '待接单', '已接单', '收运中', '已完成'] },
+      { key: 'collectionStatus', options: ['全部', ...collectionStatuses] },
       { key: 'overtimeStatus', options: ['全部', '未超时', '已超时'] },
     ],
     prd: [
       {
         title: '🎯 功能要点（开发 / 测试关注）',
         items: [
-          { label: '数据范围', value: '展示所有收运任务单，包含全部状态（待接单/已接单/收运中/已完成），不限当日' },
+          { label: '数据范围', value: '展示所有收运任务单，包含全部状态（待接单/已接单/收运中/已完成/已取消），不限当日' },
           { label: '数据来源', value: '任务单数据来自告警中心创建或收运单监控页快速创建；每单必须包含始发点、目的地、时效和四个关键事件' },
           { label: '表格展示', value: '列表优先展示任务单号、任务名称、始发点、目的地、驾驶员、车辆、时效、收运状态、超时状态、称重、创建时间、完成时间' },
           { label: '统计卡', value: '任务单数 / 待接单 / 收运中 / 已完成 / 垃圾量，5 个指标，随筛选条件联动更新' },
           { label: '筛选条件', value: '关键字搜索 + 开始日期 + 结束日期 + 收运状态下拉 + 超时状态下拉，多个条件叠加取交集' },
           { label: '日期筛选', value: '开始日期和结束日期两个独立日期选择器，均选定时按 createTime 范围过滤' },
           { label: '详情查看', value: '点击行操作栏「详情」图标，弹出运营详情抽屉：顶部状态摘要、始发→目的地路线、时效/称重/作业规则、轨迹地图、关键事件、辅助信息' },
-          { label: '无编辑/删除', value: '本页面为纯查看页，不提供新增、编辑、删除功能' },
+          { label: '运单操作', value: '列表和详情均可操作：待接单可取消，已接单及收运中可强制完成，两种操作均需二次确认。已完成及已取消可查看详情' },
         ],
       },
       {
         title: '🔑 字段映射规则',
         items: [
-          { label: '收运状态', value: 'collectionStatus：待接单 →（驾驶员手动接单）→ 已接单 →（车辆进入始发点电子围栏）→ 收运中 → 已完成。接单是必须步骤，未接单时即使车辆进入围栏也不会变为收运中，防止路过车辆误触发' },
+          { label: '收运状态', value: '待接单 →（驾驶员手动接单）→ 已接单 →（车辆进入始发点电子围栏）→ 收运中 → 已完成。待接单也可确认取消，进入已取消状态' },
           { label: '超时状态', value: 'overtimeStatus：未超时 / 已超时' },
           { label: '称重', value: 'weight（吨），已完成小勾臂箱的垃圾称重数据' },
           { label: '完成时间', value: 'finishTime，取原始数据或 "-" 占位' },

@@ -100,7 +100,7 @@
               </span>
               <span v-if="record.linkedTaskId" class="action-cell">
                 <a-tooltip :content="`查看任务单 ${record.linkedTaskId}`">
-                  <a-button size="small" type="text" @click="openTaskNewWindow(record.linkedTaskId)">
+                  <a-button size="small" type="text" @click="openLinkedTask(record.linkedTaskId)">
                     <template #icon><icon-link /></template>
                   </a-button>
                 </a-tooltip>
@@ -136,7 +136,7 @@
               <a-descriptions-item label="处理说明">{{ selectedAlarm.offlineRemark || '暂无处理说明' }}</a-descriptions-item>
               <a-descriptions-item label="关联任务">
                 <template v-if="selectedAlarm.linkedTaskId">
-                  <a-link class="linked-task-icon" @click="openTaskNewWindow(selectedAlarm.linkedTaskId)">
+                  <a-link class="linked-task-icon" @click="openLinkedTask(selectedAlarm.linkedTaskId)">
                     <template #icon><icon-link /></template>
                     {{ selectedAlarm.linkedTaskId }}
                   </a-link>
@@ -369,7 +369,7 @@ const prdSections: PrdSection[] = [
       { label: '✓ 驾驶员切换', value: '车辆联动更新' },
       { label: '✓ 箱体类型 → 目的地', value: '小勾臂只选中转站，大勾臂只选焚烧厂' },
       { label: '✓ 提交后告警状态', value: '星标状态不变' },
-      { label: '✓ 关联任务', value: '「看任务」跳转收运单监控页' },
+      { label: '✓ 关联任务', value: '点击关联任务链接，跳转到全部运单并打开对应详情' },
       { label: '✓ 模拟新告警', value: '列表新增行闪烁，不打开详情面板' },
       { label: '✓ 数据来源', value: '当前为 mock 数据，对接后端后需走 API' },
     ],
@@ -740,10 +740,9 @@ function toggleStar(record: SanitationAlarm) {
   ArcoMessage.success(record.starred ? '已添加星标' : '已取消星标')
 }
 
-function openTaskNewWindow(taskId?: string) {
+function openLinkedTask(taskId?: string) {
   if (!taskId) return
-  const href = router.resolve({ path: '/sanitation/workOrderMonitor', query: { taskId } }).href
-  window.open(href, '_blank')
+  void router.push({ name: 'SanitationWorkOrderStats', query: { taskId } })
 }
 
 function getRowClass(record: SanitationAlarm) {

@@ -8,7 +8,7 @@ const read = path => readFileSync(new URL(path, import.meta.url), 'utf8')
 const transpile = source => ts.transpileModule(source.replace(/^import .*$/gm, '').replace(/^export /gm, ''), {
   compilerOptions: { target: ts.ScriptTarget.ES2022, module: ts.ModuleKind.None },
 }).outputText
-const context = vm.createContext({ Date, Intl })
+const context = vm.createContext({ Date, Intl, URLSearchParams })
 vm.runInContext(transpile(read('../src/utils/beijing-time.ts')), context)
 vm.runInContext(transpile(read('../src/views/sanitation/box-history-metrics.ts')), context)
 const now = Date.parse('2026-11-04T10:30:45+08:00')
@@ -32,6 +32,21 @@ for (const days of [1, 2, 3, 7]) {
   assert.equal(context.parseBeijingDateTime(range.to) - context.parseBeijingDateTime(range.from), days * 86400000)
   assert.equal(context.validateHistoryTimeRange(range, now), '')
 }
+
+// 快捷请求不携带电脑时间；时钟快一天或慢一天均不影响参数。
+for (const offset of [-86400000, 0, 86400000]) {
+  context.Date = class extends Date { static now() { return now + offset } }
+  for (const days of [1, 2, 3, 7]) {
+    assert.equal(context.historyQueryParams(days).toString(), `days=${days}`)
+  }
+}
+context.Date = class extends Date { static now() { return now } }
+assert.equal(context.historyQueryParams(2, valid).get('from'), valid.from)
+assert.equal(context.historyQueryParams(2, valid).get('to'), valid.to)
+assert.equal(context.historyQueryParams(2, valid).has('days'), false)
+assert.match((await context.historyRequestError({ status: 400, json: async () => ({ message: '结束时间不能晚于当前时间' }) })).message, /结束时间不能晚于当前时间（400）/)
+assert.match((await context.historyRequestError({ status: 400, json: async () => ({ detail: '时间范围无效' }) })).message, /时间范围无效/)
+assert.equal((await context.historyRequestError({ status: 502, json: async () => { throw new Error('HTML') } })).message, '请求失败（502）')
 
 // 工具栏仅在合法时间提交后请求查询；回到相同快捷天数也必须清除自定义条件。
 const events = [], warnings = []

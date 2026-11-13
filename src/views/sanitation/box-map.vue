@@ -478,7 +478,7 @@ import { createAiConversationId, formatBoxAnalysisSummary, type AiMapAction, typ
 
 import BoxHistoryToolbar from './components/BoxHistoryToolbar.vue'
 import BoxHistoryIcon from './components/BoxHistoryIcon.vue'
-import { historyTimeRange, type BoxHistoryTimeRange, type BoxHistoryMetric, type BoxHistoryDays, type BoxHistoryView } from './box-history-metrics'
+import { historyQueryParams, historyRequestError, type BoxHistoryTimeRange, type BoxHistoryMetric, type BoxHistoryDays, type BoxHistoryView } from './box-history-metrics'
 import WeatherCard from './components/WeatherCard.vue'
 
 // 图表与弹窗只在打开时下载，避免 ECharts 进入地图首屏依赖。
@@ -1344,9 +1344,9 @@ async function loadHistoryTrack() {
   historyError.value = ''
   historyData.value = undefined
   try {
-    const query = new URLSearchParams({ ...historyTimeRange(historyRange.value, historyCustomRange.value) })
+    const query = historyQueryParams(historyRange.value, historyCustomRange.value)
     const response = await fetch(`${COLLECTOR_API_BASE_URL}/api/collector/boxes/${box.id}/history-track?${query}`, { signal: abort.signal })
-    if (!response.ok) throw new Error(`请求失败（${response.status}）`)
+    if (!response.ok) throw await historyRequestError(response)
     const result = await response.json() as HistoryTrackResponse
     if (!Array.isArray(result.track) || !Array.isArray(result.pointVisits) || !result.summary) throw new Error('历史数据格式不正确')
     if (version !== historyRequestVersion || !historyVisible.value) return

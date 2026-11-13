@@ -23,6 +23,21 @@ export function historyTimeRange(days: BoxHistoryDays, custom?: BoxHistoryTimeRa
   }
   return { from: beijingDateTime(new Date(now - days * 24 * 60 * 60 * 1000)), to: beijingDateTime(new Date(now)) }
 }
+/** 快捷查询只传天数，时间边界以服务器为准。 */
+export function historyQueryParams(days: BoxHistoryDays, custom?: BoxHistoryTimeRange): URLSearchParams {
+  return new URLSearchParams(custom ? { ...historyTimeRange(days, custom) } : { days: String(days) })
+}
+
+export async function historyRequestError(response: Response): Promise<Error> {
+  let detail = ''
+  try {
+    const body = await response.json()
+    const message = body?.message || body?.detail
+    if (typeof message === 'string') detail = message
+  } catch { /* 网关可能返回 HTML，使用状态码兜底。 */ }
+  return new Error(detail ? `${detail}（${response.status}）` : `请求失败（${response.status}）`)
+}
+
 export interface BoxHistorySample {
   time: string
   fillLevel: number | null

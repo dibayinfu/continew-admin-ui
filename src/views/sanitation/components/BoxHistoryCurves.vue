@@ -28,7 +28,7 @@ import { GridComponent, TooltipComponent, DataZoomComponent } from 'echarts/comp
 import { CanvasRenderer } from 'echarts/renderers'
 import { useAppStore } from '@/stores'
 import { beijingDateTime, parseBeijingDateTime } from '@/utils/beijing-time'
-import { historyTimeRange, type BoxHistoryTimeRange, buildMetricGapData, buildPointSegments, HISTORY_GAP_MS, METRIC_LABELS, normalizeHistorySamples, sampleMetricValue, type BoxHistoryMetric, type BoxHistoryView, type BoxHistoryDays, type BoxMetricHistory } from '../box-history-metrics'
+import { historyQueryParams, historyRequestError, type BoxHistoryTimeRange, buildMetricGapData, buildPointSegments, HISTORY_GAP_MS, METRIC_LABELS, normalizeHistorySamples, sampleMetricValue, type BoxHistoryMetric, type BoxHistoryView, type BoxHistoryDays, type BoxMetricHistory } from '../box-history-metrics'
 
 import BoxHistoryToolbar from './BoxHistoryToolbar.vue'
 
@@ -59,9 +59,9 @@ async function loadHistory() {
   const timeout = window.setTimeout(() => abort.abort(), 25000)
   loading.value = true; error.value = ''; history.value = undefined
   try {
-    const query = new URLSearchParams({ ...historyTimeRange(rangeDays.value, customRange.value) })
+    const query = historyQueryParams(rangeDays.value, customRange.value)
     const response = await fetch(`${BASE_URL}/api/collector/boxes/${props.boxId}/history-metrics?${query}`, { signal: abort.signal })
-    if (!response.ok) throw new Error(`请求失败（${response.status}）`)
+    if (!response.ok) throw await historyRequestError(response)
     const result = await response.json() as BoxMetricHistory
     if (!Array.isArray(result.samples) || result.boxId !== props.boxId) throw new Error('历史数据格式不正确')
     if (version === requestVersion) history.value = result
